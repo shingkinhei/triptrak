@@ -1,5 +1,5 @@
 'use client';
-import { useRef, useState } from 'react';
+import React, { useRef, useState } from 'react';
 import type { ShoppingCategory, ShoppingItem, Trip } from '@/lib/types';
 import {
   Card,
@@ -12,7 +12,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
-import { Plus, Camera, DollarSign, ListPlus, MoreVertical, Edit, Trash2, Repeat, PlusCircle } from 'lucide-react';
+import { ListPlus, MoreVertical, Edit, Trash2, Repeat, Gift, Home, Plane, Shirt, ShoppingBasket, UtensilsCrossed, Luggage, type LucideIcon } from 'lucide-react';
 import Image from 'next/image';
 import { useCurrency } from '@/context/CurrencyContext';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from './ui/dialog';
@@ -28,17 +28,39 @@ interface ShoppingListProps {
   trip: Trip;
 }
 
+const iconMap: Record<string, LucideIcon> = {
+  Gift,
+  Home,
+  Plane,
+  Shirt,
+  ShoppingBasket,
+  UtensilsCrossed,
+  Luggage,
+};
+
+const iconOptions = [
+  { value: 'ShoppingBasket', label: 'General' },
+  { value: 'Gift', label: 'Souvenirs' },
+  { value: 'UtensilsCrossed', label: 'Food' },
+  { value: 'Shirt', label: 'Clothing' },
+  { value: 'Luggage', label: 'Essentials' },
+  { value: 'Home', label: 'Household' },
+  { value: 'Plane', label: 'Travel' },
+];
+
 
 type DisplayCurrency = 'trip' | 'home';
 
-const AddCategoryDialog = ({ onAddCategory }: { onAddCategory: (name: string) => void }) => {
+const AddCategoryDialog = ({ onAddCategory }: { onAddCategory: (name: string, icon: string) => void }) => {
     const [categoryName, setCategoryName] = useState('');
+    const [icon, setIcon] = useState('ShoppingBasket');
     const [isOpen, setIsOpen] = useState(false);
 
     const handleAdd = () => {
         if (categoryName.trim()) {
-            onAddCategory(categoryName.trim());
+            onAddCategory(categoryName.trim(), icon);
             setCategoryName('');
+            setIcon('ShoppingBasket');
             setIsOpen(false);
         }
     };
@@ -68,6 +90,26 @@ const AddCategoryDialog = ({ onAddCategory }: { onAddCategory: (name: string) =>
                             placeholder="e.g. Toiletries"
                         />
                     </div>
+                     <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="category-icon" className="text-right">
+                            Icon
+                        </Label>
+                        <Select value={icon} onValueChange={setIcon}>
+                            <SelectTrigger className="col-span-3">
+                                <SelectValue placeholder="Select an icon" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {iconOptions.map(opt => (
+                                    <SelectItem key={opt.value} value={opt.value}>
+                                        <div className="flex items-center gap-2">
+                                            {React.createElement(iconMap[opt.value], { className: "h-4 w-4" })}
+                                            <span>{opt.label}</span>
+                                        </div>
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
                 </div>
                 <DialogFooter>
                      <Button variant="outline" onClick={() => setIsOpen(false)}>Cancel</Button>
@@ -88,7 +130,7 @@ const MOCK_RATES = {
 export function ShoppingList({ list, setList, onCheckChange, trip }: ShoppingListProps) {
     const { tripCurrency, tripRate, formatCurrency, homeCurrency, convertToHomeCurrency, formatHomeCurrency } = useCurrency();
     const [renamingCategory, setRenamingCategory] = useState<ShoppingCategory | null>(null);
-    const [newCategoryName, setNewCategoryName] = useState('');
+    const [editFormData, setEditFormData] = useState<{name: string; icon: string}>({ name: '', icon: '' });
     const [displayCurrency, setDisplayCurrency] = useState<DisplayCurrency>('trip');
     
 
@@ -96,25 +138,29 @@ export function ShoppingList({ list, setList, onCheckChange, trip }: ShoppingLis
     const currentCurrency = displayCurrency === 'trip' ? tripCurrency : homeCurrency;
 
     const toggleCurrency = () => {
-        setDisplayCurrency(prev => (prev === 'trip' ? 'home' : 'trip'));
+        setDisplayCurrency(prev => {
+            if (prev === 'trip') return 'home';
+            return 'trip';
+        });
     };
 
-    const handleAddCategory = (name: string) => {
+    const handleAddCategory = (name: string, icon: string) => {
         const newCategory: ShoppingCategory = {
             id: `cat-${name.toLowerCase().replace(/\s/g, '-')}-${new Date().getTime()}`,
             name: name,
+            icon: icon,
             items: [],
         };
         setList(prev => [...prev, newCategory]);
     };
 
     const handleRenameCategory = () => {
-        if (!renamingCategory || !newCategoryName.trim()) return;
+        if (!renamingCategory || !editFormData.name.trim()) return;
         setList(prevList => prevList.map(cat => 
-            cat.id === renamingCategory.id ? { ...cat, name: newCategoryName } : cat
+            cat.id === renamingCategory.id ? { ...cat, name: editFormData.name, icon: editFormData.icon } : cat
         ));
         setRenamingCategory(null);
-        setNewCategoryName('');
+        setEditFormData({ name: '', icon: '' });
     };
 
     const handleDeleteCategory = (categoryId: string) => {
@@ -150,7 +196,7 @@ export function ShoppingList({ list, setList, onCheckChange, trip }: ShoppingLis
                     <CardDescription>Grand Total ({currentCurrency})</CardDescription>
                     <CardTitle>{currentFormatter(grandTotalInCurrent)}</CardTitle>
                 </div>
-                <Button variant="outline" size="sm" onClick={toggleCurrency}>
+                 <Button variant="outline" size="sm" onClick={toggleCurrency}>
                     <Repeat className="h-4 w-4 mr-2" />
                     {displayCurrency === 'trip' ? (
                         <span>{tripCurrency} &harr; {homeCurrency}</span>
@@ -166,11 +212,15 @@ export function ShoppingList({ list, setList, onCheckChange, trip }: ShoppingLis
         {list.map(category => {
             const baseCategoryTotal = calculateTotal(category.items);
             const categoryTotalInCurrent = displayCurrency === 'trip' ? baseCategoryTotal : convertToHomeCurrency(baseCategoryTotal);
+            const CategoryIcon = category.icon ? iconMap[category.icon] : ShoppingBasket;
             return (
             <Card key={category.id}>
                 <CardHeader>
                     <div className="flex justify-between items-center">
-                        <CardTitle className="text-lg font-headline text-foreground">{category.name}</CardTitle>
+                        <CardTitle className="text-lg font-headline text-foreground flex items-center gap-2">
+                            {CategoryIcon && <CategoryIcon className="h-5 w-5 text-primary" />}
+                            {category.name}
+                        </CardTitle>
                         <div className="flex items-center gap-2">
                             <span className="font-semibold text-muted-foreground">{currentFormatter(categoryTotalInCurrent)}</span>
                             <DropdownMenu>
@@ -180,7 +230,7 @@ export function ShoppingList({ list, setList, onCheckChange, trip }: ShoppingLis
                                     </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end">
-                                    <DropdownMenuItem onClick={() => { setRenamingCategory(category); setNewCategoryName(category.name); }}>
+                                    <DropdownMenuItem onClick={() => { setRenamingCategory(category); setEditFormData({ name: category.name, icon: category.icon || 'ShoppingBasket' }); }}>
                                         <Edit className="mr-2 h-4 w-4" />
                                         Rename
                                     </DropdownMenuItem>
@@ -257,7 +307,7 @@ export function ShoppingList({ list, setList, onCheckChange, trip }: ShoppingLis
         <Dialog open={!!renamingCategory} onOpenChange={(isOpen) => !isOpen && setRenamingCategory(null)}>
             <DialogContent>
                 <DialogHeader>
-                    <DialogTitle>Rename Category</DialogTitle>
+                    <DialogTitle>Edit Category</DialogTitle>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
                     <div className="grid grid-cols-4 items-center gap-4">
@@ -266,11 +316,31 @@ export function ShoppingList({ list, setList, onCheckChange, trip }: ShoppingLis
                         </Label>
                         <Input
                             id="category-name"
-                            value={newCategoryName}
-                            onChange={(e) => setNewCategoryName(e.target.value)}
+                            value={editFormData.name}
+                            onChange={(e) => setEditFormData(prev => ({...prev, name: e.target.value}))}
                             className="col-span-3"
                             placeholder="New category name"
                         />
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="category-icon-edit" className="text-right">
+                            Icon
+                        </Label>
+                        <Select value={editFormData.icon} onValueChange={(value) => setEditFormData(prev => ({...prev, icon: value}))}>
+                            <SelectTrigger id="category-icon-edit" className="col-span-3">
+                                <SelectValue placeholder="Select an icon" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {iconOptions.map(opt => (
+                                    <SelectItem key={opt.value} value={opt.value}>
+                                        <div className="flex items-center gap-2">
+                                            {React.createElement(iconMap[opt.value], { className: "h-4 w-4" })}
+                                            <span>{opt.label}</span>
+                                        </div>
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
                     </div>
                 </div>
                 <DialogFooter>

@@ -113,6 +113,7 @@ export const mockTrips: Trip[] = [
       {
         id: 'essentials',
         name: 'Essentials',
+        icon: 'Luggage',
         items: [
           { id: '1', name: 'Passport', checked: true, imageUrl: PlaceHolderImages.find(p=>p.id === 'tokyo')?.imageUrl, price: 0 },
           { id: '2', name: 'Flight tickets', checked: true, imageUrl: PlaceHolderImages.find(p=>p.id === 'kyoto')?.imageUrl, price: 850 },
@@ -122,6 +123,7 @@ export const mockTrips: Trip[] = [
       {
         id: 'clothing',
         name: 'Clothing',
+        icon: 'Shirt',
         items: [
           { id: '4', name: 'T-shirts (x5)', checked: false, imageUrl: 'https://picsum.photos/seed/tshirt/100/100', price: 100 },
           { id: '5', name: 'Jeans (x2)', checked: false, imageUrl: 'https://picsum.photos/seed/jeans/100/100', price: 150 },

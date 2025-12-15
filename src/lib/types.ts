@@ -40,6 +40,7 @@ export type ShoppingItem = {
 export type ShoppingCategory = {
   id: string;
   name: string;
+  icon?: string;
   items: ShoppingItem[];
 };
 
