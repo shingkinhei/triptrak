@@ -72,12 +72,12 @@ export default function TripsPage() {
   const handleEditClick = (trip: Trip) => {
     setEditingTrip(trip);
     setTripForm({
-      name: trip.name,
-      destination: trip.destination,
-      startDate: trip.startDate,
-      endDate: trip.endDate,
-      imageUrl: trip.imageUrl,
-      imageHint: trip.imageHint,
+      name: trip.name || '',
+      destination: trip.destination || '',
+      startDate: trip.startDate || '',
+      endDate: trip.endDate || '',
+      imageUrl: trip.imageUrl || '',
+      imageHint: trip.imageHint || '',
     });
     setIsEditDialogOpen(true);
   };
@@ -230,23 +230,23 @@ export default function TripsPage() {
             <div className="grid gap-4 py-4">
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="edit-name" className="text-right">Name</Label>
-                <Input id="edit-name" value={tripForm.name} onChange={(e) => handleFormChange('name', e.target.value)} className="col-span-3" />
+                <Input id="edit-name" value={tripForm.name || ''} onChange={(e) => handleFormChange('name', e.target.value)} className="col-span-3" />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="edit-destination" className="text-right">Destination</Label>
-                <Input id="edit-destination" value={tripForm.destination} onChange={(e) => handleFormChange('destination', e.target.value)} className="col-span-3" />
+                <Input id="edit-destination" value={tripForm.destination || ''} onChange={(e) => handleFormChange('destination', e.target.value)} className="col-span-3" />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="edit-start-date" className="text-right">Start Date</Label>
-                <Input id="edit-start-date" type="date" value={tripForm.startDate} onChange={(e) => handleFormChange('startDate', e.target.value)} className="col-span-3" />
+                <Input id="edit-start-date" type="date" value={tripForm.startDate || ''} onChange={(e) => handleFormChange('startDate', e.target.value)} className="col-span-3" />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="edit-end-date" className="text-right">End Date</Label>
-                <Input id="edit-end-date" type="date" value={tripForm.endDate} onChange={(e) => handleFormChange('endDate', e.target.value)} className="col-span-3" />
+                <Input id="edit-end-date" type="date" value={tripForm.endDate || ''} onChange={(e) => handleFormChange('endDate', e.target.value)} className="col-span-3" />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="edit-image-hint" className="text-right">Image Hint</Label>
-                <Input id="edit-image-hint" value={tripForm.imageHint} onChange={(e) => handleFormChange('imageHint', e.target.value)} className="col-span-3" />
+                <Input id="edit-image-hint" value={tripForm.imageHint || ''} onChange={(e) => handleFormChange('imageHint', e.target.value)} className="col-span-3" />
               </div>
               <div className="grid grid-cols-4 items-start gap-4">
                  <Label className="text-right pt-2">Cover Image</Label>
