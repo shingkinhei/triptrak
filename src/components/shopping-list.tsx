@@ -279,8 +279,8 @@ export function ShoppingList({ list, setList, onCheckChange, trip }: ShoppingLis
                                   <Image 
                                     src={item.imageUrl}
                                     alt={item.name}
-                                    width={40}
-                                    height={40}
+                                    width={60}
+                                    height={60}
                                     className="rounded-md object-cover"
                                   />
                                 )}
