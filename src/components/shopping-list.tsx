@@ -51,7 +51,7 @@ const AddCategoryDialog = ({ onAddCategory }: { onAddCategory: (name: string) =>
     return (
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
             <DialogTrigger asChild>
-                <Button variant="outline" className="bg-transparent text-white hover:bg-white/20 hover:text-white border-white/50">
+                <Button variant="outline">
                     <ListPlus className="mr-2 h-4 w-4" />
                     Add Category
                 </Button>
@@ -174,22 +174,22 @@ export function ShoppingList({ list, setList, onCheckChange, trip }: ShoppingLis
     const grandTotal = list.reduce((total, category) => total + calculateTotal(category.items), 0) * tripRate;
 
   return (
-    <div className="space-y-4 text-white">
+    <div className="space-y-4">
       <header className="flex justify-between items-center">
         <div>
-            <h1 className="text-2xl font-bold font-headline text-primary-foreground">
+            <h1 className="text-2xl font-bold font-headline text-foreground">
             Shopping List
             </h1>
-            <p className="text-primary-foreground/80">
+            <p className="text-muted-foreground">
             Everything you need for your trip.
             </p>
         </div>
         <AddCategoryDialog onAddCategory={handleAddCategory} />
       </header>
 
-      <Card className="bg-white/10 border-white/20 text-white">
+      <Card>
         <CardHeader>
-          <CardDescription className="text-primary-foreground/80">Grand Total ({tripCurrency})</CardDescription>
+          <CardDescription>Grand Total ({tripCurrency})</CardDescription>
           <CardTitle>{formatCurrency(grandTotal)}</CardTitle>
         </CardHeader>
       </Card>
@@ -198,15 +198,15 @@ export function ShoppingList({ list, setList, onCheckChange, trip }: ShoppingLis
         {list.map(category => {
             const categoryTotal = calculateTotal(category.items) * tripRate;
             return (
-            <Card key={category.id} className="bg-white/10 border-white/20 text-white">
+            <Card key={category.id}>
                 <CardHeader>
                     <div className="flex justify-between items-center">
-                        <CardTitle className="text-lg font-headline text-primary-foreground">{category.name}</CardTitle>
+                        <CardTitle className="text-lg font-headline text-foreground">{category.name}</CardTitle>
                         <div className="flex items-center gap-2">
-                            <span className="font-semibold text-primary-foreground/80">{formatCurrency(categoryTotal)}</span>
+                            <span className="font-semibold text-muted-foreground">{formatCurrency(categoryTotal)}</span>
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-white hover:bg-white/20 hover:text-white">
+                                    <Button variant="ghost" size="icon" className="h-8 w-8">
                                         <MoreVertical className="h-4 w-4" />
                                     </Button>
                                 </DropdownMenuTrigger>
@@ -249,7 +249,7 @@ export function ShoppingList({ list, setList, onCheckChange, trip }: ShoppingLis
                                 onCheckedChange={(checked) =>
                                   onCheckChange(category.id, item.id, !!checked)
                                 }
-                                className="peer border-primary-foreground/50 data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground"
+                                className="peer"
                             />
                             {item.imageUrl && (
                               <Image 
@@ -265,12 +265,12 @@ export function ShoppingList({ list, setList, onCheckChange, trip }: ShoppingLis
                                 className={cn(
                                 'text-sm font-medium leading-none flex-grow',
                                 'peer-disabled:cursor-not-allowed peer-disabled:opacity-70',
-                                item.checked ? 'text-primary-foreground/50 line-through' : 'text-primary-foreground'
+                                item.checked ? 'text-muted-foreground line-through' : 'text-foreground'
                                 )}
                             >
                                 {item.name}
                             </label>
-                            <div className={cn("text-sm font-semibold", item.checked ? 'text-primary-foreground/50 line-through' : 'text-primary-foreground')}>
+                            <div className={cn("text-sm font-semibold", item.checked ? 'text-muted-foreground line-through' : 'text-foreground')}>
                                 {formatCurrency((item.price || 0) * tripRate)}
                             </div>
                         </div>
@@ -278,7 +278,7 @@ export function ShoppingList({ list, setList, onCheckChange, trip }: ShoppingLis
                     <div className="space-y-2 pt-2">
                         <Input 
                             placeholder="Add new item..." 
-                            className="h-9 bg-transparent"
+                            className="h-9"
                             value={newItems[category.id]?.name || ''}
                             onKeyDown={(e) => e.key === 'Enter' && handleAddItem(category.id)}
                             onChange={(e) => handleInputChange(category.id, 'name', e.target.value)}
@@ -292,7 +292,7 @@ export function ShoppingList({ list, setList, onCheckChange, trip }: ShoppingLis
                                 <Input 
                                     type="number"
                                     placeholder="Price (USD)" 
-                                    className="h-9 pl-7 w-full bg-transparent"
+                                    className="h-9 pl-7 w-full"
                                     value={newItems[category.id]?.price || ''}
                                     onKeyDown={(e) => e.key === 'Enter' && handleAddItem(category.id)}
                                     onChange={(e) => handleInputChange(category.id, 'price', e.target.value)}
@@ -305,7 +305,7 @@ export function ShoppingList({ list, setList, onCheckChange, trip }: ShoppingLis
                                 ref={(el) => fileInputRefs.current[category.id] = el}
                                 onChange={(e) => handleFileChange(category.id, e)}
                              />
-                            <Button size="icon" variant="outline" className="h-9 w-9 shrink-0 bg-transparent text-white hover:bg-white/20 hover:text-white border-white/50" onClick={() => fileInputRefs.current[category.id]?.click()}>
+                            <Button size="icon" variant="outline" className="h-9 w-9 shrink-0" onClick={() => fileInputRefs.current[category.id]?.click()}>
                                 <Camera className="h-4 w-4" />
                             </Button>
                             <Button size="icon" className="h-9 w-9 shrink-0" onClick={() => handleAddItem(category.id)}>

@@ -136,15 +136,15 @@ export function TripPlanner({ itinerary, setItinerary }: TripPlannerProps) {
   const activeItineraryItem = itinerary[parseInt(activeDay.split('-')[1] || '0')];
 
   return (
-    <div className="space-y-4 text-white">
+    <div className="space-y-4">
       <header className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold font-headline text-primary-foreground">
+          <h1 className="text-2xl font-bold font-headline text-foreground">
             Trip Itinerary
           </h1>
-          <p className="text-primary-foreground/80">Your adventure at a glance.</p>
+          <p className="text-muted-foreground">Your adventure at a glance.</p>
         </div>
-        <Button onClick={handleAddDay} variant="outline" className="bg-transparent text-white hover:bg-white/20 hover:text-white border-white/50">
+        <Button onClick={handleAddDay} variant="outline">
           <PlusCircle className="mr-2 h-4 w-4" /> Add Day
         </Button>
       </header>
@@ -167,13 +167,13 @@ export function TripPlanner({ itinerary, setItinerary }: TripPlannerProps) {
                         data-ai-hint={item.image.hint}
                       />
                       <div className="absolute inset-0 bg-black/40 flex items-end p-4">
-                        <div className="text-primary-foreground flex-grow text-left">
+                        <div className="text-white flex-grow text-left">
                           <h2 className="font-bold text-lg font-headline">
                             Day {item.day}: {item.title}
                           </h2>
                           <p className="text-sm">{item.date}</p>
                         </div>
-                        <ChevronDown className="h-4 w-4 shrink-0 transition-transform duration-200 text-primary-foreground ml-auto" />
+                        <ChevronDown className="h-4 w-4 shrink-0 transition-transform duration-200 text-white ml-auto" />
                       </div>
                     </div>
                   </AccordionTrigger>
@@ -192,14 +192,14 @@ export function TripPlanner({ itinerary, setItinerary }: TripPlannerProps) {
                     </DropdownMenu>
                   </div>
                 </div>
-                <AccordionContent className="p-4 bg-white/10 rounded-b-lg">
+                <AccordionContent className="p-4 bg-card/80 backdrop-blur-sm rounded-b-lg">
                   <ul className="space-y-4">
                     {item.activities.map((activity, actIndex) => {
                       const ActivityIcon = iconMap[activity.icon];
                       return (
                         <li key={actIndex} className="flex items-start gap-4">
                           <div className="flex flex-col items-center">
-                            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/20 text-primary-foreground">
+                            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary">
                               {ActivityIcon && <ActivityIcon className="h-4 w-4" />}
                             </div>
                             {actIndex < item.activities.length - 1 && (
@@ -207,8 +207,8 @@ export function TripPlanner({ itinerary, setItinerary }: TripPlannerProps) {
                             )}
                           </div>
                           <div>
-                            <p className="font-semibold text-primary-foreground">{activity.time}</p>
-                            <p className="text-primary-foreground/80">
+                            <p className="font-semibold text-foreground">{activity.time}</p>
+                            <p className="text-muted-foreground">
                               {activity.description}
                             </p>
                           </div>

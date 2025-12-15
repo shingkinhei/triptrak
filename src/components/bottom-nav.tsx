@@ -25,9 +25,10 @@ interface NavItem {
 interface BottomNavProps {
   activeItem: NavItemIds;
   setActiveTab?: Dispatch<SetStateAction<Tab>>;
+  isLightMode?: boolean;
 }
 
-export function BottomNav({ activeItem, setActiveTab }: BottomNavProps) {
+export function BottomNav({ activeItem, setActiveTab, isLightMode }: BottomNavProps) {
   const router = useRouter();
 
   const navItems: NavItem[] = [
@@ -43,7 +44,12 @@ export function BottomNav({ activeItem, setActiveTab }: BottomNavProps) {
 
 
   return (
-    <nav className="flex items-center justify-around border-t bg-black/30 border-white/20 backdrop-blur-sm shrink-0">
+    <nav className={cn(
+        "flex items-center justify-around border-t shrink-0",
+        isLightMode
+          ? "bg-background/80 border-border backdrop-blur-sm"
+          : "bg-black/30 border-white/20 backdrop-blur-sm"
+      )}>
       {filteredNavItems.map((item) => (
         <button
           key={item.id}
@@ -56,10 +62,13 @@ export function BottomNav({ activeItem, setActiveTab }: BottomNavProps) {
           }}
           disabled={!setActiveTab && !item.action}
           className={cn(
-            'flex flex-1 flex-col items-center gap-1 p-3 text-primary-foreground/70 transition-colors duration-200',
+            'flex flex-1 flex-col items-center gap-1 p-3 transition-colors duration-200',
+            isLightMode
+              ? 'text-muted-foreground'
+              : 'text-primary-foreground/70',
             {
-              'text-white': activeItem === item.id && !!setActiveTab,
-              'text-primary': activeItem === item.id && !setActiveTab,
+              'text-primary': activeItem === item.id,
+              'text-white': activeItem === item.id && !isLightMode && !!setActiveTab, // backwards compat
               'opacity-50 cursor-not-allowed': !setActiveTab && !item.action,
             }
           )}

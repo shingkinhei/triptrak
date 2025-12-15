@@ -12,9 +12,9 @@ export function MapView({ locations }: MapViewProps) {
 
   if (!apiKey) {
     return (
-      <div className="flex h-full flex-col items-center justify-center rounded-lg border-2 border-dashed bg-card/50 p-8 text-center text-white">
+      <div className="flex h-full flex-col items-center justify-center rounded-lg border-2 border-dashed bg-card/50 p-8 text-center">
         <h2 className="text-lg font-semibold">Map Unavailable</h2>
-        <p className="mt-2 text-sm text-primary-foreground/80">
+        <p className="mt-2 text-sm text-muted-foreground">
           The Google Maps API key is missing. Please add it to your
           environment variables to enable the map feature.
         </p>
@@ -25,12 +25,12 @@ export function MapView({ locations }: MapViewProps) {
   return (
     <div className="space-y-4 h-full flex flex-col">
        <header>
-        <h1 className="text-2xl font-bold font-headline text-primary-foreground">
+        <h1 className="text-2xl font-bold font-headline text-foreground">
           Trip Map
         </h1>
-        <p className="text-primary-foreground/80">Your points of interest.</p>
+        <p className="text-muted-foreground">Your points of interest.</p>
       </header>
-      <div className="flex-grow rounded-xl overflow-hidden border border-white/20">
+      <div className="flex-grow rounded-xl overflow-hidden border border-border">
         <APIProvider apiKey={apiKey}>
             <Map
               defaultCenter={defaultCenter}

@@ -101,23 +101,23 @@ export function ExpenseTracker({ transactions, setTransactions, trip }: ExpenseT
   }
 
   return (
-    <div className="space-y-4 text-white">
+    <div className="space-y-4">
       <header>
-        <h1 className="text-2xl font-bold font-headline text-primary-foreground">
+        <h1 className="text-2xl font-bold font-headline text-foreground">
           Expense Tracker
         </h1>
-        <p className="text-primary-foreground/80">Keep an eye on your budget.</p>
+        <p className="text-muted-foreground">Keep an eye on your budget.</p>
       </header>
 
-      <Card className="bg-white/10 border-white/20 text-white">
+      <Card>
         <CardHeader>
           <div className="flex justify-between items-start">
             <div>
-              <CardDescription className="text-primary-foreground/80">Total Expenses ({tripCurrency})</CardDescription>
+              <CardDescription>Total Expenses ({tripCurrency})</CardDescription>
               <CardTitle>{formatCurrency(totalExpensesInTripCurrency)}</CardTitle>
             </div>
             <div className="text-right">
-              <CardDescription className="text-primary-foreground/80">In {homeCurrency}</CardDescription>
+              <CardDescription>In {homeCurrency}</CardDescription>
               <CardTitle className="text-lg">{formatHomeCurrency(totalExpensesInHomeCurrency)}</CardTitle>
             </div>
           </div>
@@ -127,13 +127,13 @@ export function ExpenseTracker({ transactions, setTransactions, trip }: ExpenseT
             <BarChart accessibilityLayer data={chartData} margin={{ top: 5, right: 0, left: -20, bottom: 5 }}>
               <XAxis
                 dataKey="name"
-                stroke="hsl(var(--primary-foreground) / 0.8)"
+                stroke="hsl(var(--muted-foreground))"
                 fontSize={12}
                 tickLine={false}
                 axisLine={false}
               />
               <YAxis
-                stroke="hsl(var(--primary-foreground) / 0.8)"
+                stroke="hsl(var(--muted-foreground))"
                 fontSize={12}
                 tickLine={false}
                 axisLine={false}
@@ -151,10 +151,10 @@ export function ExpenseTracker({ transactions, setTransactions, trip }: ExpenseT
 
       <div className="space-y-2">
         <div className="flex justify-between items-center">
-            <h2 className="font-semibold font-headline text-primary-foreground">Recent Transactions</h2>
+            <h2 className="font-semibold font-headline text-foreground">Recent Transactions</h2>
             <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
                 <DialogTrigger asChild>
-                    <Button size="sm" variant="ghost" className="text-white hover:bg-white/20 hover:text-white">
+                    <Button size="sm" variant="ghost">
                         <PlusCircle className="mr-2 h-4 w-4" /> Add
                     </Button>
                 </DialogTrigger>
@@ -198,24 +198,24 @@ export function ExpenseTracker({ transactions, setTransactions, trip }: ExpenseT
           {transactions.map((t) => {
             const Icon = categoryIcons[t.category];
             return (
-              <Card key={t.id} className="bg-white/10 border-white/20 text-white">
+              <Card key={t.id}>
                 <CardContent className="flex items-center p-3 gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/20">
-                    {Icon && <Icon className="h-5 w-5 text-primary-foreground" />}
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-secondary">
+                    {Icon && <Icon className="h-5 w-5 text-secondary-foreground" />}
                   </div>
                   <div className="flex-grow">
                     <p className="font-semibold">{t.name}</p>
-                    <p className="text-sm text-primary-foreground/80">{t.category}</p>
+                    <p className="text-sm text-muted-foreground">{t.category}</p>
                   </div>
                   <div className="text-right">
-                    <p className="font-bold text-lg text-primary-foreground">
+                    <p className="font-bold text-lg text-foreground">
                       -{formatCurrency(t.amount * tripRate)}
                     </p>
-                    <p className="text-sm text-primary-foreground/80">{t.date}</p>
+                    <p className="text-sm text-muted-foreground">{t.date}</p>
                   </div>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 ml-2 text-white hover:bg-white/20 hover:text-white">
+                      <Button variant="ghost" size="icon" className="h-8 w-8 ml-2">
                         <MoreVertical className="h-4 w-4" />
                       </Button>
                     </DropdownMenuTrigger>
