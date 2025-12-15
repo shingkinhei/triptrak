@@ -166,7 +166,7 @@ export function TripPlanner({ itinerary, setItinerary }: TripPlannerProps) {
                         className="object-cover"
                         data-ai-hint={item.image.hint}
                       />
-                      <div className="absolute inset-0 bg-black/30 flex items-end p-4">
+                      <div className="absolute inset-0 bg-black/40 flex items-end p-4">
                         <div className="text-primary-foreground flex-grow text-left">
                           <h2 className="font-bold text-lg font-headline">
                             Day {item.day}: {item.title}
