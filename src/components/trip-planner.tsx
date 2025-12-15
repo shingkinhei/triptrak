@@ -43,6 +43,7 @@ import {
   DropdownMenuTrigger,
 } from './ui/dropdown-menu';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+import { WeatherCard } from './weather-card';
 
 const initialItineraryData: ItineraryItem[] = [
   {
@@ -156,7 +157,8 @@ const iconOptions = [
 export function TripPlanner() {
   const [itinerary, setItinerary] = useState<ItineraryItem[]>(initialItineraryData);
   const [editingItem, setEditingItem] = useState<ItineraryItem | null>(null);
-
+  const [activeDay, setActiveDay] = useState<string>('item-0');
+  
   const handleEditClick = (item: ItineraryItem) => {
     setEditingItem({ ...item, activities: [...item.activities] });
   };
@@ -215,6 +217,8 @@ export function TripPlanner() {
     };
     setItinerary([...itinerary, newDay]);
   };
+  
+  const activeItineraryItem = itinerary[parseInt(activeDay.split('-')[1] || '0')];
 
   return (
     <div className="space-y-4">
@@ -230,7 +234,9 @@ export function TripPlanner() {
         </Button>
       </header>
 
-      <Accordion type="single" collapsible defaultValue="item-0" className="w-full space-y-4">
+      {activeItineraryItem && <WeatherCard location={activeItineraryItem.title.replace(/arrival in |exploring |day trip to /i, '')} />}
+
+      <Accordion type="single" collapsible defaultValue="item-0" value={activeDay} onValueChange={setActiveDay} className="w-full space-y-4">
         {itinerary.map((item, index) => {
           return (
             <Card key={item.day} className="overflow-hidden">
