@@ -27,6 +27,10 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from './ui/dropdown-menu';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from './ui/dialog';
+import { Input } from './ui/input';
+import { Label } from './ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 
 const mockTransactions: Transaction[] = [
   { id: '1', name: 'Ichiran Ramen', category: 'Food', amount: 15, date: '2024-10-26' },
@@ -36,6 +40,8 @@ const mockTransactions: Transaction[] = [
   { id: '5', name: 'Kaiseki Dinner', category: 'Food', amount: 120, date: '2024-10-27' },
   { id: '6', name: 'Dotonbori Takoyaki', category: 'Food', amount: 10, date: '2024-10-28' },
 ];
+
+const transactionCategories: TransactionCategory[] = ['Food', 'Transport', 'Shopping', 'Accommodation', 'Other'];
 
 const categoryIcons: Record<TransactionCategory, React.ElementType> = {
   Food: Pizza,
@@ -65,9 +71,32 @@ const chartConfig = {
 } satisfies ChartConfig;
 
 export function ExpenseTracker() {
-  const [transactions] = useState(mockTransactions);
+  const [transactions, setTransactions] = useState(mockTransactions);
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [newTransaction, setNewTransaction] = useState<{name: string, category: TransactionCategory | '', amount: string}>({
+    name: '',
+    category: '',
+    amount: '',
+  });
+
   const totalExpenses = transactions.reduce((sum, t) => sum + t.amount, 0);
   const chartData = getChartData(transactions);
+
+  const handleAddTransaction = () => {
+    if (!newTransaction.name || !newTransaction.category || !newTransaction.amount) {
+        return;
+    }
+    const newTx: Transaction = {
+        id: new Date().toISOString(),
+        name: newTransaction.name,
+        category: newTransaction.category as TransactionCategory,
+        amount: parseFloat(newTransaction.amount),
+        date: new Date().toISOString().split('T')[0],
+    };
+    setTransactions([newTx, ...transactions]);
+    setNewTransaction({ name: '', category: '', amount: '' });
+    setIsAddDialogOpen(false);
+  }
 
   return (
     <div className="space-y-4">
@@ -113,9 +142,47 @@ export function ExpenseTracker() {
       <div className="space-y-2">
         <div className="flex justify-between items-center">
             <h2 className="font-semibold font-headline">Recent Transactions</h2>
-            <Button size="sm" variant="ghost">
-                <PlusCircle className="mr-2 h-4 w-4" /> Add
-            </Button>
+            <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+                <DialogTrigger asChild>
+                    <Button size="sm" variant="ghost">
+                        <PlusCircle className="mr-2 h-4 w-4" /> Add
+                    </Button>
+                </DialogTrigger>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Add New Transaction</DialogTitle>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="name" className="text-right">Name</Label>
+                            <Input id="name" value={newTransaction.name} onChange={(e) => setNewTransaction({...newTransaction, name: e.target.value})} className="col-span-3" placeholder="e.g. Coffee" />
+                        </div>
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="amount" className="text-right">Amount</Label>
+                            <Input id="amount" type="number" value={newTransaction.amount} onChange={(e) => setNewTransaction({...newTransaction, amount: e.target.value})} className="col-span-3" placeholder="e.g. 5.00" />
+                        </div>
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="category" className="text-right">Category</Label>
+                            <Select
+                                value={newTransaction.category}
+                                onValueChange={(value) => setNewTransaction({...newTransaction, category: value as TransactionCategory})}
+                            >
+                                <SelectTrigger className="col-span-3">
+                                    <SelectValue placeholder="Select a category" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {transactionCategories.map(cat => (
+                                        <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button onClick={handleAddTransaction}>Add Transaction</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
         <div className="space-y-2">
           {transactions.map((t) => {
