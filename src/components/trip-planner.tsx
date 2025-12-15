@@ -291,8 +291,8 @@ export function TripPlanner({ itinerary, setItinerary }: TripPlannerProps) {
         })}
       </Accordion>
       
-      {editingItem && (
-        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+          {editingItem && (
             <DialogContent className="max-h-[90vh] flex flex-col shadow-lg">
               <DialogHeader>
                 <DialogTitle>Edit Day {editingItem.day}</DialogTitle>
@@ -397,8 +397,8 @@ export function TripPlanner({ itinerary, setItinerary }: TripPlannerProps) {
                 <Button onClick={handleSave}>Save Changes</Button>
               </DialogFooter>
             </DialogContent>
+          )}
         </Dialog>
-      )}
     </div>
   );
 }
