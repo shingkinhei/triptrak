@@ -219,6 +219,7 @@ export function TripPlanner({ itinerary, setItinerary, checklist, setChecklist }
   const [editingItem, setEditingItem] = useState<ItineraryItem | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [activeView, setActiveView] = useState<string>('checklist');
+  const [viewingPhoto, setViewingPhoto] = useState<UserPhoto | null>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
   
@@ -416,9 +417,9 @@ export function TripPlanner({ itinerary, setItinerary, checklist, setChecklist }
                 {item.userPhotos && item.userPhotos.length > 0 && (
                   <div className="grid grid-cols-3 gap-2">
                       {item.userPhotos.map((photo) => (
-                          <div key={photo.id} className="relative aspect-square rounded-md overflow-hidden">
+                          <button key={photo.id} onClick={() => setViewingPhoto(photo)} className="relative block w-full aspect-square rounded-md overflow-hidden cursor-pointer">
                               <Image src={photo.url} alt="User photo" fill className="object-cover" />
-                          </div>
+                          </button>
                       ))}
                   </div>
                 )}
@@ -432,7 +433,7 @@ export function TripPlanner({ itinerary, setItinerary, checklist, setChecklist }
                             {ActivityIcon && <ActivityIcon className="h-4 w-4" />}
                           </div>
                           {actIndex < item.activities.length - 1 && (
-                            <div className="w-px h-6 bg-primary mt-1"></div>
+                            <div className="w-px h-6 bg-primary/30 mt-1"></div>
                           )}
                         </div>
                         <div>
@@ -450,8 +451,8 @@ export function TripPlanner({ itinerary, setItinerary, checklist, setChecklist }
           </div>
       ))}
       
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        {editingItem && (
+      {editingItem && (
+        <Dialog open={isEditDialogOpen} onOpenChange={(isOpen) => { if (!isOpen) handleCancelEdit(); }}>
           <DialogContent className="max-h-[90vh] flex flex-col shadow-lg">
             <DialogHeader>
               <DialogTitle>Edit Day {editingItem.day}</DialogTitle>
@@ -556,8 +557,24 @@ export function TripPlanner({ itinerary, setItinerary, checklist, setChecklist }
               <Button onClick={handleSave}>Save Changes</Button>
             </DialogFooter>
           </DialogContent>
-        )}
-      </Dialog>
+        </Dialog>
+      )}
+
+      {viewingPhoto && (
+        <Dialog open={!!viewingPhoto} onOpenChange={() => setViewingPhoto(null)}>
+            <DialogContent className="max-w-3xl p-2 bg-transparent border-0 shadow-none">
+                <div className="relative w-full h-auto">
+                    <Image
+                        src={viewingPhoto.url}
+                        alt="Full screen user photo"
+                        width={1920}
+                        height={1080}
+                        className="rounded-lg object-contain w-full h-auto max-h-[80vh]"
+                    />
+                </div>
+            </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }
