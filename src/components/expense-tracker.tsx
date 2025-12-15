@@ -210,7 +210,7 @@ export function ExpenseTracker({ transactions, setTransactions, trip }: ExpenseT
             <h2 className="font-semibold font-headline text-white">Recent Transactions</h2>
             <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
                 <DialogTrigger asChild>
-                    <Button size="sm" variant="ghost" className="text-white hover:bg-white/20 hover:text-white">
+                    <Button size="sm" variant="outline" className="bg-white/10 border-white/20 text-white hover:bg-white/20 hover:text-white">
                         <PlusCircle className="mr-2 h-4 w-4" /> Add
                     </Button>
                 </DialogTrigger>
@@ -290,5 +290,3 @@ export function ExpenseTracker({ transactions, setTransactions, trip }: ExpenseT
     </div>
   );
 }
-
-    
