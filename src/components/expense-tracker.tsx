@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis } from 'recharts';
+import { Pie, PieChart, ResponsiveContainer, Cell } from 'recharts';
 import {
   MoreVertical,
   Pizza,
@@ -20,7 +20,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart';
+import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent, type ChartConfig } from '@/components/ui/chart';
 
 import type { Transaction, TransactionCategory, Trip } from '@/lib/types';
 import {
@@ -69,18 +69,28 @@ const getChartData = (transactions: Transaction[], rate: number, homeRate: numbe
 };
 
 const chartConfig = {
-  total: {
-    label: "Total",
-    color: "hsl(var(--primary))",
+  Food: {
+    label: "Food",
+    color: "hsl(var(--chart-1))",
+  },
+  Transport: {
+    label: "Transport",
+    color: "hsl(var(--chart-2))",
+  },
+  Shopping: {
+    label: "Shopping",
+    color: "hsl(var(--chart-3))",
+  },
+  Accommodation: {
+    label: "Accommodation",
+    color: "hsl(var(--chart-4))",
+  },
+  Other: {
+    label: "Other",
+    color: "hsl(var(--chart-5))",
   },
 } satisfies ChartConfig;
 
-const MOCK_RATES = {
-    USD: 1,
-    JPY: 157,
-    EUR: 0.92,
-    HKD: 7.8,
-};
 
 export function ExpenseTracker({ transactions, setTransactions, trip }: ExpenseTrackerProps) {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -155,29 +165,29 @@ export function ExpenseTracker({ transactions, setTransactions, trip }: ExpenseT
           </div>
         </CardHeader>
         <CardContent>
-          <ChartContainer config={chartConfig} className="h-[150px] w-full">
-            <BarChart accessibilityLayer data={chartData} margin={{ top: 5, right: 0, left: -20, bottom: 5 }}>
-              <XAxis
-                dataKey="name"
-                stroke="hsl(var(--muted-foreground))"
-                fontSize={12}
-                tickLine={false}
-                axisLine={false}
-              />
-              <YAxis
-                stroke="hsl(var(--muted-foreground))"
-                fontSize={12}
-                tickLine={false}
-                axisLine={false}
-                tickFormatter={(value) => currentFormatter(value, 0)}
-              />
-               <ChartTooltip
-                cursor={{ fill: 'hsl(var(--muted))', radius: 4 }}
-                content={<ChartTooltipContent formatter={(value) => currentFormatter(value as number)} />}
-              />
-              <Bar dataKey="total" fill="var(--color-total)" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ChartContainer>
+            <ChartContainer config={chartConfig} className="h-[200px] w-full">
+                <PieChart>
+                    <ChartTooltip
+                        cursor={{ fill: 'hsl(var(--muted))', radius: 4 }}
+                        content={<ChartTooltipContent formatter={(value, name) => `${chartConfig[name as keyof typeof chartConfig]?.label}: ${currentFormatter(value as number)}`} />}
+                    />
+                     <Pie
+                        data={chartData}
+                        dataKey="total"
+                        nameKey="name"
+                        innerRadius={50}
+                        outerRadius={80}
+                        paddingAngle={2}
+                        labelLine={false}
+                        label={({ percent, name }) => `${chartConfig[name as keyof typeof chartConfig]?.label}: ${(percent * 100).toFixed(0)}%`}
+                    >
+                        {chartData.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={chartConfig[entry.name as keyof typeof chartConfig]?.color} />
+                        ))}
+                    </Pie>
+                    <ChartLegend content={<ChartLegendContent />} />
+                </PieChart>
+            </ChartContainer>
         </CardContent>
       </Card>
 
@@ -266,3 +276,5 @@ export function ExpenseTracker({ transactions, setTransactions, trip }: ExpenseT
     </div>
   );
 }
+
+    
