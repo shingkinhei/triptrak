@@ -162,7 +162,7 @@ export default function TripDetailsPage({ params }: TripDetailsPageProps) {
   useEffect(() => {
     const foundTrip = mockTrips.find(t => t.id === params.tripId);
     setTrip(foundTrip);
-  }, [params.tripId]);
+  }, [params]);
 
   if (!trip) {
     return (
