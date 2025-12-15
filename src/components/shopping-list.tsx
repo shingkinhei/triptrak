@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import type { ShoppingCategory, ShoppingItem } from '@/lib/types';
 import {
   Card,
@@ -11,7 +11,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
-import { Plus } from 'lucide-react';
+import { Plus, Camera } from 'lucide-react';
 import Image from 'next/image';
 
 const initialShoppingList: ShoppingCategory[] = [
@@ -44,9 +44,18 @@ const initialShoppingList: ShoppingCategory[] = [
     },
   ];
 
+interface NewItemInputs {
+    [categoryId: string]: {
+      name: string;
+      file: File | null;
+      previewUrl?: string;
+    };
+  }
+
 export function ShoppingList() {
     const [list, setList] = useState<ShoppingCategory[]>(initialShoppingList);
-    const [newItemName, setNewItemName] = useState('');
+    const [newItems, setNewItems] = useState<NewItemInputs>({});
+    const fileInputRefs = useRef<{[key: string]: HTMLInputElement | null}>({});
 
     const handleCheckChange = (categoryId: string, itemId: string, checked: boolean) => {
         setList(prevList =>
@@ -61,16 +70,38 @@ export function ShoppingList() {
               : category
           )
         );
-      };
+    };
+    
+    const handleInputChange = (categoryId: string, name: string) => {
+        setNewItems(prev => ({
+            ...prev,
+            [categoryId]: { ...prev[categoryId], name },
+        }));
+    };
+
+    const handleFileChange = (categoryId: string, e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0] || null;
+        if (file) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setNewItems(prev => ({
+                    ...prev,
+                    [categoryId]: { ...prev[categoryId], file, previewUrl: reader.result as string },
+                }));
+            };
+            reader.readAsDataURL(file);
+        }
+    };
 
     const handleAddItem = (categoryId: string) => {
-        if (!newItemName.trim()) return;
+        const newItemInput = newItems[categoryId];
+        if (!newItemInput || !newItemInput.name.trim()) return;
 
         const newItem: ShoppingItem = {
             id: new Date().toISOString(),
-            name: newItemName.trim(),
+            name: newItemInput.name.trim(),
             checked: false,
-            imageUrl: `https://picsum.photos/seed/${newItemName.trim()}/100/100`
+            imageUrl: newItemInput.previewUrl || `https://picsum.photos/seed/${newItemInput.name.trim()}/100/100`
         };
 
         setList(prevList =>
@@ -83,7 +114,15 @@ export function ShoppingList() {
                 : category
             )
         );
-        setNewItemName('');
+        
+        setNewItems(prev => ({
+            ...prev,
+            [categoryId]: { name: '', file: null, previewUrl: '' },
+        }));
+        // Reset file input
+        if(fileInputRefs.current[categoryId]) {
+            fileInputRefs.current[categoryId]!.value = '';
+        }
     }
 
   return (
@@ -136,18 +175,31 @@ export function ShoppingList() {
                         </div>
                     ))}
                     <div className="flex gap-2 pt-2">
+                        {newItems[category.id]?.previewUrl && (
+                            <Image src={newItems[category.id]!.previewUrl!} alt="Preview" width={40} height={40} className="rounded-md object-cover" />
+                        )}
                         <Input 
                             placeholder="Add new item..." 
                             className="h-9"
-                            value={newItemName}
+                            value={newItems[category.id]?.name || ''}
                             onKeyDown={(e) => {
                                 if (e.key === 'Enter') {
                                     e.preventDefault();
                                     handleAddItem(category.id);
                                 }
                             }}
-                            onChange={(e) => setNewItemName(e.target.value)}
+                            onChange={(e) => handleInputChange(category.id, e.target.value)}
                          />
+                         <input 
+                            type="file" 
+                            accept="image/*"
+                            className="hidden" 
+                            ref={(el) => fileInputRefs.current[category.id] = el}
+                            onChange={(e) => handleFileChange(category.id, e)}
+                         />
+                        <Button size="icon" variant="outline" className="h-9 w-9 shrink-0" onClick={() => fileInputRefs.current[category.id]?.click()}>
+                            <Camera className="h-4 w-4" />
+                        </Button>
                         <Button size="icon" className="h-9 w-9 shrink-0" onClick={() => handleAddItem(category.id)}>
                             <Plus className="h-4 w-4" />
                         </Button>
