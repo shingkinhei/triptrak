@@ -12,11 +12,13 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
-import { Plus, Camera, DollarSign, ListPlus } from 'lucide-react';
+import { Plus, Camera, DollarSign, ListPlus, MoreVertical, Edit, Trash2 } from 'lucide-react';
 import Image from 'next/image';
 import { useCurrency } from '@/context/CurrencyContext';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from './ui/dialog';
 import { Label } from './ui/label';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from './ui/alert-dialog';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from './ui/dropdown-menu';
 
 interface ShoppingListProps {
   list: ShoppingCategory[];
@@ -84,6 +86,9 @@ export function ShoppingList({ list, setList, onCheckChange }: ShoppingListProps
     const [newItems, setNewItems] = useState<NewItemInputs>({});
     const fileInputRefs = useRef<{[key: string]: HTMLInputElement | null}>({});
     const { currency, rate, formatCurrency } = useCurrency();
+    const [renamingCategory, setRenamingCategory] = useState<ShoppingCategory | null>(null);
+    const [newCategoryName, setNewCategoryName] = useState('');
+
 
     const handleFileChange = (categoryId: string, e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0] || null;
@@ -148,6 +153,19 @@ export function ShoppingList({ list, setList, onCheckChange }: ShoppingListProps
         setList(prev => [...prev, newCategory]);
     };
 
+    const handleRenameCategory = () => {
+        if (!renamingCategory || !newCategoryName.trim()) return;
+        setList(prevList => prevList.map(cat => 
+            cat.id === renamingCategory.id ? { ...cat, name: newCategoryName } : cat
+        ));
+        setRenamingCategory(null);
+        setNewCategoryName('');
+    };
+
+    const handleDeleteCategory = (categoryId: string) => {
+        setList(prevList => prevList.filter(cat => cat.id !== categoryId));
+    };
+
     const calculateTotal = (items: ShoppingItem[]) => {
         return items.reduce((total, item) => total + (item.price || 0), 0);
     }
@@ -183,7 +201,42 @@ export function ShoppingList({ list, setList, onCheckChange }: ShoppingListProps
                 <CardHeader>
                     <div className="flex justify-between items-center">
                         <CardTitle className="text-lg font-headline">{category.name}</CardTitle>
-                        <span className="font-semibold text-muted-foreground">{formatCurrency(categoryTotal)}</span>
+                        <div className="flex items-center gap-2">
+                            <span className="font-semibold text-muted-foreground">{formatCurrency(categoryTotal)}</span>
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                                        <MoreVertical className="h-4 w-4" />
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                    <DropdownMenuItem onClick={() => { setRenamingCategory(category); setNewCategoryName(category.name); }}>
+                                        <Edit className="mr-2 h-4 w-4" />
+                                        Rename
+                                    </DropdownMenuItem>
+                                    <AlertDialog>
+                                        <AlertDialogTrigger asChild>
+                                            <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive focus:text-destructive">
+                                                <Trash2 className="mr-2 h-4 w-4" />
+                                                Delete
+                                            </DropdownMenuItem>
+                                        </AlertDialogTrigger>
+                                        <AlertDialogContent>
+                                            <AlertDialogHeader>
+                                                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                                <AlertDialogDescription>
+                                                    This will permanently delete the "{category.name}" category and all its items. This action cannot be undone.
+                                                </AlertDialogDescription>
+                                            </AlertDialogHeader>
+                                            <AlertDialogFooter>
+                                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                                <AlertDialogAction onClick={() => handleDeleteCategory(category.id)} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
+                                            </AlertDialogFooter>
+                                        </AlertDialogContent>
+                                    </AlertDialog>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        </div>
                     </div>
                 </CardHeader>
                 <CardContent className="space-y-3">
@@ -263,6 +316,34 @@ export function ShoppingList({ list, setList, onCheckChange }: ShoppingListProps
             </Card>
         )})}
       </div>
+
+       {renamingCategory && (
+        <Dialog open={!!renamingCategory} onOpenChange={(isOpen) => !isOpen && setRenamingCategory(null)}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Rename Category</DialogTitle>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                    <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="category-name" className="text-right">
+                            Name
+                        </Label>
+                        <Input
+                            id="category-name"
+                            value={newCategoryName}
+                            onChange={(e) => setNewCategoryName(e.target.value)}
+                            className="col-span-3"
+                            placeholder="New category name"
+                        />
+                    </div>
+                </div>
+                <DialogFooter>
+                    <Button variant="outline" onClick={() => setRenamingCategory(null)}>Cancel</Button>
+                    <Button onClick={handleRenameCategory}>Save</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+       )}
     </div>
   );
 }
