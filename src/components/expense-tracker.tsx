@@ -138,11 +138,10 @@ export function ExpenseTracker({ transactions, setTransactions, trip }: ExpenseT
             <h1 className="text-2xl font-bold font-headline text-white">
                 Expense Tracker
             </h1>
-            <p className="text-white/80">Keep an eye on your budget.</p>
         </div>
       </header>
 
-      <Card>
+      <Card className="shadow-lg">
         <CardHeader>
           <div className="flex justify-between items-start">
             <div>
@@ -184,14 +183,14 @@ export function ExpenseTracker({ transactions, setTransactions, trip }: ExpenseT
 
       <div className="space-y-2">
         <div className="flex justify-between items-center">
-            <h2 className="font-semibold font-headline text-card-foreground">Recent Transactions</h2>
+            <h2 className="font-semibold font-headline text-white">Recent Transactions</h2>
             <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
                 <DialogTrigger asChild>
                     <Button size="sm" variant="ghost" className="text-white hover:bg-white/20 hover:text-white">
                         <PlusCircle className="mr-2 h-4 w-4" /> Add
                     </Button>
                 </DialogTrigger>
-                <DialogContent>
+                <DialogContent className="shadow-lg">
                     <DialogHeader>
                         <DialogTitle>Add New Transaction</DialogTitle>
                     </DialogHeader>
@@ -213,7 +212,7 @@ export function ExpenseTracker({ transactions, setTransactions, trip }: ExpenseT
                                 <SelectTrigger className="col-span-3">
                                     <SelectValue placeholder="Select a category" />
                                 </SelectTrigger>
-                                <SelectContent>
+                                <SelectContent className="shadow-lg">
                                     {transactionCategories.map(cat => (
                                         <SelectItem key={cat} value={cat}>{cat}</SelectItem>
                                     ))}
@@ -232,7 +231,7 @@ export function ExpenseTracker({ transactions, setTransactions, trip }: ExpenseT
             const Icon = categoryIcons[t.category];
             const amount = displayCurrency === 'trip' ? t.amount : convertToHomeCurrency(t.amount);
             return (
-              <Card key={t.id} className="bg-card/80 backdrop-blur-sm border-white/20">
+              <Card key={t.id} className="bg-card/80 backdrop-blur-sm border-white/20 shadow-lg">
                 <CardContent className="flex items-center p-3 gap-3">
                   <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-secondary">
                     {Icon && <Icon className="h-5 w-5 text-secondary-foreground" />}
@@ -253,7 +252,7 @@ export function ExpenseTracker({ transactions, setTransactions, trip }: ExpenseT
                         <MoreVertical className="h-4 w-4" />
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
+                    <DropdownMenuContent align="end" className="shadow-lg">
                       <DropdownMenuItem>Edit</DropdownMenuItem>
                       <DropdownMenuItem className="text-destructive">Delete</DropdownMenuItem>
                     </DropdownMenuContent>

@@ -189,7 +189,6 @@ export function TripPlanner({ itinerary, setItinerary }: TripPlannerProps) {
                 <h1 className="text-2xl font-bold font-headline text-white">
                     Trip Itinerary
                 </h1>
-                <p className="text-white/80">Your adventure at a glance.</p>
             </div>
         </div>
         <Button onClick={handleAddDay} variant="outline">
@@ -232,7 +231,7 @@ export function TripPlanner({ itinerary, setItinerary }: TripPlannerProps) {
                           <MoreVertical className="h-4 w-4" />
                         </Button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
+                      <DropdownMenuContent align="end" className="shadow-lg">
                         <DropdownMenuItem onClick={() => handleEditClick(item)}>
                           Edit
                         </DropdownMenuItem>
@@ -288,7 +287,7 @@ export function TripPlanner({ itinerary, setItinerary }: TripPlannerProps) {
       
       {editingItem && (
         <Dialog open={!!editingItem} onOpenChange={(isOpen) => !isOpen && setEditingItem(null)}>
-            <DialogContent className="max-h-[90vh] flex flex-col">
+            <DialogContent className="max-h-[90vh] flex flex-col shadow-lg">
               <DialogHeader>
                 <DialogTitle>Edit Day {editingItem.day}</DialogTitle>
               </DialogHeader>
@@ -354,7 +353,7 @@ export function TripPlanner({ itinerary, setItinerary }: TripPlannerProps) {
                                           {iconMap[act.icon] && React.createElement(iconMap[act.icon], {className: "h-4 w-4"})}
                                       </SelectValue>
                                   </SelectTrigger>
-                                  <SelectContent>
+                                  <SelectContent className="shadow-lg">
                                       {iconOptions.map(opt => (
                                           <SelectItem key={opt.value} value={opt.value}>
                                               <div className="flex items-center gap-2">

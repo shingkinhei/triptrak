@@ -74,7 +74,7 @@ const AddCategoryDialog = ({ onAddCategory }: { onAddCategory: (name: string, ic
                     Add Category
                 </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="shadow-lg">
                 <DialogHeader>
                     <DialogTitle>Create New Category</DialogTitle>
                 </DialogHeader>
@@ -99,7 +99,7 @@ const AddCategoryDialog = ({ onAddCategory }: { onAddCategory: (name: string, ic
                             <SelectTrigger className="col-span-3">
                                 <SelectValue placeholder="Select an icon" />
                             </SelectTrigger>
-                            <SelectContent>
+                            <SelectContent className="shadow-lg">
                                 {iconOptions.map(opt => (
                                     <SelectItem key={opt.value} value={opt.value}>
                                         <div className="flex items-center gap-2">
@@ -186,15 +186,12 @@ export function ShoppingList({ list, setList, onCheckChange, trip }: ShoppingLis
                 <h1 className="text-2xl font-bold font-headline text-white">
                 Shopping List
                 </h1>
-                <p className="text-white/80">
-                Everything you need for your trip.
-                </p>
             </div>
         </div>
         <AddCategoryDialog onAddCategory={handleAddCategory} />
       </header>
 
-      <Card>
+      <Card className="shadow-lg">
         <CardHeader>
             <div className="flex justify-between items-start">
                 <div>
@@ -215,7 +212,7 @@ export function ShoppingList({ list, setList, onCheckChange, trip }: ShoppingLis
             const categoryTotalInCurrent = displayCurrency === 'trip' ? baseCategoryTotal : convertToHomeCurrency(baseCategoryTotal);
             const CategoryIcon = category.icon ? iconMap[category.icon] : ShoppingBasket;
             return (
-            <Card key={category.id} className="bg-card/80 backdrop-blur-sm border-white/20">
+            <Card key={category.id} className="bg-card/80 backdrop-blur-sm border-white/20 shadow-lg">
                 <CardHeader>
                     <div className="flex justify-between items-center">
                         <CardTitle className="text-lg font-headline text-card-foreground flex items-center gap-2">
@@ -223,14 +220,14 @@ export function ShoppingList({ list, setList, onCheckChange, trip }: ShoppingLis
                             {category.name}
                         </CardTitle>
                         <div className="flex items-center gap-2">
-                            <span className="font-semibold text-muted-foreground">{currentFormatter(categoryTotalInCurrent)}</span>
+                            <span className="font-semibold text-card-foreground">{currentFormatter(categoryTotalInCurrent)}</span>
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
                                     <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:bg-accent hover:text-accent-foreground">
                                         <MoreVertical className="h-4 w-4" />
                                     </Button>
                                 </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
+                                <DropdownMenuContent align="end" className="shadow-lg">
                                     <DropdownMenuItem onClick={() => { setRenamingCategory(category); setEditFormData({ name: category.name, icon: category.icon || 'ShoppingBasket' }); }}>
                                         <Edit className="mr-2 h-4 w-4" />
                                         Rename
@@ -242,7 +239,7 @@ export function ShoppingList({ list, setList, onCheckChange, trip }: ShoppingLis
                                                 Delete
                                             </DropdownMenuItem>
                                         </AlertDialogTrigger>
-                                        <AlertDialogContent>
+                                        <AlertDialogContent className="shadow-lg">
                                             <AlertDialogHeader>
                                                 <AlertDialogTitle>Are you sure?</AlertDialogTitle>
                                                 <AlertDialogDescription>
@@ -290,7 +287,7 @@ export function ShoppingList({ list, setList, onCheckChange, trip }: ShoppingLis
                                     </div>
                                     <div className="p-2 space-y-1">
                                         <p className={cn(
-                                            'text-sm font-medium leading-tight truncate',
+                                            'text-sm font-medium leading-tight truncate text-card-foreground',
                                             item.checked ? 'text-muted-foreground line-through' : 'text-card-foreground'
                                         )}>
                                             {item.name}
@@ -310,7 +307,7 @@ export function ShoppingList({ list, setList, onCheckChange, trip }: ShoppingLis
                                             )}
                                         </div>
                                         <p className={cn(
-                                            "text-xs font-semibold pt-1",
+                                            "text-xs font-semibold pt-1 text-card-foreground",
                                             item.checked ? 'text-muted-foreground line-through' : 'text-card-foreground'
                                         )}>
                                             {currentFormatter(itemPriceInCurrent)}
@@ -327,7 +324,7 @@ export function ShoppingList({ list, setList, onCheckChange, trip }: ShoppingLis
 
        {renamingCategory && (
         <Dialog open={!!renamingCategory} onOpenChange={(isOpen) => !isOpen && setRenamingCategory(null)}>
-            <DialogContent>
+            <DialogContent className="shadow-lg">
                 <DialogHeader>
                     <DialogTitle>Edit Category</DialogTitle>
                 </DialogHeader>
@@ -352,7 +349,7 @@ export function ShoppingList({ list, setList, onCheckChange, trip }: ShoppingLis
                             <SelectTrigger id="category-icon-edit" className="col-span-3">
                                 <SelectValue placeholder="Select an icon" />
                             </SelectTrigger>
-                            <SelectContent>
+                            <SelectContent className="shadow-lg">
                                 {iconOptions.map(opt => (
                                     <SelectItem key={opt.value} value={opt.value}>
                                         <div className="flex items-center gap-2">

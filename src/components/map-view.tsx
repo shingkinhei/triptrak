@@ -35,7 +35,6 @@ export function MapView({ locations }: MapViewProps) {
             <h1 className="text-2xl font-bold font-headline text-white">
             Trip Map
             </h1>
-            <p className="text-white/80">Your points of interest.</p>
         </div>
       </header>
       <div className="flex-grow rounded-xl overflow-hidden border border-border">
