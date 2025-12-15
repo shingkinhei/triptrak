@@ -156,14 +156,13 @@ const CurrencySelector = () => {
 };
 
 export default function TripDetailsPage({ params }: TripDetailsPageProps) {
-  const { tripId } = params;
   const [trip, setTrip] = useState<Trip | undefined>();
   const router = useRouter();
 
   useEffect(() => {
-    const foundTrip = mockTrips.find(t => t.id === tripId);
+    const foundTrip = mockTrips.find(t => t.id === params.tripId);
     setTrip(foundTrip);
-  }, [tripId]);
+  }, [params.tripId]);
 
   if (!trip) {
     return (
