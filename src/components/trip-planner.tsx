@@ -173,6 +173,13 @@ export function TripPlanner() {
     }
   };
 
+  const handleDialogClose = (open: boolean) => {
+    setIsEditDialogOpen(open);
+    if (!open) {
+      setEditingItem(null);
+    }
+  };
+
   const handleFieldChange = (field: keyof ItineraryItem, value: string) => {
     if (editingItem) {
       setEditingItem({ ...editingItem, [field]: value });
@@ -290,7 +297,7 @@ export function TripPlanner() {
       </Accordion>
       
       {editingItem && (
-        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <Dialog open={isEditDialogOpen} onOpenChange={handleDialogClose}>
           <DialogContent className="max-h-[90vh] flex flex-col">
             <DialogHeader>
               <DialogTitle>Edit Day {editingItem.day}</DialogTitle>
