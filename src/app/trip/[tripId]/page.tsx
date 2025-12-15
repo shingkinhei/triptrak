@@ -36,6 +36,7 @@ interface NewItemInput {
     name: string;
     price: string;
     categoryId: string;
+    store: string;
     file: File | null;
     previewUrl?: string;
 }
@@ -48,9 +49,6 @@ interface TabContentProps {
 }
 
 const TabContent: FC<TabContentProps> = ({ trip, setTrip, activeTab, setActiveTab }) => {
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [newItem, setNewItem] = useState<NewItemInput>({ name: '', price: '', categoryId: '', file: null, previewUrl: '' });
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const { tripCurrency } = useCurrency();
 
   const handleShoppingItemCheck = (
@@ -138,45 +136,6 @@ const TabContent: FC<TabContentProps> = ({ trip, setTrip, activeTab, setActiveTa
     });
   };
 
-  const handleInputChange = (field: keyof NewItemInput, value: string | File | null) => {
-    if (field === 'file' && value instanceof File) {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-            setNewItem(prev => ({ ...prev, file: value, previewUrl: reader.result as string }));
-        }
-        reader.readAsDataURL(value);
-    } else {
-        setNewItem(prev => ({ ...prev, [field]: value as string }));
-    }
-  };
-
-  const handleAddItem = () => {
-      if (!newItem.name.trim() || !newItem.categoryId) return;
-
-      const newItemData: ShoppingItem = {
-          id: new Date().toISOString(),
-          name: newItem.name.trim(),
-          checked: false,
-          price: parseFloat(newItem.price) || 0,
-          imageUrl: newItem.previewUrl || `https://picsum.photos/seed/${newItem.name.trim()}/100/100`
-      };
-
-      setShoppingList(prevList =>
-          prevList.map(category =>
-            category.id === newItem.categoryId
-              ? {
-                  ...category,
-                  items: [...category.items, newItemData],
-                }
-              : category
-          )
-      );
-      
-      setNewItem({ name: '', price: '', categoryId: '', file: null, previewUrl: '' });
-      setIsAddDialogOpen(false);
-  }
-
-
   const componentProps = {
     planner: {
       itinerary: trip.itinerary,
@@ -227,67 +186,7 @@ const TabContent: FC<TabContentProps> = ({ trip, setTrip, activeTab, setActiveTa
           </motion.div>
         </AnimatePresence>
       </div>
-
-       {activeTab === 'shopping' && (
-        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-            <DialogTrigger asChild>
-                 <Button className="absolute bottom-20 right-8 h-16 w-16 rounded-full shadow-lg z-20">
-                    <PlusCircle className="h-8 w-8" />
-                </Button>
-            </DialogTrigger>
-            <DialogContent>
-                <DialogHeader>
-                    <DialogTitle>Add New Shopping Item</DialogTitle>
-                </DialogHeader>
-                <div className="grid gap-4 py-4">
-                    <div className="space-y-2">
-                        <Label htmlFor="item-name">Item Name</Label>
-                        <Input id="item-name" value={newItem.name} onChange={(e) => handleInputChange('name', e.target.value)} placeholder="e.g. Japanese KitKats" />
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="item-price">Price ({tripCurrency})</Label>
-                        <Input id="item-price" type="number" value={newItem.price} onChange={(e) => handleInputChange('price', e.target.value)} placeholder="e.g. 15.00" />
-                    </div>
-                     <div className="space-y-2">
-                        <Label htmlFor="item-category">Category</Label>
-                        <Select value={newItem.categoryId} onValueChange={(value) => handleInputChange('categoryId', value)}>
-                            <SelectTrigger id="item-category">
-                                <SelectValue placeholder="Select a category" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {trip.shoppingList.map(cat => (
-                                    <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
-                    <div className="space-y-2">
-                        <Label>Image (Optional)</Label>
-                        <div className="flex items-center gap-4">
-                            {newItem.previewUrl && <Image src={newItem.previewUrl} alt="preview" width={60} height={60} className="rounded-md object-cover" />}
-                            <Input 
-                                type="file" 
-                                accept="image/*" 
-                                ref={fileInputRef} 
-                                onChange={(e) => handleInputChange('file', e.target.files ? e.target.files[0] : null)}
-                                className="hidden"
-                            />
-                            <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
-                                <Camera className="mr-2 h-4 w-4" />
-                                Upload
-                            </Button>
-                        </div>
-                    </div>
-                </div>
-                <DialogFooter>
-                    <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>Cancel</Button>
-                    <Button onClick={handleAddItem}>Add Item</Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
-      )}
-
-      <BottomNav activeItem={activeTab} setActiveTab={setActiveTab} isLightMode={true} />
+      <BottomNav activeItem={activeTab} setActiveTab={setActiveTab} />
     </>
   );
 };
@@ -297,7 +196,11 @@ export default function TripDetailsPage({ params }: TripDetailsPageProps) {
   const [trip, setTrip] = useState<Trip | undefined>();
   const [activeTab, setActiveTab] = useState<Tab>('planner');
   const router = useRouter();
-  const { setTripCurrencyFromCountry } = useCurrency();
+  const { setTripCurrencyFromCountry, tripCurrency } = useCurrency();
+
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [newItem, setNewItem] = useState<NewItemInput>({ name: '', price: '', categoryId: '', store: '', file: null, previewUrl: '' });
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     const foundTrip = mockTrips.find((t) => t.id === resolvedParams.tripId);
@@ -315,11 +218,65 @@ export default function TripDetailsPage({ params }: TripDetailsPageProps) {
     );
   }
 
+  const setShoppingList = (
+    updater: React.SetStateAction<ShoppingCategory[]>
+  ) => {
+    setTrip((currentTrip) => {
+      if (!currentTrip) return undefined;
+      const newShoppingList =
+        typeof updater === 'function'
+          ? updater(currentTrip.shoppingList)
+          : updater;
+      return { ...currentTrip, shoppingList: newShoppingList };
+    });
+  };
+
+  const handleInputChange = (field: keyof NewItemInput, value: string | File | null) => {
+    if (field === 'file' && value instanceof File) {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            setNewItem(prev => ({ ...prev, file: value, previewUrl: reader.result as string }));
+        }
+        reader.readAsDataURL(value);
+    } else {
+        setNewItem(prev => ({ ...prev, [field]: value as string }));
+    }
+  };
+
+  const handleAddItem = () => {
+      if (!newItem.name.trim() || !newItem.categoryId) return;
+
+      const newItemData: ShoppingItem = {
+          id: new Date().toISOString(),
+          name: newItem.name.trim(),
+          checked: false,
+          price: parseFloat(newItem.price) || 0,
+          imageUrl: newItem.previewUrl || `https://picsum.photos/seed/${newItem.name.trim()}/100/100`,
+          store: newItem.store,
+      };
+
+      setShoppingList(prevList =>
+          prevList.map(category =>
+            category.id === newItem.categoryId
+              ? {
+                  ...category,
+                  items: [...category.items, newItemData],
+                }
+              : category
+          )
+      );
+      
+      setNewItem({ name: '', price: '', categoryId: '', store: '', file: null, previewUrl: '' });
+      setIsAddDialogOpen(false);
+  }
+
+  const itineraryLocations = trip.itinerary.map(i => i.title.replace(/arrival in |exploring |day trip to /i, ''));
+
+
   return (
     <main className="bg-muted flex min-h-screen items-center justify-center p-4 font-body">
       <div
-        className="relative mx-auto h-[800px] w-full max-w-sm max-h-[90vh] rounded-[48px] border-8 border-black bg-cover bg-center shadow-2xl overflow-hidden"
-        style={{ backgroundImage: `url(${trip.imageUrl})` }}
+        className="relative mx-auto h-[800px] w-full max-w-sm max-h-[90vh] rounded-[48px] border-8 border-black bg-background shadow-2xl overflow-hidden"
       >
         <div className="absolute inset-0 bg-background/80 z-0" />
         <div className="relative z-10 h-full flex flex-col">
@@ -330,6 +287,78 @@ export default function TripDetailsPage({ params }: TripDetailsPageProps) {
             <div className="flex h-full flex-col pt-7">
               <TabContent trip={trip} setTrip={setTrip} activeTab={activeTab} setActiveTab={setActiveTab} />
             </div>
+
+            {activeTab === 'shopping' && (
+              <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+                  <DialogTrigger asChild>
+                      <Button className="absolute bottom-20 right-8 h-16 w-16 rounded-full shadow-lg z-20">
+                          <PlusCircle className="h-8 w-8" />
+                      </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                      <DialogHeader>
+                          <DialogTitle>Add New Shopping Item</DialogTitle>
+                      </DialogHeader>
+                      <div className="grid gap-4 py-4">
+                          <div className="space-y-2">
+                              <Label htmlFor="item-name">Item Name</Label>
+                              <Input id="item-name" value={newItem.name} onChange={(e) => handleInputChange('name', e.target.value)} placeholder="e.g. Japanese KitKats" />
+                          </div>
+                          <div className="space-y-2">
+                              <Label htmlFor="item-price">Price ({tripCurrency})</Label>
+                              <Input id="item-price" type="number" value={newItem.price} onChange={(e) => handleInputChange('price', e.target.value)} placeholder="e.g. 15.00" />
+                          </div>
+                          <div className="space-y-2">
+                              <Label htmlFor="item-category">Category</Label>
+                              <Select value={newItem.categoryId} onValueChange={(value) => handleInputChange('categoryId', value)}>
+                                  <SelectTrigger id="item-category">
+                                      <SelectValue placeholder="Select a category" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                      {trip.shoppingList.map(cat => (
+                                          <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+                                      ))}
+                                  </SelectContent>
+                              </Select>
+                          </div>
+                          <div className="space-y-2">
+                              <Label htmlFor="item-store">Store / Location</Label>
+                              <Select value={newItem.store} onValueChange={(value) => handleInputChange('store', value)}>
+                                  <SelectTrigger id="item-store">
+                                      <SelectValue placeholder="Select a store" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                      {[...new Set(itineraryLocations)].map(loc => (
+                                          <SelectItem key={loc} value={loc}>{loc}</SelectItem>
+                                      ))}
+                                  </SelectContent>
+                              </Select>
+                          </div>
+                          <div className="space-y-2">
+                              <Label>Image (Optional)</Label>
+                              <div className="flex items-center gap-4">
+                                  {newItem.previewUrl && <Image src={newItem.previewUrl} alt="preview" width={60} height={60} className="rounded-md object-cover" />}
+                                  <Input 
+                                      type="file" 
+                                      accept="image/*" 
+                                      ref={fileInputRef} 
+                                      onChange={(e) => handleInputChange('file', e.target.files ? e.target.files[0] : null)}
+                                      className="hidden"
+                                  />
+                                  <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
+                                      <Camera className="mr-2 h-4 w-4" />
+                                      Upload
+                                  </Button>
+                              </div>
+                          </div>
+                      </div>
+                      <DialogFooter>
+                          <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>Cancel</Button>
+                          <Button onClick={handleAddItem}>Add Item</Button>
+                      </DialogFooter>
+                  </DialogContent>
+              </Dialog>
+            )}
         </div>
       </div>
     </main>

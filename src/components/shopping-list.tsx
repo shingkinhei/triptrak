@@ -12,7 +12,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
-import { ListPlus, MoreVertical, Edit, Trash2, Repeat, Gift, Home, Plane, Shirt, ShoppingBasket, UtensilsCrossed, Luggage, type LucideIcon } from 'lucide-react';
+import { ListPlus, MoreVertical, Edit, Trash2, Repeat, Gift, Home, Plane, Shirt, ShoppingBasket, UtensilsCrossed, Luggage, type LucideIcon, Store } from 'lucide-react';
 import Image from 'next/image';
 import { useCurrency } from '@/context/CurrencyContext';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from './ui/dialog';
@@ -191,7 +191,7 @@ export function ShoppingList({ list, setList, onCheckChange, trip }: ShoppingLis
                 </div>
                  <Button variant="outline" size="sm" onClick={toggleCurrency}>
                     <Repeat className="h-4 w-4 mr-2" />
-                     {displayCurrency === 'trip' ? (
+                    {displayCurrency === 'trip' ? (
                         <span>{tripCurrency} &harr; {homeCurrency}</span>
                     ) : (
                         <span>{homeCurrency} &harr; {tripCurrency}</span>
@@ -287,8 +287,14 @@ export function ShoppingList({ list, setList, onCheckChange, trip }: ShoppingLis
                                         )}>
                                             {item.name}
                                         </p>
+                                        {item.store && (
+                                            <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
+                                                <Store className="h-3 w-3" />
+                                                <span>{item.store}</span>
+                                            </div>
+                                        )}
                                         <p className={cn(
-                                            "text-xs font-semibold",
+                                            "text-xs font-semibold mt-1",
                                             item.checked ? 'text-muted-foreground line-through' : 'text-foreground'
                                         )}>
                                             {currentFormatter(itemPriceInCurrent)}

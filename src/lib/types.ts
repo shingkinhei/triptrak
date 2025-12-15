@@ -35,6 +35,7 @@ export type ShoppingItem = {
   checked: boolean;
   imageUrl?: string;
   price?: number;
+  store?: string;
 };
 
 export type ShoppingCategory = {
