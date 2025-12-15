@@ -7,7 +7,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import type { ItineraryItem, Activity, UserPhoto } from '@/lib/types';
 import {
   BedDouble,
@@ -26,6 +26,7 @@ import {
   Mountain,
   Building,
   ArrowLeft,
+  CheckCircle2,
 } from 'lucide-react';
 import { Button } from './ui/button';
 import {
@@ -47,6 +48,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { WeatherCard } from './weather-card';
 import { Textarea } from './ui/textarea';
 import { useRouter } from 'next/navigation';
+import { Checkbox } from './ui/checkbox';
+import { cn } from '@/lib/utils';
 
 const iconMap: Record<string, LucideIcon> = {
   Plane,
@@ -75,6 +78,54 @@ interface TripPlannerProps {
   setItinerary: React.Dispatch<React.SetStateAction<ItineraryItem[]>>;
 }
 
+const preTripChecklistItems = [
+    { id: 'check-flights', label: 'Confirm flights and check-in times' },
+    { id: 'check-documents', label: 'Save digital copies of tickets & documents' },
+    { id: 'check-passport', label: 'Check passport and visa requirements' },
+    { id: 'check-roaming', label: 'Activate international roaming or get a local SIM' },
+    { id: 'check-banks', label: 'Notify banks of your travel plans' },
+    { id: 'check-meds', label: 'Pack essential medications and first-aid kit' },
+];
+
+const PreTripChecklist = () => {
+    const [checkedItems, setCheckedItems] = useState<Record<string, boolean>>({});
+    const handleCheckChange = (id: string, checked: boolean) => {
+        setCheckedItems(prev => ({...prev, [id]: checked}));
+    };
+    return (
+        <Card className="shadow-lg">
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-lg font-headline">
+                    <CheckCircle2 className="h-5 w-5 text-primary" />
+                    Pre-Trip Checklist
+                </CardTitle>
+            </CardHeader>
+            <CardContent>
+                <div className="space-y-3">
+                    {preTripChecklistItems.map(item => (
+                        <div key={item.id} className="flex items-center gap-3">
+                            <Checkbox 
+                                id={item.id} 
+                                onCheckedChange={(checked) => handleCheckChange(item.id, !!checked)}
+                                checked={checkedItems[item.id] || false}
+                            />
+                            <Label 
+                                htmlFor={item.id}
+                                className={cn(
+                                    "text-sm font-normal text-card-foreground transition-colors",
+                                    checkedItems[item.id] && "text-muted-foreground line-through"
+                                )}
+                            >
+                                {item.label}
+                            </Label>
+                        </div>
+                    ))}
+                </div>
+            </CardContent>
+        </Card>
+    )
+}
+
 export function TripPlanner({ itinerary, setItinerary }: TripPlannerProps) {
   const [editingItem, setEditingItem] = useState<ItineraryItem | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -94,14 +145,13 @@ export function TripPlanner({ itinerary, setItinerary }: TripPlannerProps) {
   const handleSave = () => {
     if (editingItem) {
       setItinerary(itinerary.map(item => item.day === editingItem.day ? editingItem : item));
-      setEditingItem(null);
-      setIsEditDialogOpen(false);
+      handleCancelEdit();
     }
   };
 
   const handleCancelEdit = () => {
-    setEditingItem(null);
     setIsEditDialogOpen(false);
+    setEditingItem(null);
   }
 
   const handleFieldChange = (field: keyof Omit<ItineraryItem, 'activities' | 'userPhotos'>, value: string) => {
@@ -202,6 +252,8 @@ export function TripPlanner({ itinerary, setItinerary }: TripPlannerProps) {
         </Button>
       </header>
 
+      <PreTripChecklist />
+
       {activeItineraryItem && <WeatherCard location={activeItineraryItem.title.replace(/arrival in |exploring |day trip to /i, '')} />}
 
       <Accordion type="single" collapsible defaultValue="item-0" value={activeDay} onValueChange={setActiveDay} className="w-full space-y-4">
@@ -291,116 +343,116 @@ export function TripPlanner({ itinerary, setItinerary }: TripPlannerProps) {
         })}
       </Accordion>
       
-      <Dialog open={isEditDialogOpen} onOpenChange={(open) => { if (!open) handleCancelEdit(); }}>
-          <DialogContent className="max-h-[90vh] flex flex-col shadow-lg">
-            {editingItem && (
-              <>
-                <DialogHeader>
-                  <DialogTitle>Edit Day {editingItem.day}</DialogTitle>
-                </DialogHeader>
-                <div className="flex-grow overflow-y-auto pr-6 -mr-6 space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="title">Title</Label>
-                    <Input id="title" value={editingItem.title} onChange={(e) => handleFieldChange('title', e.target.value)} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="date">Date</Label>
-                    <Input id="date" type="date" value={editingItem.date} onChange={(e) => handleFieldChange('date', e.target.value)} />
-                  </div>
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="max-h-[90vh] flex flex-col shadow-lg">
+          {editingItem && (
+            <>
+              <DialogHeader>
+                <DialogTitle>Edit Day {editingItem.day}</DialogTitle>
+              </DialogHeader>
+              <div className="flex-grow overflow-y-auto pr-6 -mr-6 space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="title">Title</Label>
+                  <Input id="title" value={editingItem.title} onChange={(e) => handleFieldChange('title', e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="date">Date</Label>
+                  <Input id="date" type="date" value={editingItem.date} onChange={(e) => handleFieldChange('date', e.target.value)} />
+                </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="remarks">Remarks</Label>
-                    <Textarea id="remarks" value={editingItem.remarks || ''} onChange={(e) => handleFieldChange('remarks', e.target.value)} placeholder="Write your feelings or reflections..."/>
-                  </div>
+                <div className="space-y-2">
+                  <Label htmlFor="remarks">Remarks</Label>
+                  <Textarea id="remarks" value={editingItem.remarks || ''} onChange={(e) => handleFieldChange('remarks', e.target.value)} placeholder="Write your feelings or reflections..."/>
+                </div>
 
-                  <div className="space-y-2">
-                    <Label>Your Photos</Label>
-                    <Input 
-                        type="file" 
-                        accept="image/*" 
-                        multiple 
-                        ref={photoInputRef}
-                        onChange={handlePhotoUpload}
-                        className="hidden"
-                    />
-                    <div className="grid grid-cols-3 gap-2">
-                      {(editingItem.userPhotos || []).map((photo) => (
-                        <div key={photo.id} className="relative aspect-square">
-                          <Image src={photo.url} alt="User upload" fill className="rounded-md object-cover" />
-                          <Button
-                            variant="destructive"
-                            size="icon"
-                            className="absolute top-1 right-1 h-6 w-6 z-10"
-                            onClick={() => handleDeletePhoto(photo.id)}
-                          >
-                            <X className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      ))}
-                      <Button variant="outline" className="aspect-square flex-col gap-1" onClick={() => photoInputRef.current?.click()}>
-                          <Upload className="h-6 w-6" />
-                          <span className="text-xs">Upload</span>
-                      </Button>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center">
-                      <h3 className="text-lg font-semibold">Activities</h3>
-                      <Button variant="ghost" size="sm" onClick={handleAddActivity}><PlusCircle className="mr-2 h-4 w-4"/>Add Activity</Button>
-                    </div>
-                    <div className="space-y-4">
-                      {editingItem.activities.map((act) => (
-                        <div key={act.id} className="flex items-center gap-2 p-2 border rounded-lg">
-                          <div className="grid gap-2 flex-grow">
-                            <div className="flex items-center gap-2">
-                                <Select value={act.icon} onValueChange={(val) => handleActivityChange(act.id, 'icon', val)}>
-                                    <SelectTrigger className="w-16 h-8">
-                                        <SelectValue>
-                                            {iconMap[act.icon] && React.createElement(iconMap[act.icon], {className: "h-4 w-4"})}
-                                        </SelectValue>
-                                    </SelectTrigger>
-                                    <SelectContent className="shadow-lg">
-                                        {iconOptions.map(opt => (
-                                            <SelectItem key={opt.value} value={opt.value}>
-                                                <div className="flex items-center gap-2">
-                                                    {React.createElement(iconMap[opt.value], {className: "h-4 w-4"})}
-                                                    <span>{opt.label}</span>
-                                                </div>
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                              <Input
-                                type="time"
-                                value={act.time}
-                                onChange={(e) => handleActivityChange(act.id, 'time', e.target.value)}
-                                className="w-24 h-8"
-                              />
-                            </div>
-                            <Input
-                              value={act.description}
-                              onChange={(e) => handleActivityChange(act.id, 'description', e.target.value)}
-                              placeholder="Activity description"
-                              className="h-8"
-                            />
-                          </div>
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDeleteActivity(act.id)}>
-                            <Trash2 className="h-4 w-4 text-destructive"/>
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
+                <div className="space-y-2">
+                  <Label>Your Photos</Label>
+                  <Input 
+                      type="file" 
+                      accept="image/*" 
+                      multiple 
+                      ref={photoInputRef}
+                      onChange={handlePhotoUpload}
+                      className="hidden"
+                  />
+                  <div className="grid grid-cols-3 gap-2">
+                    {(editingItem.userPhotos || []).map((photo) => (
+                      <div key={photo.id} className="relative aspect-square">
+                        <Image src={photo.url} alt="User upload" fill className="rounded-md object-cover" />
+                        <Button
+                          variant="destructive"
+                          size="icon"
+                          className="absolute top-1 right-1 h-6 w-6 z-10"
+                          onClick={() => handleDeletePhoto(photo.id)}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                    <Button variant="outline" className="aspect-square flex-col gap-1" onClick={() => photoInputRef.current?.click()}>
+                        <Upload className="h-6 w-6" />
+                        <span className="text-xs">Upload</span>
+                    </Button>
                   </div>
                 </div>
-                <DialogFooter>
-                    <Button variant="outline" onClick={handleCancelEdit}>Cancel</Button>
-                  <Button onClick={handleSave}>Save Changes</Button>
-                </DialogFooter>
-              </>
-            )}
-          </DialogContent>
-        </Dialog>
+
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <h3 className="text-lg font-semibold">Activities</h3>
+                    <Button variant="ghost" size="sm" onClick={handleAddActivity}><PlusCircle className="mr-2 h-4 w-4"/>Add Activity</Button>
+                  </div>
+                  <div className="space-y-4">
+                    {editingItem.activities.map((act) => (
+                      <div key={act.id} className="flex items-center gap-2 p-2 border rounded-lg">
+                        <div className="grid gap-2 flex-grow">
+                          <div className="flex items-center gap-2">
+                              <Select value={act.icon} onValueChange={(val) => handleActivityChange(act.id, 'icon', val)}>
+                                  <SelectTrigger className="w-16 h-8">
+                                      <SelectValue>
+                                          {iconMap[act.icon] && React.createElement(iconMap[act.icon], {className: "h-4 w-4"})}
+                                      </SelectValue>
+                                  </SelectTrigger>
+                                  <SelectContent className="shadow-lg">
+                                      {iconOptions.map(opt => (
+                                          <SelectItem key={opt.value} value={opt.value}>
+                                              <div className="flex items-center gap-2">
+                                                  {React.createElement(iconMap[opt.value], {className: "h-4 w-4"})}
+                                                  <span>{opt.label}</span>
+                                              </div>
+                                          </SelectItem>
+                                      ))}
+                                  </SelectContent>
+                              </Select>
+                            <Input
+                              type="time"
+                              value={act.time}
+                              onChange={(e) => handleActivityChange(act.id, 'time', e.target.value)}
+                              className="w-24 h-8"
+                            />
+                          </div>
+                          <Input
+                            value={act.description}
+                            onChange={(e) => handleActivityChange(act.id, 'description', e.target.value)}
+                            placeholder="Activity description"
+                            className="h-8"
+                          />
+                        </div>
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDeleteActivity(act.id)}>
+                          <Trash2 className="h-4 w-4 text-destructive"/>
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <DialogFooter>
+                  <Button variant="outline" onClick={handleCancelEdit}>Cancel</Button>
+                <Button onClick={handleSave}>Save Changes</Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
