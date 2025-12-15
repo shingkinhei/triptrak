@@ -124,14 +124,14 @@ const PreTripChecklist = ({ checklist, setChecklist }: { checklist: ChecklistIte
     };
 
     return (
-        <Card className="shadow-lg">
+        <Card className="bg-card/80 backdrop-blur-sm border-white/20 shadow-lg">
             <CardHeader>
                 <div className="flex items-center justify-between">
-                    <CardTitle className="flex items-center gap-2 text-lg font-headline">
+                    <CardTitle className="flex items-center gap-2 text-lg font-headline text-card-foreground">
                         <CheckCircle2 className="h-5 w-5 text-primary" />
                         Pre-Trip Checklist
                     </CardTitle>
-                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleEditClick}>
+                     <Button variant="ghost" size="icon" className="h-8 w-8 text-card-foreground" onClick={handleEditClick}>
                         <Edit className="h-4 w-4" />
                         <span className="sr-only">Edit Checklist</span>
                     </Button>
@@ -337,7 +337,7 @@ export function TripPlanner({ itinerary, setItinerary, checklist, setChecklist }
                 Trip Itinerary
             </h1>
         </div>
-        <Button onClick={handleAddDay} variant="outline">
+        <Button onClick={handleAddDay} variant="outline" className="bg-white/10 border-white/20 text-white hover:bg-white/20 hover:text-white">
           <PlusCircle className="mr-2 h-4 w-4" /> Add Day
         </Button>
       </header>
@@ -346,9 +346,8 @@ export function TripPlanner({ itinerary, setItinerary, checklist, setChecklist }
         <div className="flex space-x-2 pb-2">
           <Button
             variant={activeView === 'checklist' ? 'default' : 'outline'}
-            size="sm"
             onClick={() => setActiveView('checklist')}
-            className="shrink-0"
+            className={cn("shrink-0", activeView !== 'checklist' && 'bg-white/10 border-white/20 text-white hover:bg-white/20 hover:text-white')}
           >
             Checklist
           </Button>
@@ -356,9 +355,8 @@ export function TripPlanner({ itinerary, setItinerary, checklist, setChecklist }
             <Button
               key={item.day}
               variant={activeView === `day-${item.day}` ? 'default' : 'outline'}
-              size="sm"
               onClick={() => setActiveView(`day-${item.day}`)}
-              className="shrink-0"
+              className={cn("shrink-0", activeView !== `day-${item.day}` && 'bg-white/10 border-white/20 text-white hover:bg-white/20 hover:text-white')}
             >
               Day {item.day}
             </Button>
