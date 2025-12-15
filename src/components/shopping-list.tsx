@@ -1,6 +1,6 @@
 'use client';
 import { useRef, useState } from 'react';
-import type { ShoppingCategory, ShoppingItem } from '@/lib/types';
+import type { ShoppingCategory, ShoppingItem, Trip } from '@/lib/types';
 import {
   Card,
   CardContent,
@@ -24,6 +24,7 @@ interface ShoppingListProps {
   list: ShoppingCategory[];
   setList: React.Dispatch<React.SetStateAction<ShoppingCategory[]>>;
   onCheckChange: (categoryId: string, itemId: string, checked: boolean) => void;
+  trip: Trip;
 }
 
 interface NewItemInputs {
@@ -82,10 +83,10 @@ const AddCategoryDialog = ({ onAddCategory }: { onAddCategory: (name: string) =>
     );
 };
 
-export function ShoppingList({ list, setList, onCheckChange }: ShoppingListProps) {
+export function ShoppingList({ list, setList, onCheckChange, trip }: ShoppingListProps) {
     const [newItems, setNewItems] = useState<NewItemInputs>({});
     const fileInputRefs = useRef<{[key: string]: HTMLInputElement | null}>({});
-    const { currency, rate, formatCurrency } = useCurrency();
+    const { tripCurrency, tripRate, formatCurrency } = useCurrency();
     const [renamingCategory, setRenamingCategory] = useState<ShoppingCategory | null>(null);
     const [newCategoryName, setNewCategoryName] = useState('');
 
@@ -170,7 +171,7 @@ export function ShoppingList({ list, setList, onCheckChange }: ShoppingListProps
         return items.reduce((total, item) => total + (item.price || 0), 0);
     }
 
-    const grandTotal = list.reduce((total, category) => total + calculateTotal(category.items), 0) * rate;
+    const grandTotal = list.reduce((total, category) => total + calculateTotal(category.items), 0) * tripRate;
 
   return (
     <div className="space-y-4 text-white">
@@ -188,14 +189,14 @@ export function ShoppingList({ list, setList, onCheckChange }: ShoppingListProps
 
       <Card className="bg-white/10 border-white/20 text-white">
         <CardHeader>
-          <CardDescription className="text-primary-foreground/80">Grand Total ({currency})</CardDescription>
+          <CardDescription className="text-primary-foreground/80">Grand Total ({tripCurrency})</CardDescription>
           <CardTitle>{formatCurrency(grandTotal)}</CardTitle>
         </CardHeader>
       </Card>
 
       <div className="space-y-4">
         {list.map(category => {
-            const categoryTotal = calculateTotal(category.items) * rate;
+            const categoryTotal = calculateTotal(category.items) * tripRate;
             return (
             <Card key={category.id} className="bg-white/10 border-white/20 text-white">
                 <CardHeader>
@@ -270,7 +271,7 @@ export function ShoppingList({ list, setList, onCheckChange }: ShoppingListProps
                                 {item.name}
                             </label>
                             <div className={cn("text-sm font-semibold", item.checked ? 'text-primary-foreground/50 line-through' : 'text-primary-foreground')}>
-                                {formatCurrency((item.price || 0) * rate)}
+                                {formatCurrency((item.price || 0) * tripRate)}
                             </div>
                         </div>
                     ))}
@@ -290,7 +291,7 @@ export function ShoppingList({ list, setList, onCheckChange }: ShoppingListProps
                                 <DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                                 <Input 
                                     type="number"
-                                    placeholder="Price" 
+                                    placeholder="Price (USD)" 
                                     className="h-9 pl-7 w-full bg-transparent"
                                     value={newItems[category.id]?.price || ''}
                                     onKeyDown={(e) => e.key === 'Enter' && handleAddItem(category.id)}

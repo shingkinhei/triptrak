@@ -20,7 +20,7 @@ import {
 } from '@/components/ui/card';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart';
 
-import type { Transaction, TransactionCategory } from '@/lib/types';
+import type { Transaction, TransactionCategory, Trip } from '@/lib/types';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -36,6 +36,7 @@ import { useCurrency } from '@/context/CurrencyContext';
 interface ExpenseTrackerProps {
   transactions: Transaction[];
   setTransactions: React.Dispatch<React.SetStateAction<Transaction[]>>;
+  trip: Trip;
 }
 
 const transactionCategories: TransactionCategory[] = ['Food', 'Transport', 'Shopping', 'Accommodation', 'Other'];
@@ -67,7 +68,7 @@ const chartConfig = {
   },
 } satisfies ChartConfig;
 
-export function ExpenseTracker({ transactions, setTransactions }: ExpenseTrackerProps) {
+export function ExpenseTracker({ transactions, setTransactions, trip }: ExpenseTrackerProps) {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [newTransaction, setNewTransaction] = useState<{name: string, category: TransactionCategory | '', amount: string}>({
     name: '',
@@ -75,10 +76,13 @@ export function ExpenseTracker({ transactions, setTransactions }: ExpenseTracker
     amount: '',
   });
 
-  const { currency, rate, formatCurrency } = useCurrency();
+  const { tripCurrency, tripRate, formatCurrency, homeCurrency, convertToHomeCurrency, formatHomeCurrency } = useCurrency();
 
-  const totalExpenses = transactions.reduce((sum, t) => sum + t.amount, 0) * rate;
-  const chartData = getChartData(transactions, rate);
+  const totalExpenses = transactions.reduce((sum, t) => sum + t.amount, 0);
+  const totalExpensesInTripCurrency = totalExpenses * tripRate;
+  const totalExpensesInHomeCurrency = convertToHomeCurrency(totalExpenses);
+
+  const chartData = getChartData(transactions, tripRate);
 
   const handleAddTransaction = () => {
     if (!newTransaction.name || !newTransaction.category || !newTransaction.amount) {
@@ -107,8 +111,16 @@ export function ExpenseTracker({ transactions, setTransactions }: ExpenseTracker
 
       <Card className="bg-white/10 border-white/20 text-white">
         <CardHeader>
-          <CardDescription className="text-primary-foreground/80">Total Expenses ({currency})</CardDescription>
-          <CardTitle>{formatCurrency(totalExpenses)}</CardTitle>
+          <div className="flex justify-between items-start">
+            <div>
+              <CardDescription className="text-primary-foreground/80">Total Expenses ({tripCurrency})</CardDescription>
+              <CardTitle>{formatCurrency(totalExpensesInTripCurrency)}</CardTitle>
+            </div>
+            <div className="text-right">
+              <CardDescription className="text-primary-foreground/80">In {homeCurrency}</CardDescription>
+              <CardTitle className="text-lg">{formatHomeCurrency(totalExpensesInHomeCurrency)}</CardTitle>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           <ChartContainer config={chartConfig} className="h-[150px] w-full">
@@ -197,7 +209,7 @@ export function ExpenseTracker({ transactions, setTransactions }: ExpenseTracker
                   </div>
                   <div className="text-right">
                     <p className="font-bold text-lg text-primary-foreground">
-                      -{formatCurrency(t.amount * rate)}
+                      -{formatCurrency(t.amount * tripRate)}
                     </p>
                     <p className="text-sm text-primary-foreground/80">{t.date}</p>
                   </div>

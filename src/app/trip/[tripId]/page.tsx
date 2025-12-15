@@ -2,7 +2,7 @@
 import type { FC } from 'react';
 import { useState, useEffect, use } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Globe, ArrowLeft } from 'lucide-react';
+import { Globe, ArrowLeft, Settings } from 'lucide-react';
 
 import { BottomNav, type Tab } from '@/components/bottom-nav';
 import { ExpenseTracker } from '@/components/expense-tracker';
@@ -144,11 +144,12 @@ const TabContent: FC<TabContentProps> = ({ trip, setTrip }) => {
         name: i.title,
       })),
     }, // Example, needs real coordinates
-    expenses: { transactions: trip.transactions, setTransactions },
+    expenses: { transactions: trip.transactions, setTransactions, trip },
     shopping: {
       list: trip.shoppingList,
       setList: setShoppingList,
       onCheckChange: handleShoppingItemCheck,
+      trip: trip
     },
   };
 
@@ -176,12 +177,12 @@ const TabContent: FC<TabContentProps> = ({ trip, setTrip }) => {
 };
 
 const CurrencySelector = () => {
-  const { currency, setCurrency, rates } = useCurrency();
+  const { tripCurrency, setTripCurrency, rates } = useCurrency();
   return (
     <div className="absolute top-2 right-2 z-20">
       <Select
-        value={currency}
-        onValueChange={(value) => setCurrency(value as Currency)}
+        value={tripCurrency}
+        onValueChange={(value) => setTripCurrency(value as Currency)}
       >
         <SelectTrigger className="h-8 w-28 bg-black/20 text-white border-white/30">
           <Globe className="h-4 w-4 mr-1" />
@@ -203,11 +204,15 @@ export default function TripDetailsPage({ params }: TripDetailsPageProps) {
   const resolvedParams = use(params);
   const [trip, setTrip] = useState<Trip | undefined>();
   const router = useRouter();
+  const { setTripCurrencyFromCountry } = useCurrency();
 
   useEffect(() => {
     const foundTrip = mockTrips.find((t) => t.id === resolvedParams.tripId);
     setTrip(foundTrip);
-  }, [resolvedParams]);
+    if (foundTrip) {
+      setTripCurrencyFromCountry(foundTrip.country);
+    }
+  }, [resolvedParams, setTripCurrencyFromCountry]);
 
   if (!trip) {
     return (
@@ -225,7 +230,6 @@ export default function TripDetailsPage({ params }: TripDetailsPageProps) {
       >
         <div className="absolute inset-0 bg-black/50 z-0" />
         <div className="relative z-10 h-full flex flex-col">
-          <CurrencyProvider countryCode={trip.country}>
             <div className="absolute top-0 left-1/2 z-20 h-7 w-1/3 -translate-x-1/2 bg-black rounded-b-2xl">
               <div className="absolute left-6 top-1/2 h-3 w-3 -translate-y-1/2 rounded-full bg-gray-700"></div>
               <div className="absolute left-1/2 top-1/2 h-4 w-10 -translate-x-1/2 -translate-y-1/2 rounded-full bg-gray-800"></div>
@@ -234,7 +238,6 @@ export default function TripDetailsPage({ params }: TripDetailsPageProps) {
             <div className="flex h-full flex-col pt-7">
               <TabContent trip={trip} setTrip={setTrip} />
             </div>
-          </CurrencyProvider>
         </div>
       </div>
     </main>
