@@ -169,7 +169,11 @@ export function ExpenseTracker({ transactions, setTransactions, trip }: ExpenseT
                 <PieChart>
                     <ChartTooltip
                         cursor={{ fill: 'hsl(var(--muted))', radius: 4 }}
-                        content={<ChartTooltipContent formatter={(value, name) => `${chartConfig[name as keyof typeof chartConfig]?.label}: ${currentFormatter(value as number)}`} />}
+                        content={<ChartTooltipContent formatter={(value, name, props) => {
+                            const total = chartData.reduce((acc, curr) => acc + curr.total, 0);
+                            const percentage = total > 0 ? (props.payload.total / total * 100).toFixed(0) : 0;
+                            return `${chartConfig[name as keyof typeof chartConfig]?.label}: ${currentFormatter(value as number)} (${percentage}%)`;
+                        }} />}
                     />
                      <Pie
                         data={chartData}
@@ -179,7 +183,7 @@ export function ExpenseTracker({ transactions, setTransactions, trip }: ExpenseT
                         outerRadius={80}
                         paddingAngle={2}
                         labelLine={false}
-                        label={({ percent, name }) => `${chartConfig[name as keyof typeof chartConfig]?.label}: ${(percent * 100).toFixed(0)}%`}
+                        label={false}
                     >
                         {chartData.map((entry, index) => (
                             <Cell key={`cell-${index}`} fill={chartConfig[entry.name as keyof typeof chartConfig]?.color} />
