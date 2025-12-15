@@ -330,7 +330,7 @@ export function ShoppingList({ list, setList, onCheckChange, trip }: ShoppingLis
 
         <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogTrigger asChild>
-                 <Button className="fixed bottom-24 right-8 h-16 w-16 rounded-full shadow-lg z-20">
+                 <Button className="absolute bottom-4 right-4 h-16 w-16 rounded-full shadow-lg z-20">
                     <PlusCircle className="h-8 w-8" />
                 </Button>
             </DialogTrigger>
