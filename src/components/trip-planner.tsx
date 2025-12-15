@@ -77,6 +77,7 @@ interface TripPlannerProps {
 
 export function TripPlanner({ itinerary, setItinerary }: TripPlannerProps) {
   const [editingItem, setEditingItem] = useState<ItineraryItem | null>(null);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [activeDay, setActiveDay] = useState<string>('item-0');
   const photoInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
@@ -87,14 +88,21 @@ export function TripPlanner({ itinerary, setItinerary }: TripPlannerProps) {
         activities: [...item.activities],
         userPhotos: item.userPhotos ? [...item.userPhotos] : [],
     });
+    setIsEditDialogOpen(true);
   };
 
   const handleSave = () => {
     if (editingItem) {
       setItinerary(itinerary.map(item => item.day === editingItem.day ? editingItem : item));
       setEditingItem(null);
+      setIsEditDialogOpen(false);
     }
   };
+
+  const handleCancelEdit = () => {
+    setEditingItem(null);
+    setIsEditDialogOpen(false);
+  }
 
   const handleFieldChange = (field: keyof Omit<ItineraryItem, 'activities' | 'userPhotos'>, value: string) => {
     if (editingItem) {
@@ -284,7 +292,7 @@ export function TripPlanner({ itinerary, setItinerary }: TripPlannerProps) {
       </Accordion>
       
       {editingItem && (
-        <Dialog open={!!editingItem} onOpenChange={(isOpen) => { if (!isOpen) setEditingItem(null); }}>
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
             <DialogContent className="max-h-[90vh] flex flex-col shadow-lg">
               <DialogHeader>
                 <DialogTitle>Edit Day {editingItem.day}</DialogTitle>
@@ -385,7 +393,7 @@ export function TripPlanner({ itinerary, setItinerary }: TripPlannerProps) {
                 </div>
               </div>
               <DialogFooter>
-                  <Button variant="outline" onClick={() => setEditingItem(null)}>Cancel</Button>
+                  <Button variant="outline" onClick={handleCancelEdit}>Cancel</Button>
                 <Button onClick={handleSave}>Save Changes</Button>
               </DialogFooter>
             </DialogContent>
