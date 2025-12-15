@@ -179,10 +179,10 @@ export function TripPlanner({ itinerary, setItinerary }: TripPlannerProps) {
     <div className="space-y-4">
       <header className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold font-headline text-foreground">
+          <h1 className="text-2xl font-bold font-headline text-white">
             Trip Itinerary
           </h1>
-          <p className="text-muted-foreground">Your adventure at a glance.</p>
+          <p className="text-white/80">Your adventure at a glance.</p>
         </div>
         <Button onClick={handleAddDay} variant="outline">
           <PlusCircle className="mr-2 h-4 w-4" /> Add Day
@@ -389,3 +389,5 @@ export function TripPlanner({ itinerary, setItinerary }: TripPlannerProps) {
     </div>
   );
 }
+
+    

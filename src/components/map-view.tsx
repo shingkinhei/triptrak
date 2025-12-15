@@ -25,10 +25,10 @@ export function MapView({ locations }: MapViewProps) {
   return (
     <div className="space-y-4 h-full flex flex-col">
        <header>
-        <h1 className="text-2xl font-bold font-headline text-foreground">
+        <h1 className="text-2xl font-bold font-headline text-white">
           Trip Map
         </h1>
-        <p className="text-muted-foreground">Your points of interest.</p>
+        <p className="text-white/80">Your points of interest.</p>
       </header>
       <div className="flex-grow rounded-xl overflow-hidden border border-border">
         <APIProvider apiKey={apiKey}>
@@ -52,3 +52,5 @@ export function MapView({ locations }: MapViewProps) {
     </div>
   );
 }
+
+    

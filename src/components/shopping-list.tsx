@@ -167,15 +167,20 @@ export function ShoppingList({ list, setList, onCheckChange, trip }: ShoppingLis
     const baseGrandTotal = list.reduce((total, category) => total + calculateTotal(category.items), 0);
     
     const grandTotalInCurrent = displayCurrency === 'trip' ? baseGrandTotal : convertToHomeCurrency(baseGrandTotal);
+    
+    const currencyButtonLabel = displayCurrency === 'trip' 
+    ? `${tripCurrency} \u2194 ${homeCurrency}`
+    : `${homeCurrency} \u2194 ${tripCurrency}`;
+
 
   return (
     <div className="space-y-4 pb-20">
       <header className="flex justify-between items-center">
         <div>
-            <h1 className="text-2xl font-bold font-headline text-foreground">
+            <h1 className="text-2xl font-bold font-headline text-white">
             Shopping List
             </h1>
-            <p className="text-muted-foreground">
+            <p className="text-white/80">
             Everything you need for your trip.
             </p>
         </div>
@@ -191,11 +196,7 @@ export function ShoppingList({ list, setList, onCheckChange, trip }: ShoppingLis
                 </div>
                  <Button variant="outline" size="sm" onClick={toggleCurrency}>
                     <Repeat className="h-4 w-4 mr-2" />
-                    {displayCurrency === 'trip' ? (
-                        <span>{homeCurrency} &harr; {tripCurrency}</span>
-                    ) : (
-                        <span>{tripCurrency} &harr; {homeCurrency}</span>
-                    )}
+                    <span>{currencyButtonLabel}</span>
                 </Button>
             </div>
         </CardHeader>
@@ -207,18 +208,18 @@ export function ShoppingList({ list, setList, onCheckChange, trip }: ShoppingLis
             const categoryTotalInCurrent = displayCurrency === 'trip' ? baseCategoryTotal : convertToHomeCurrency(baseCategoryTotal);
             const CategoryIcon = category.icon ? iconMap[category.icon] : ShoppingBasket;
             return (
-            <Card key={category.id}>
+            <Card key={category.id} className="bg-card/80 backdrop-blur-sm border-white/20">
                 <CardHeader>
                     <div className="flex justify-between items-center">
-                        <CardTitle className="text-lg font-headline text-foreground flex items-center gap-2">
+                        <CardTitle className="text-lg font-headline text-white flex items-center gap-2">
                             {CategoryIcon && <CategoryIcon className="h-5 w-5 text-primary" />}
                             {category.name}
                         </CardTitle>
                         <div className="flex items-center gap-2">
-                            <span className="font-semibold text-muted-foreground">{currentFormatter(categoryTotalInCurrent)}</span>
+                            <span className="font-semibold text-white/80">{currentFormatter(categoryTotalInCurrent)}</span>
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-white hover:bg-white/20 hover:text-white">
                                         <MoreVertical className="h-4 w-4" />
                                     </Button>
                                 </DropdownMenuTrigger>
@@ -258,7 +259,7 @@ export function ShoppingList({ list, setList, onCheckChange, trip }: ShoppingLis
                             const baseItemPrice = item.price || 0;
                             const itemPriceInCurrent = displayCurrency === 'trip' ? baseItemPrice : convertToHomeCurrency(baseItemPrice);
                             return (
-                                <Card key={item.id} className={cn("overflow-hidden relative", item.checked && "opacity-50")}>
+                                <Card key={item.id} className={cn("overflow-hidden relative bg-card/80 backdrop-blur-sm border-white/20", item.checked && "opacity-50")}>
                                      <div className="absolute top-2 left-2 z-10">
                                          <Checkbox
                                             id={`${category.id}-${item.id}`}
@@ -367,3 +368,5 @@ export function ShoppingList({ list, setList, onCheckChange, trip }: ShoppingLis
     </div>
   );
 }
+
+    

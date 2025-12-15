@@ -52,16 +52,18 @@ const categoryIcons: Record<TransactionCategory, React.ElementType> = {
   Other: PlusCircle,
 };
 
-const getChartData = (transactions: Transaction[], rate: number) => {
-  const categoryTotals = transactions.reduce((acc, t) => {
-    acc[t.category] = (acc[t.category] || 0) + t.amount * rate;
-    return acc;
-  }, {} as Record<TransactionCategory, number>);
+const getChartData = (transactions: Transaction[], rate: number, homeRate: number) => {
+    const categoryTotals = transactions.reduce((acc, t) => {
+        const amountInBase = t.amount / rate;
+        const amountInHome = amountInBase * homeRate;
+        acc[t.category] = (acc[t.category] || 0) + (rate === 1 ? t.amount : amountInHome);
+        return acc;
+    }, {} as Record<TransactionCategory, number>);
 
-  return Object.entries(categoryTotals).map(([name, total]) => ({
-    name,
-    total,
-  }));
+    return Object.entries(categoryTotals).map(([name, total]) => ({
+        name,
+        total,
+    }));
 };
 
 const chartConfig = {
@@ -76,7 +78,7 @@ const MOCK_RATES = {
     JPY: 157,
     EUR: 0.92,
     HKD: 7.8,
-  };
+};
 
 export function ExpenseTracker({ transactions, setTransactions, trip }: ExpenseTrackerProps) {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -88,7 +90,7 @@ export function ExpenseTracker({ transactions, setTransactions, trip }: ExpenseT
 
   const [displayCurrency, setDisplayCurrency] = useState<DisplayCurrency>('trip');
 
-  const { tripCurrency, tripRate, formatCurrency, homeCurrency, convertToHomeCurrency, formatHomeCurrency } = useCurrency();
+  const { tripCurrency, tripRate, formatCurrency, homeCurrency, convertToHomeCurrency, formatHomeCurrency, rates } = useCurrency();
 
   const currentFormatter = displayCurrency === 'trip' ? formatCurrency : formatHomeCurrency;
   const currentCurrency = displayCurrency === 'trip' ? tripCurrency : homeCurrency;
@@ -97,7 +99,7 @@ export function ExpenseTracker({ transactions, setTransactions, trip }: ExpenseT
 
   const totalExpensesInCurrent = displayCurrency === 'trip' ? totalExpenses : convertToHomeCurrency(totalExpenses);
 
-  const chartData = getChartData(transactions, displayCurrency === 'trip' ? 1 : tripRate / MOCK_RATES[homeCurrency]);
+  const chartData = getChartData(transactions, displayCurrency === 'trip' ? 1 : tripRate, rates[homeCurrency]);
 
   const handleAddTransaction = () => {
     if (!newTransaction.name || !newTransaction.category || !newTransaction.amount) {
@@ -119,13 +121,17 @@ export function ExpenseTracker({ transactions, setTransactions, trip }: ExpenseT
     setDisplayCurrency(prev => (prev === 'trip' ? 'home' : 'trip'));
   };
 
+  const currencyButtonLabel = displayCurrency === 'trip' 
+    ? `${tripCurrency} \u2194 ${homeCurrency}`
+    : `${homeCurrency} \u2194 ${tripCurrency}`;
+
   return (
     <div className="space-y-4">
       <header>
-        <h1 className="text-2xl font-bold font-headline text-foreground">
+        <h1 className="text-2xl font-bold font-headline text-white">
           Expense Tracker
         </h1>
-        <p className="text-muted-foreground">Keep an eye on your budget.</p>
+        <p className="text-white/80">Keep an eye on your budget.</p>
       </header>
 
       <Card>
@@ -137,11 +143,7 @@ export function ExpenseTracker({ transactions, setTransactions, trip }: ExpenseT
             </div>
             <Button variant="outline" size="sm" onClick={toggleCurrency}>
                 <Repeat className="h-4 w-4 mr-2" />
-                {displayCurrency === 'trip' ? (
-                    <span>{tripCurrency} &harr; {homeCurrency}</span>
-                ) : (
-                    <span>{homeCurrency} &harr; {tripCurrency}</span>
-                )}
+                <span>{currencyButtonLabel}</span>
             </Button>
           </div>
         </CardHeader>
@@ -174,10 +176,10 @@ export function ExpenseTracker({ transactions, setTransactions, trip }: ExpenseT
 
       <div className="space-y-2">
         <div className="flex justify-between items-center">
-            <h2 className="font-semibold font-headline text-foreground">Recent Transactions</h2>
+            <h2 className="font-semibold font-headline text-white">Recent Transactions</h2>
             <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
                 <DialogTrigger asChild>
-                    <Button size="sm" variant="ghost">
+                    <Button size="sm" variant="ghost" className="text-white hover:bg-white/20 hover:text-white">
                         <PlusCircle className="mr-2 h-4 w-4" /> Add
                     </Button>
                 </DialogTrigger>
@@ -222,24 +224,24 @@ export function ExpenseTracker({ transactions, setTransactions, trip }: ExpenseT
             const Icon = categoryIcons[t.category];
             const amount = displayCurrency === 'trip' ? t.amount : convertToHomeCurrency(t.amount);
             return (
-              <Card key={t.id}>
+              <Card key={t.id} className="bg-card/80 backdrop-blur-sm border-white/20">
                 <CardContent className="flex items-center p-3 gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-secondary">
-                    {Icon && <Icon className="h-5 w-5 text-secondary-foreground" />}
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-black/30">
+                    {Icon && <Icon className="h-5 w-5 text-white/80" />}
                   </div>
                   <div className="flex-grow">
-                    <p className="font-semibold">{t.name}</p>
-                    <p className="text-sm text-muted-foreground">{t.category}</p>
+                    <p className="font-semibold text-white">{t.name}</p>
+                    <p className="text-sm text-white/70">{t.category}</p>
                   </div>
                   <div className="text-right">
-                    <p className="font-bold text-lg text-foreground">
+                    <p className="font-bold text-lg text-white">
                       -{currentFormatter(amount)}
                     </p>
-                    <p className="text-sm text-muted-foreground">{t.date}</p>
+                    <p className="text-sm text-white/70">{t.date}</p>
                   </div>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 ml-2">
+                      <Button variant="ghost" size="icon" className="h-8 w-8 ml-2 text-white hover:bg-white/20 hover:text-white">
                         <MoreVertical className="h-4 w-4" />
                       </Button>
                     </DropdownMenuTrigger>
@@ -257,3 +259,5 @@ export function ExpenseTracker({ transactions, setTransactions, trip }: ExpenseT
     </div>
   );
 }
+
+    
