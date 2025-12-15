@@ -33,7 +33,6 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-  DialogTrigger,
   DialogClose,
 } from './ui/dialog';
 import { Input } from './ui/input';
@@ -292,8 +291,8 @@ export function TripPlanner() {
         })}
       </Accordion>
       
-      <Dialog open={!!editingItem} onOpenChange={handleDialogClose}>
-          {editingItem && (
+      {editingItem && (
+        <Dialog open={!!editingItem} onOpenChange={handleDialogClose}>
             <DialogContent className="max-h-[90vh] flex flex-col">
               <DialogHeader>
                 <DialogTitle>Edit Day {editingItem.day}</DialogTitle>
@@ -364,10 +363,8 @@ export function TripPlanner() {
                 <Button onClick={handleSave}>Save Changes</Button>
               </DialogFooter>
             </DialogContent>
-          )}
-      </Dialog>
+        </Dialog>
+      )}
     </div>
   );
 }
-
-    
