@@ -1,6 +1,6 @@
 'use client';
 import type { FC } from 'react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, use } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Globe } from 'lucide-react';
 
@@ -156,13 +156,14 @@ const CurrencySelector = () => {
 };
 
 export default function TripDetailsPage({ params }: TripDetailsPageProps) {
+  const resolvedParams = use(Promise.resolve(params));
   const [trip, setTrip] = useState<Trip | undefined>();
   const router = useRouter();
 
   useEffect(() => {
-    const foundTrip = mockTrips.find(t => t.id === params.tripId);
+    const foundTrip = mockTrips.find(t => t.id === resolvedParams.tripId);
     setTrip(foundTrip);
-  }, [params]);
+  }, [resolvedParams]);
 
   if (!trip) {
     return (
