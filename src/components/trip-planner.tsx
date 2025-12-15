@@ -265,7 +265,7 @@ export function TripPlanner({ itinerary, setItinerary }: TripPlannerProps) {
                               {ActivityIcon && <ActivityIcon className="h-4 w-4" />}
                             </div>
                             {actIndex < item.activities.length - 1 && (
-                              <div className="w-px h-6 bg-border mt-1"></div>
+                              <div className="w-px h-6 bg-primary mt-1"></div>
                             )}
                           </div>
                           <div>
