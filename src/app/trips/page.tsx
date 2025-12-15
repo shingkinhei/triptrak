@@ -2,16 +2,19 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { PlusCircle } from 'lucide-react';
+import { PlusCircle, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { mockTrips } from '@/lib/mock-data';
-import type { Trip } from '@/lib/types';
+import type { Trip, TripStatus } from '@/lib/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { BottomNav } from '@/components/bottom-nav';
+import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 export default function TripsPage() {
   const [trips, setTrips] = useState<Trip[]>(mockTrips);
@@ -33,6 +36,7 @@ export default function TripsPage() {
       destination: newTrip.destination,
       startDate: newTrip.startDate,
       endDate: newTrip.endDate,
+      status: 'upcoming',
       imageUrl: `https://picsum.photos/seed/${newTrip.destination}/600/400`,
       imageHint: newTrip.destination,
       itinerary: [],
@@ -43,6 +47,27 @@ export default function TripsPage() {
     setNewTrip({ name: '', destination: '', startDate: '', endDate: '' });
     setIsAddDialogOpen(false);
   };
+  
+  const handleSetStatus = (tripId: string, status: TripStatus) => {
+    setTrips(currentTrips => 
+      currentTrips.map(trip => {
+        if (trip.id === tripId) {
+          return { ...trip, status: status };
+        }
+        // if we are setting a trip to active, deactivate the previous active one.
+        if (status === 'active' && trip.status === 'active') {
+          return { ...trip, status: 'upcoming' };
+        }
+        return trip;
+      })
+    );
+  };
+
+  const statusColors: Record<TripStatus, string> = {
+    active: 'bg-green-500 text-white',
+    upcoming: 'bg-blue-500 text-white',
+    archived: 'bg-gray-500 text-white',
+  }
 
   return (
     <main className="bg-muted flex min-h-screen items-center justify-center p-4 font-body">
@@ -101,28 +126,40 @@ export default function TripsPage() {
             <ScrollArea className="flex-grow">
                 <div className="space-y-4 px-4 pb-4">
                 {trips.map(trip => (
-                    <Link key={trip.id} href={`/trip/${trip.id}`} passHref>
-                    <Card className="overflow-hidden transition-all hover:scale-[1.02] hover:shadow-lg">
+                    <Card key={trip.id} className={cn("overflow-hidden transition-all hover:scale-[1.02] hover:shadow-lg", {'border-primary border-2': trip.status === 'active'})}>
                         <CardContent className="p-0">
-                        <div className="flex">
-                            <div className="relative h-28 w-28">
-                            <Image
-                                src={trip.imageUrl}
-                                alt={trip.name}
-                                fill
-                                className="object-cover"
-                                data-ai-hint={trip.imageHint}
-                            />
+                            <div className="flex">
+                                <div className="relative h-28 w-28">
+                                    <Link href={`/trip/${trip.id}`} passHref>
+                                        <Image
+                                            src={trip.imageUrl}
+                                            alt={trip.name}
+                                            fill
+                                            className="object-cover"
+                                            data-ai-hint={trip.imageHint}
+                                        />
+                                    </Link>
+                                </div>
+                                <div className="flex flex-col justify-center p-3 flex-grow">
+                                    <h2 className="text-lg font-bold font-headline">{trip.name}</h2>
+                                    <p className="text-sm text-muted-foreground">{trip.destination}</p>
+                                    <p className="text-xs text-muted-foreground mt-1">{new Date(trip.startDate).toLocaleDateString()} - {new Date(trip.endDate).toLocaleDateString()}</p>
+                                    <div className='flex items-center gap-2 mt-2'>
+                                      <Select value={trip.status} onValueChange={(value) => handleSetStatus(trip.id, value as TripStatus)}>
+                                          <SelectTrigger className={cn("h-7 text-xs w-auto capitalize focus:ring-0 border-none", statusColors[trip.status])}>
+                                              <SelectValue placeholder="Set status" />
+                                          </SelectTrigger>
+                                          <SelectContent>
+                                              <SelectItem value="active">Active</SelectItem>
+                                              <SelectItem value="upcoming">Upcoming</SelectItem>
+                                              <SelectItem value="archived">Archived</SelectItem>
+                                          </SelectContent>
+                                      </Select>
+                                    </div>
+                                </div>
                             </div>
-                            <div className="flex flex-col justify-center p-4">
-                            <h2 className="text-lg font-bold font-headline">{trip.name}</h2>
-                            <p className="text-sm text-muted-foreground">{trip.destination}</p>
-                            <p className="text-xs text-muted-foreground mt-2">{new Date(trip.startDate).toLocaleDateString()} - {new Date(trip.endDate).toLocaleDateString()}</p>
-                            </div>
-                        </div>
                         </CardContent>
                     </Card>
-                    </Link>
                 ))}
                 </div>
             </ScrollArea>

@@ -49,12 +49,15 @@ export type ExchangeRates = {
   [key in Currency]: number;
 };
 
+export type TripStatus = 'active' | 'upcoming' | 'archived';
+
 export type Trip = {
   id: string;
   name: string;
   destination: string;
   startDate: string;
   endDate: string;
+  status: TripStatus;
   imageUrl: string;
   imageHint: string;
   itinerary: ItineraryItem[];

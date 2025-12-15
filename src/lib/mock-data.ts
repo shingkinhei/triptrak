@@ -11,6 +11,7 @@ export const mockTrips: Trip[] = [
     destination: "Japan",
     startDate: "2024-10-26",
     endDate: "2024-11-05",
+    status: 'active',
     imageUrl: PlaceHolderImages.find(p=>p.id === 'tokyo')?.imageUrl || '',
     imageHint: PlaceHolderImages.find(p=>p.id === 'tokyo')?.imageHint || '',
     itinerary: [
@@ -134,6 +135,7 @@ export const mockTrips: Trip[] = [
     destination: "Italy",
     startDate: "2025-06-10",
     endDate: "2025-06-20",
+    status: 'upcoming',
     imageUrl: "https://picsum.photos/seed/italy/600/400",
     imageHint: "colosseum rome",
     itinerary: [],
