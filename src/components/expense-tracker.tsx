@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import { Pie, PieChart, ResponsiveContainer, Cell } from 'recharts';
+import { Pie, PieChart, ResponsiveContainer, Cell, Label } from 'recharts';
 import {
   MoreVertical,
   Pizza,
@@ -183,7 +183,17 @@ export function ExpenseTracker({ transactions, setTransactions, trip }: ExpenseT
                         outerRadius={80}
                         paddingAngle={2}
                         labelLine={false}
-                        label={false}
+                        label={({ cx, cy, midAngle, innerRadius, outerRadius, percent, index }) => {
+                          const RADIAN = Math.PI / 180;
+                          const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
+                          const x = cx + radius * Math.cos(-midAngle * RADIAN);
+                          const y = cy + radius * Math.sin(-midAngle * RADIAN);
+                          return (
+                            <text x={x} y={y} fill="white" textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central" className="text-xs font-bold fill-foreground">
+                              {`${(percent * 100).toFixed(0)}%`}
+                            </text>
+                          );
+                        }}
                     >
                         {chartData.map((entry, index) => (
                             <Cell key={`cell-${index}`} fill={chartConfig[entry.name as keyof typeof chartConfig]?.color} />
