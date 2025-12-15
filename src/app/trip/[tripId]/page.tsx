@@ -156,7 +156,7 @@ const CurrencySelector = () => {
 };
 
 export default function TripDetailsPage({ params }: TripDetailsPageProps) {
-  const resolvedParams = use(Promise.resolve(params));
+  const resolvedParams = use(params);
   const [trip, setTrip] = useState<Trip | undefined>();
   const router = useRouter();
 
