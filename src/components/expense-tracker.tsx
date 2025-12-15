@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip } from 'recharts';
+import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis } from 'recharts';
 import {
   MoreVertical,
   Pizza,
@@ -18,7 +18,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { ChartTooltipContent } from '@/components/ui/chart';
+import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart';
 
 import type { Transaction, TransactionCategory } from '@/lib/types';
 import {
@@ -57,6 +57,13 @@ const getChartData = (transactions: Transaction[]) => {
   }));
 };
 
+const chartConfig = {
+  total: {
+    label: "Total",
+    color: "hsl(var(--primary))",
+  },
+} satisfies ChartConfig;
+
 export function ExpenseTracker() {
   const [transactions] = useState(mockTransactions);
   const totalExpenses = transactions.reduce((sum, t) => sum + t.amount, 0);
@@ -77,8 +84,8 @@ export function ExpenseTracker() {
           <CardTitle>${totalExpenses.toLocaleString()}</CardTitle>
         </CardHeader>
         <CardContent>
-          <ResponsiveContainer width="100%" height={150}>
-            <BarChart data={chartData} margin={{ top: 5, right: 0, left: -20, bottom: 5 }}>
+          <ChartContainer config={chartConfig} className="h-[150px] w-full">
+            <BarChart accessibilityLayer data={chartData} margin={{ top: 5, right: 0, left: -20, bottom: 5 }}>
               <XAxis
                 dataKey="name"
                 stroke="hsl(var(--muted-foreground))"
@@ -93,13 +100,13 @@ export function ExpenseTracker() {
                 axisLine={false}
                 tickFormatter={(value) => `$${value}`}
               />
-               <Tooltip
+               <ChartTooltip
                 cursor={{ fill: 'hsl(var(--muted))', radius: 4 }}
                 content={<ChartTooltipContent />}
               />
-              <Bar dataKey="total" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="total" fill="var(--color-total)" radius={[4, 4, 0, 0]} />
             </BarChart>
-          </ResponsiveContainer>
+          </ChartContainer>
         </CardContent>
       </Card>
 

@@ -128,6 +128,7 @@ export function TripPlanner() {
                              </h2>
                              <p className="text-sm">{item.date}</p>
                            </div>
+                           <ChevronDown className="h-4 w-4 shrink-0 transition-transform duration-200 text-primary-foreground ml-auto" />
                         </div>
                       </div>
                   </AccordionTrigger>
