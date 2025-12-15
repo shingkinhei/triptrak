@@ -33,7 +33,6 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-  DialogClose,
 } from './ui/dialog';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
@@ -169,12 +168,6 @@ export function TripPlanner() {
     }
   };
 
-  const handleDialogClose = (open: boolean) => {
-    if (!open) {
-      setEditingItem(null);
-    }
-  };
-
   const handleFieldChange = (field: keyof ItineraryItem, value: string) => {
     if (editingItem) {
       setEditingItem({ ...editingItem, [field]: value });
@@ -220,7 +213,6 @@ export function TripPlanner() {
 
       <Accordion type="single" collapsible defaultValue="item-0" className="w-full space-y-4">
         {itinerary.map((item, index) => {
-          const Icon = iconMap[item.activities[0]?.icon] || Train;
           return (
             <Card key={item.day} className="overflow-hidden">
               <AccordionItem value={`item-${index}`} className="border-b-0">
@@ -291,8 +283,8 @@ export function TripPlanner() {
         })}
       </Accordion>
       
-      {editingItem && (
-        <Dialog open={!!editingItem} onOpenChange={handleDialogClose}>
+      <Dialog open={!!editingItem} onOpenChange={(isOpen) => !isOpen && setEditingItem(null)}>
+          {editingItem && (
             <DialogContent className="max-h-[90vh] flex flex-col">
               <DialogHeader>
                 <DialogTitle>Edit Day {editingItem.day}</DialogTitle>
@@ -357,14 +349,12 @@ export function TripPlanner() {
                 </div>
               </div>
               <DialogFooter>
-                <DialogClose asChild>
-                  <Button variant="outline">Cancel</Button>
-                </DialogClose>
+                  <Button variant="outline" onClick={() => setEditingItem(null)}>Cancel</Button>
                 <Button onClick={handleSave}>Save Changes</Button>
               </DialogFooter>
             </DialogContent>
-        </Dialog>
-      )}
+          )}
+      </Dialog>
     </div>
   );
 }
