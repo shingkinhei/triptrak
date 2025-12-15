@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { PlusCircle, Star, Edit } from 'lucide-react';
+import { PlusCircle, Star, Edit, Upload } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -100,6 +100,17 @@ export default function TripsPage() {
 
   const handleFormChange = (field: keyof EditableTrip, value: string) => {
     setTripForm(prev => ({...prev, [field]: value}));
+  };
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        handleFormChange('imageUrl', reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const statusColors: Record<TripStatus, string> = {
@@ -234,12 +245,29 @@ export default function TripsPage() {
                 <Input id="edit-end-date" type="date" value={tripForm.endDate} onChange={(e) => handleFormChange('endDate', e.target.value)} className="col-span-3" />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="edit-image-url" className="text-right">Image URL</Label>
-                <Input id="edit-image-url" value={tripForm.imageUrl} onChange={(e) => handleFormChange('imageUrl', e.target.value)} className="col-span-3" />
-              </div>
-               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="edit-image-hint" className="text-right">Image Hint</Label>
                 <Input id="edit-image-hint" value={tripForm.imageHint} onChange={(e) => handleFormChange('imageHint', e.target.value)} className="col-span-3" />
+              </div>
+              <div className="grid grid-cols-4 items-start gap-4">
+                 <Label className="text-right pt-2">Cover Image</Label>
+                 <div className="col-span-3 space-y-2">
+                    {tripForm.imageUrl && (
+                        <Image
+                            src={tripForm.imageUrl}
+                            alt="Trip cover image preview"
+                            width={200}
+                            height={150}
+                            className="rounded-md object-cover w-full aspect-[4/3]"
+                        />
+                    )}
+                    <Input id="edit-image-upload" type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
+                    <Button asChild variant="outline">
+                      <Label htmlFor="edit-image-upload" className="cursor-pointer">
+                        <Upload className="mr-2 h-4 w-4" />
+                        Upload Image
+                      </Label>
+                    </Button>
+                 </div>
               </div>
             </div>
             <DialogFooter>
