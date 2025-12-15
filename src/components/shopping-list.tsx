@@ -120,13 +120,6 @@ const AddCategoryDialog = ({ onAddCategory }: { onAddCategory: (name: string, ic
     );
 };
 
-const MOCK_RATES = {
-    USD: 1,
-    JPY: 157,
-    EUR: 0.92,
-    HKD: 7.8,
-};
-
 export function ShoppingList({ list, setList, onCheckChange, trip }: ShoppingListProps) {
     const { tripCurrency, tripRate, formatCurrency, homeCurrency, convertToHomeCurrency, formatHomeCurrency } = useCurrency();
     const [renamingCategory, setRenamingCategory] = useState<ShoppingCategory | null>(null);
@@ -198,7 +191,7 @@ export function ShoppingList({ list, setList, onCheckChange, trip }: ShoppingLis
                 </div>
                  <Button variant="outline" size="sm" onClick={toggleCurrency}>
                     <Repeat className="h-4 w-4 mr-2" />
-                    {displayCurrency === 'trip' ? (
+                     {displayCurrency === 'trip' ? (
                         <span>{tripCurrency} &harr; {homeCurrency}</span>
                     ) : (
                         <span>{homeCurrency} &harr; {tripCurrency}</span>
@@ -259,45 +252,52 @@ export function ShoppingList({ list, setList, onCheckChange, trip }: ShoppingLis
                         </div>
                     </div>
                 </CardHeader>
-                <CardContent className="space-y-3">
-                    {category.items.map(item => {
-                        const baseItemPrice = item.price || 0;
-                        const itemPriceInCurrent = displayCurrency === 'trip' ? baseItemPrice : convertToHomeCurrency(baseItemPrice);
-                        return (
-                            <div key={item.id} className="flex items-center space-x-3">
-                                <Checkbox
-                                    id={`${category.id}-${item.id}`}
-                                    checked={item.checked}
-                                    onCheckedChange={(checked) =>
-                                      onCheckChange(category.id, item.id, !!checked)
-                                    }
-                                    className="peer"
-                                />
-                                {item.imageUrl && (
-                                  <Image 
-                                    src={item.imageUrl}
-                                    alt={item.name}
-                                    width={60}
-                                    height={60}
-                                    className="rounded-md object-cover"
-                                  />
-                                )}
-                                <label
-                                    htmlFor={`${category.id}-${item.id}`}
-                                    className={cn(
-                                    'text-sm font-medium leading-none flex-grow',
-                                    'peer-disabled:cursor-not-allowed peer-disabled:opacity-70',
-                                    item.checked ? 'text-muted-foreground line-through' : 'text-foreground'
-                                    )}
-                                >
-                                    {item.name}
-                                </label>
-                                <div className={cn("text-sm font-semibold", item.checked ? 'text-muted-foreground line-through' : 'text-foreground')}>
-                                    {currentFormatter(itemPriceInCurrent)}
-                                </div>
-                            </div>
-                        )
-                    })}
+                <CardContent>
+                    <div className="grid grid-cols-2 gap-4">
+                        {category.items.map(item => {
+                            const baseItemPrice = item.price || 0;
+                            const itemPriceInCurrent = displayCurrency === 'trip' ? baseItemPrice : convertToHomeCurrency(baseItemPrice);
+                            return (
+                                <Card key={item.id} className={cn("overflow-hidden relative", item.checked && "opacity-50")}>
+                                     <div className="absolute top-2 left-2 z-10">
+                                         <Checkbox
+                                            id={`${category.id}-${item.id}`}
+                                            checked={item.checked}
+                                            onCheckedChange={(checked) =>
+                                            onCheckChange(category.id, item.id, !!checked)
+                                            }
+                                            className="h-5 w-5 bg-background border-2"
+                                        />
+                                    </div>
+                                    <div className="relative aspect-square w-full">
+                                        {item.imageUrl && (
+                                            <Image 
+                                                src={item.imageUrl}
+                                                alt={item.name}
+                                                fill
+                                                className="object-cover"
+                                            />
+                                        )}
+                                        {item.checked && <div className="absolute inset-0 bg-background/60"></div>}
+                                    </div>
+                                    <div className="p-2">
+                                        <p className={cn(
+                                            'text-sm font-medium leading-tight truncate',
+                                            item.checked ? 'text-muted-foreground line-through' : 'text-foreground'
+                                        )}>
+                                            {item.name}
+                                        </p>
+                                        <p className={cn(
+                                            "text-xs font-semibold",
+                                            item.checked ? 'text-muted-foreground line-through' : 'text-foreground'
+                                        )}>
+                                            {currentFormatter(itemPriceInCurrent)}
+                                        </p>
+                                    </div>
+                                </Card>
+                            )
+                        })}
+                    </div>
                 </CardContent>
             </Card>
         )})}
