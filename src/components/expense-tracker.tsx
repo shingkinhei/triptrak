@@ -33,14 +33,10 @@ import { Label } from './ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { useCurrency } from '@/context/CurrencyContext';
 
-const mockTransactions: Transaction[] = [
-  { id: '1', name: 'Ichiran Ramen', category: 'Food', amount: 15, date: '2024-10-26' },
-  { id: '2', name: 'Train to Shinjuku', category: 'Transport', amount: 25, date: '2024-10-26' },
-  { id: '3', name: 'Park Hyatt Tokyo', category: 'Accommodation', amount: 450, date: '2024-10-26' },
-  { id: '4', name: 'Fushimi Inari Souvenir', category: 'Shopping', amount: 45, date: '2024-10-27' },
-  { id: '5', name: 'Kaiseki Dinner', category: 'Food', amount: 120, date: '2024-10-27' },
-  { id: '6', name: 'Dotonbori Takoyaki', category: 'Food', amount: 10, date: '2024-10-28' },
-];
+interface ExpenseTrackerProps {
+  transactions: Transaction[];
+  setTransactions: React.Dispatch<React.SetStateAction<Transaction[]>>;
+}
 
 const transactionCategories: TransactionCategory[] = ['Food', 'Transport', 'Shopping', 'Accommodation', 'Other'];
 
@@ -71,8 +67,7 @@ const chartConfig = {
   },
 } satisfies ChartConfig;
 
-export function ExpenseTracker() {
-  const [transactions, setTransactions] = useState(mockTransactions);
+export function ExpenseTracker({ transactions, setTransactions }: ExpenseTrackerProps) {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [newTransaction, setNewTransaction] = useState<{name: string, category: TransactionCategory | '', amount: string}>({
     name: '',
@@ -194,7 +189,7 @@ export function ExpenseTracker() {
               <Card key={t.id}>
                 <CardContent className="flex items-center p-3 gap-3">
                   <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-secondary">
-                    <Icon className="h-5 w-5 text-secondary-foreground" />
+                    {Icon && <Icon className="h-5 w-5 text-secondary-foreground" />}
                   </div>
                   <div className="flex-grow">
                     <p className="font-semibold">{t.name}</p>

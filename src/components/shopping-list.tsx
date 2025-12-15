@@ -16,35 +16,11 @@ import { Plus, Camera, DollarSign } from 'lucide-react';
 import Image from 'next/image';
 import { useCurrency } from '@/context/CurrencyContext';
 
-const initialShoppingList: ShoppingCategory[] = [
-    {
-      id: 'essentials',
-      name: 'Essentials',
-      items: [
-        { id: '1', name: 'Passport', checked: true, imageUrl: 'https://picsum.photos/seed/passport/100/100', price: 0 },
-        { id: '2', name: 'Flight tickets', checked: true, imageUrl: 'https://picsum.photos/seed/tickets/100/100', price: 850 },
-        { id: '3', name: 'Hotel confirmation', checked: false, imageUrl: 'https://picsum.photos/seed/hotel/100/100', price: 1200 },
-      ],
-    },
-    {
-      id: 'clothing',
-      name: 'Clothing',
-      items: [
-        { id: '4', name: 'T-shirts (x5)', checked: false, imageUrl: 'https://picsum.photos/seed/tshirt/100/100', price: 100 },
-        { id: '5', name: 'Jeans (x2)', checked: false, imageUrl: 'https://picsum.photos/seed/jeans/100/100', price: 150 },
-        { id: '6', name: 'Jacket', checked: true, imageUrl: 'https://picsum.photos/seed/jacket/100/100', price: 120 },
-      ],
-    },
-    {
-      id: 'toiletries',
-      name: 'Toiletries',
-      items: [
-        { id: '7', name: 'Toothbrush', checked: true, imageUrl: 'https://picsum.photos/seed/toothbrush/100/100', price: 5 },
-        { id: '8', name: 'Toothpaste', checked: false, imageUrl: 'https://picsum.photos/seed/toothpaste/100/100', price: 3 },
-        { id: '9', name: 'Shampoo', checked: false, imageUrl: 'https://picsum.photos/seed/shampoo/100/100', price: 10 },
-      ],
-    },
-  ];
+interface ShoppingListProps {
+  list: ShoppingCategory[];
+  setList: React.Dispatch<React.SetStateAction<ShoppingCategory[]>>;
+  onCheckChange: (categoryId: string, itemId: string, checked: boolean) => void;
+}
 
 interface NewItemInputs {
     [categoryId: string]: {
@@ -55,33 +31,10 @@ interface NewItemInputs {
     };
   }
 
-export function ShoppingList() {
-    const [list, setList] = useState<ShoppingCategory[]>(initialShoppingList);
+export function ShoppingList({ list, setList, onCheckChange }: ShoppingListProps) {
     const [newItems, setNewItems] = useState<NewItemInputs>({});
     const fileInputRefs = useRef<{[key: string]: HTMLInputElement | null}>({});
     const { currency, rate, formatCurrency } = useCurrency();
-
-    const handleCheckChange = (categoryId: string, itemId: string, checked: boolean) => {
-        setList(prevList =>
-          prevList.map(category =>
-            category.id === categoryId
-              ? {
-                  ...category,
-                  items: category.items.map(item =>
-                    item.id === itemId ? { ...item, checked } : item
-                  ),
-                }
-              : category
-          )
-        );
-    };
-    
-    const handleInputChange = (categoryId: string, field: 'name' | 'price', value: string) => {
-        setNewItems(prev => ({
-            ...prev,
-            [categoryId]: { ...prev[categoryId], [field]: value },
-        }));
-    };
 
     const handleFileChange = (categoryId: string, e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0] || null;
@@ -95,6 +48,13 @@ export function ShoppingList() {
             };
             reader.readAsDataURL(file);
         }
+    };
+    
+    const handleInputChange = (categoryId: string, field: 'name' | 'price', value: string) => {
+        setNewItems(prev => ({
+            ...prev,
+            [categoryId]: { ...prev[categoryId], [field]: value },
+        }));
     };
 
     const handleAddItem = (categoryId: string) => {
@@ -172,7 +132,7 @@ export function ShoppingList() {
                                 id={`${category.id}-${item.id}`}
                                 checked={item.checked}
                                 onCheckedChange={(checked) =>
-                                  handleCheckChange(category.id, item.id, !!checked)
+                                  onCheckChange(category.id, item.id, !!checked)
                                 }
                                 className="peer"
                             />
