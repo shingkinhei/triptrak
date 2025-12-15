@@ -36,7 +36,6 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-  DialogTrigger,
 } from './ui/dialog';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
@@ -53,6 +52,7 @@ import { useRouter } from 'next/navigation';
 import { Checkbox } from './ui/checkbox';
 import { cn } from '@/lib/utils';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from './ui/alert-dialog';
+import { ScrollArea, ScrollBar } from './ui/scroll-area';
 
 
 const iconMap: Record<string, LucideIcon> = {
@@ -234,8 +234,8 @@ export function TripPlanner({ itinerary, setItinerary, checklist, setChecklist }
   const handleSave = () => {
     if (editingItem) {
       setItinerary(itinerary.map(item => item.day === editingItem.day ? editingItem : item));
-      handleCancelEdit();
     }
+    handleCancelEdit();
   };
 
   const handleCancelEdit = () => {
@@ -341,6 +341,23 @@ export function TripPlanner({ itinerary, setItinerary, checklist, setChecklist }
         </Button>
       </header>
 
+      <ScrollArea className="w-full whitespace-nowrap">
+        <div className="flex space-x-2 pb-2">
+          {itinerary.map((item, index) => (
+            <Button
+              key={item.day}
+              variant={activeDay === `item-${index}` ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setActiveDay(`item-${index}`)}
+              className="shrink-0"
+            >
+              Day {item.day}
+            </Button>
+          ))}
+        </div>
+        <ScrollBar orientation="horizontal" />
+      </ScrollArea>
+
       <PreTripChecklist checklist={checklist} setChecklist={setChecklist} />
 
       {activeItineraryItem && <WeatherCard location={activeItineraryItem.title.replace(/arrival in |exploring |day trip to /i, '')} />}
@@ -433,114 +450,112 @@ export function TripPlanner({ itinerary, setItinerary, checklist, setChecklist }
       </Accordion>
       
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="max-h-[90vh] flex flex-col shadow-lg">
-          {editingItem ? (
-            <>
-              <DialogHeader>
-                <DialogTitle>Edit Day {editingItem.day}</DialogTitle>
-              </DialogHeader>
-              <div className="flex-grow overflow-y-auto pr-6 -mr-6 space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="title">Title</Label>
-                  <Input id="title" value={editingItem.title} onChange={(e) => handleFieldChange('title', e.target.value)} />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="date">Date</Label>
-                  <Input id="date" type="date" value={editingItem.date} onChange={(e) => handleFieldChange('date', e.target.value)} />
-                </div>
+        {editingItem && (
+          <DialogContent className="max-h-[90vh] flex flex-col shadow-lg">
+            <DialogHeader>
+              <DialogTitle>Edit Day {editingItem.day}</DialogTitle>
+            </DialogHeader>
+            <div className="flex-grow overflow-y-auto pr-6 -mr-6 space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="title">Title</Label>
+                <Input id="title" value={editingItem.title} onChange={(e) => handleFieldChange('title', e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="date">Date</Label>
+                <Input id="date" type="date" value={editingItem.date} onChange={(e) => handleFieldChange('date', e.target.value)} />
+              </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="remarks">Remarks</Label>
-                  <Textarea id="remarks" value={editingItem.remarks || ''} onChange={(e) => handleFieldChange('remarks', e.target.value)} placeholder="Write your feelings or reflections..."/>
-                </div>
+              <div className="space-y-2">
+                <Label htmlFor="remarks">Remarks</Label>
+                <Textarea id="remarks" value={editingItem.remarks || ''} onChange={(e) => handleFieldChange('remarks', e.target.value)} placeholder="Write your feelings or reflections..."/>
+              </div>
 
-                <div className="space-y-2">
-                  <Label>Your Photos</Label>
-                  <Input 
-                      type="file" 
-                      accept="image/*" 
-                      multiple 
-                      ref={photoInputRef}
-                      onChange={handlePhotoUpload}
-                      className="hidden"
-                  />
-                  <div className="grid grid-cols-3 gap-2">
-                    {(editingItem.userPhotos || []).map((photo) => (
-                      <div key={photo.id} className="relative aspect-square">
-                        <Image src={photo.url} alt="User upload" fill className="rounded-md object-cover" />
-                        <Button
-                          variant="destructive"
-                          size="icon"
-                          className="absolute top-1 right-1 h-6 w-6 z-10"
-                          onClick={() => handleDeletePhoto(photo.id)}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    ))}
-                    <Button variant="outline" className="aspect-square flex-col gap-1" onClick={() => photoInputRef.current?.click()}>
-                        <Upload className="h-6 w-6" />
-                        <span className="text-xs">Upload</span>
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <div className="flex justify-between items-center">
-                    <h3 className="text-lg font-semibold">Activities</h3>
-                    <Button variant="ghost" size="sm" onClick={handleAddActivity}><PlusCircle className="mr-2 h-4 w-4"/>Add Activity</Button>
-                  </div>
-                  <div className="space-y-4">
-                    {editingItem.activities.map((act) => (
-                      <div key={act.id} className="flex items-center gap-2 p-2 border rounded-lg">
-                        <div className="grid gap-2 flex-grow">
-                          <div className="flex items-center gap-2">
-                              <Select value={act.icon} onValueChange={(val) => handleActivityChange(act.id, 'icon', val)}>
-                                  <SelectTrigger className="w-16 h-8">
-                                      <SelectValue>
-                                          {iconMap[act.icon] && React.createElement(iconMap[act.icon], {className: "h-4 w-4"})}
-                                      </SelectValue>
-                                  </SelectTrigger>
-                                  <SelectContent className="shadow-lg">
-                                      {iconOptions.map(opt => (
-                                          <SelectItem key={opt.value} value={opt.value}>
-                                              <div className="flex items-center gap-2">
-                                                  {React.createElement(iconMap[opt.value], {className: "h-4 w-4"})}
-                                                  <span>{opt.label}</span>
-                                              </div>
-                                          </SelectItem>
-                                      ))}
-                                  </SelectContent>
-                              </Select>
-                            <Input
-                              type="time"
-                              value={act.time}
-                              onChange={(e) => handleActivityChange(act.id, 'time', e.target.value)}
-                              className="w-24 h-8"
-                            />
-                          </div>
-                          <Input
-                            value={act.description}
-                            onChange={(e) => handleActivityChange(act.id, 'description', e.target.value)}
-                            placeholder="Activity description"
-                            className="h-8"
-                          />
-                        </div>
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDeleteActivity(act.id)}>
-                          <Trash2 className="h-4 w-4 text-destructive"/>
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
+              <div className="space-y-2">
+                <Label>Your Photos</Label>
+                <Input 
+                    type="file" 
+                    accept="image/*" 
+                    multiple 
+                    ref={photoInputRef}
+                    onChange={handlePhotoUpload}
+                    className="hidden"
+                />
+                <div className="grid grid-cols-3 gap-2">
+                  {(editingItem.userPhotos || []).map((photo) => (
+                    <div key={photo.id} className="relative aspect-square">
+                      <Image src={photo.url} alt="User upload" fill className="rounded-md object-cover" />
+                      <Button
+                        variant="destructive"
+                        size="icon"
+                        className="absolute top-1 right-1 h-6 w-6 z-10"
+                        onClick={() => handleDeletePhoto(photo.id)}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                  <Button variant="outline" className="aspect-square flex-col gap-1" onClick={() => photoInputRef.current?.click()}>
+                      <Upload className="h-6 w-6" />
+                      <span className="text-xs">Upload</span>
+                  </Button>
                 </div>
               </div>
-              <DialogFooter>
-                  <Button variant="outline" onClick={handleCancelEdit}>Cancel</Button>
-                <Button onClick={handleSave}>Save Changes</Button>
-              </DialogFooter>
-            </>
-          ) : null}
-        </DialogContent>
+
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <h3 className="text-lg font-semibold">Activities</h3>
+                  <Button variant="ghost" size="sm" onClick={handleAddActivity}><PlusCircle className="mr-2 h-4 w-4"/>Add Activity</Button>
+                </div>
+                <div className="space-y-4">
+                  {editingItem.activities.map((act) => (
+                    <div key={act.id} className="flex items-center gap-2 p-2 border rounded-lg">
+                      <div className="grid gap-2 flex-grow">
+                        <div className="flex items-center gap-2">
+                            <Select value={act.icon} onValueChange={(val) => handleActivityChange(act.id, 'icon', val)}>
+                                <SelectTrigger className="w-16 h-8">
+                                    <SelectValue>
+                                        {iconMap[act.icon] && React.createElement(iconMap[act.icon], {className: "h-4 w-4"})}
+                                    </SelectValue>
+                                </SelectTrigger>
+                                <SelectContent className="shadow-lg">
+                                    {iconOptions.map(opt => (
+                                        <SelectItem key={opt.value} value={opt.value}>
+                                            <div className="flex items-center gap-2">
+                                                {React.createElement(iconMap[opt.value], {className: "h-4 w-4"})}
+                                                <span>{opt.label}</span>
+                                            </div>
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                          <Input
+                            type="time"
+                            value={act.time}
+                            onChange={(e) => handleActivityChange(act.id, 'time', e.target.value)}
+                            className="w-24 h-8"
+                          />
+                        </div>
+                        <Input
+                          value={act.description}
+                          onChange={(e) => handleActivityChange(act.id, 'description', e.target.value)}
+                          placeholder="Activity description"
+                          className="h-8"
+                        />
+                      </div>
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDeleteActivity(act.id)}>
+                        <Trash2 className="h-4 w-4 text-destructive"/>
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <DialogFooter>
+                <Button variant="outline" onClick={handleCancelEdit}>Cancel</Button>
+              <Button onClick={handleSave}>Save Changes</Button>
+            </DialogFooter>
+          </DialogContent>
+        )}
       </Dialog>
     </div>
   );
