@@ -33,6 +33,7 @@ export type ShoppingItem = {
   name:string;
   checked: boolean;
   imageUrl?: string;
+  price?: number;
 };
 
 export type ShoppingCategory = {

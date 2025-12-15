@@ -4,6 +4,7 @@ import type { ShoppingCategory, ShoppingItem } from '@/lib/types';
 import {
   Card,
   CardContent,
+  CardDescription,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
@@ -11,7 +12,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
-import { Plus, Camera } from 'lucide-react';
+import { Plus, Camera, DollarSign } from 'lucide-react';
 import Image from 'next/image';
 
 const initialShoppingList: ShoppingCategory[] = [
@@ -19,27 +20,27 @@ const initialShoppingList: ShoppingCategory[] = [
       id: 'essentials',
       name: 'Essentials',
       items: [
-        { id: '1', name: 'Passport', checked: true, imageUrl: 'https://picsum.photos/seed/passport/100/100' },
-        { id: '2', name: 'Flight tickets', checked: true, imageUrl: 'https://picsum.photos/seed/tickets/100/100' },
-        { id: '3', name: 'Hotel confirmation', checked: false, imageUrl: 'https://picsum.photos/seed/hotel/100/100' },
+        { id: '1', name: 'Passport', checked: true, imageUrl: 'https://picsum.photos/seed/passport/100/100', price: 0 },
+        { id: '2', name: 'Flight tickets', checked: true, imageUrl: 'https://picsum.photos/seed/tickets/100/100', price: 850 },
+        { id: '3', name: 'Hotel confirmation', checked: false, imageUrl: 'https://picsum.photos/seed/hotel/100/100', price: 1200 },
       ],
     },
     {
       id: 'clothing',
       name: 'Clothing',
       items: [
-        { id: '4', name: 'T-shirts (x5)', checked: false, imageUrl: 'https://picsum.photos/seed/tshirt/100/100' },
-        { id: '5', name: 'Jeans (x2)', checked: false, imageUrl: 'https://picsum.photos/seed/jeans/100/100' },
-        { id: '6', name: 'Jacket', checked: true, imageUrl: 'https://picsum.photos/seed/jacket/100/100' },
+        { id: '4', name: 'T-shirts (x5)', checked: false, imageUrl: 'https://picsum.photos/seed/tshirt/100/100', price: 100 },
+        { id: '5', name: 'Jeans (x2)', checked: false, imageUrl: 'https://picsum.photos/seed/jeans/100/100', price: 150 },
+        { id: '6', name: 'Jacket', checked: true, imageUrl: 'https://picsum.photos/seed/jacket/100/100', price: 120 },
       ],
     },
     {
       id: 'toiletries',
       name: 'Toiletries',
       items: [
-        { id: '7', name: 'Toothbrush', checked: true, imageUrl: 'https://picsum.photos/seed/toothbrush/100/100' },
-        { id: '8', name: 'Toothpaste', checked: false, imageUrl: 'https://picsum.photos/seed/toothpaste/100/100' },
-        { id: '9', name: 'Shampoo', checked: false, imageUrl: 'https://picsum.photos/seed/shampoo/100/100' },
+        { id: '7', name: 'Toothbrush', checked: true, imageUrl: 'https://picsum.photos/seed/toothbrush/100/100', price: 5 },
+        { id: '8', name: 'Toothpaste', checked: false, imageUrl: 'https://picsum.photos/seed/toothpaste/100/100', price: 3 },
+        { id: '9', name: 'Shampoo', checked: false, imageUrl: 'https://picsum.photos/seed/shampoo/100/100', price: 10 },
       ],
     },
   ];
@@ -47,6 +48,7 @@ const initialShoppingList: ShoppingCategory[] = [
 interface NewItemInputs {
     [categoryId: string]: {
       name: string;
+      price: string;
       file: File | null;
       previewUrl?: string;
     };
@@ -72,10 +74,10 @@ export function ShoppingList() {
         );
     };
     
-    const handleInputChange = (categoryId: string, name: string) => {
+    const handleInputChange = (categoryId: string, field: 'name' | 'price', value: string) => {
         setNewItems(prev => ({
             ...prev,
-            [categoryId]: { ...prev[categoryId], name },
+            [categoryId]: { ...prev[categoryId], [field]: value },
         }));
     };
 
@@ -101,6 +103,7 @@ export function ShoppingList() {
             id: new Date().toISOString(),
             name: newItemInput.name.trim(),
             checked: false,
+            price: parseFloat(newItemInput.price) || 0,
             imageUrl: newItemInput.previewUrl || `https://picsum.photos/seed/${newItemInput.name.trim()}/100/100`
         };
 
@@ -117,13 +120,19 @@ export function ShoppingList() {
         
         setNewItems(prev => ({
             ...prev,
-            [categoryId]: { name: '', file: null, previewUrl: '' },
+            [categoryId]: { name: '', price: '', file: null, previewUrl: '' },
         }));
-        // Reset file input
+
         if(fileInputRefs.current[categoryId]) {
             fileInputRefs.current[categoryId]!.value = '';
         }
     }
+
+    const calculateTotal = (items: ShoppingItem[]) => {
+        return items.reduce((total, item) => total + (item.price || 0), 0);
+    }
+
+    const grandTotal = list.reduce((total, category) => total + calculateTotal(category.items), 0);
 
   return (
     <div className="space-y-4">
@@ -136,11 +145,23 @@ export function ShoppingList() {
         </p>
       </header>
 
+      <Card>
+        <CardHeader>
+          <CardDescription>Grand Total</CardDescription>
+          <CardTitle>${grandTotal.toLocaleString()}</CardTitle>
+        </CardHeader>
+      </Card>
+
       <div className="space-y-4">
-        {list.map(category => (
+        {list.map(category => {
+            const categoryTotal = calculateTotal(category.items);
+            return (
             <Card key={category.id}>
                 <CardHeader>
-                    <CardTitle className="text-lg font-headline">{category.name}</CardTitle>
+                    <div className="flex justify-between items-center">
+                        <CardTitle className="text-lg font-headline">{category.name}</CardTitle>
+                        <span className="font-semibold text-muted-foreground">${categoryTotal.toLocaleString()}</span>
+                    </div>
                 </CardHeader>
                 <CardContent className="space-y-3">
                     {category.items.map(item => (
@@ -172,24 +193,35 @@ export function ShoppingList() {
                             >
                                 {item.name}
                             </label>
+                            <div className={cn("text-sm font-semibold", item.checked ? 'text-muted-foreground line-through' : 'text-foreground')}>
+                                ${item.price?.toLocaleString() || '0'}
+                            </div>
                         </div>
                     ))}
                     <div className="flex gap-2 pt-2">
                         {newItems[category.id]?.previewUrl && (
                             <Image src={newItems[category.id]!.previewUrl!} alt="Preview" width={40} height={40} className="rounded-md object-cover" />
                         )}
-                        <Input 
-                            placeholder="Add new item..." 
-                            className="h-9"
-                            value={newItems[category.id]?.name || ''}
-                            onKeyDown={(e) => {
-                                if (e.key === 'Enter') {
-                                    e.preventDefault();
-                                    handleAddItem(category.id);
-                                }
-                            }}
-                            onChange={(e) => handleInputChange(category.id, e.target.value)}
-                         />
+                         <div className="relative flex-grow">
+                            <Input 
+                                placeholder="Add new item..." 
+                                className="h-9"
+                                value={newItems[category.id]?.name || ''}
+                                onKeyDown={(e) => e.key === 'Enter' && handleAddItem(category.id)}
+                                onChange={(e) => handleInputChange(category.id, 'name', e.target.value)}
+                            />
+                         </div>
+                         <div className="relative w-24">
+                             <DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                            <Input 
+                                type="number"
+                                placeholder="Price" 
+                                className="h-9 pl-7"
+                                value={newItems[category.id]?.price || ''}
+                                onKeyDown={(e) => e.key === 'Enter' && handleAddItem(category.id)}
+                                onChange={(e) => handleInputChange(category.id, 'price', e.target.value)}
+                            />
+                         </div>
                          <input 
                             type="file" 
                             accept="image/*"
@@ -206,7 +238,7 @@ export function ShoppingList() {
                     </div>
                 </CardContent>
             </Card>
-        ))}
+        )})}
       </div>
     </div>
   );
