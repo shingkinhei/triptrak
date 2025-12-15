@@ -8,6 +8,11 @@ export type Activity = {
   icon: string; // Now a string to match icon map keys
 };
 
+export type UserPhoto = {
+    id: string;
+    url: string;
+};
+
 export type ItineraryItem = {
   day: number;
   title: string;
@@ -17,6 +22,8 @@ export type ItineraryItem = {
     hint: string;
   }
   activities: Activity[];
+  remarks?: string;
+  userPhotos?: UserPhoto[];
 };
 
 export type TransactionCategory = 'Food' | 'Transport' | 'Shopping' | 'Accommodation' | 'Other';

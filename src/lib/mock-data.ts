@@ -24,6 +24,11 @@ export const mockTrips: Trip[] = [
           url: PlaceHolderImages.find((p) => p.id === 'tokyo')?.imageUrl || '',
           hint: PlaceHolderImages.find((p) => p.id === 'tokyo')?.imageHint || '',
         },
+        remarks: "The energy in Tokyo is electric! So excited to be here. The flight was long but smooth. The Park Hyatt has an incredible view of the city skyline. Dinner at Ichiran was the perfect first meal - so delicious.",
+        userPhotos: [
+          { id: 'photo1', url: 'https://picsum.photos/seed/tokyo-view/600/400' },
+          { id: 'photo2', url: 'https://picsum.photos/seed/ichiran-ramen/600/400' },
+        ],
         activities: [
           {
             id: 'act1',

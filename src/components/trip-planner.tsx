@@ -1,5 +1,5 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import Image from 'next/image';
 import {
   Accordion,
@@ -8,7 +8,7 @@ import {
   AccordionTrigger,
 } from '@/components/ui/accordion';
 import { Card, CardContent } from '@/components/ui/card';
-import type { ItineraryItem, Activity } from '@/lib/types';
+import type { ItineraryItem, Activity, UserPhoto } from '@/lib/types';
 import {
   BedDouble,
   Camera,
@@ -19,6 +19,8 @@ import {
   MoreVertical,
   PlusCircle,
   Trash2,
+  Upload,
+  X,
   type LucideIcon,
   Ticket,
   Mountain,
@@ -42,6 +44,7 @@ import {
 } from './ui/dropdown-menu';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { WeatherCard } from './weather-card';
+import { Textarea } from './ui/textarea';
 
 const iconMap: Record<string, LucideIcon> = {
   Plane,
@@ -73,9 +76,14 @@ interface TripPlannerProps {
 export function TripPlanner({ itinerary, setItinerary }: TripPlannerProps) {
   const [editingItem, setEditingItem] = useState<ItineraryItem | null>(null);
   const [activeDay, setActiveDay] = useState<string>('item-0');
+  const photoInputRef = useRef<HTMLInputElement>(null);
   
   const handleEditClick = (item: ItineraryItem) => {
-    setEditingItem({ ...item, activities: [...item.activities] });
+    setEditingItem({
+        ...item,
+        activities: [...item.activities],
+        userPhotos: item.userPhotos ? [...item.userPhotos] : [],
+    });
   };
 
   const handleSave = () => {
@@ -85,7 +93,7 @@ export function TripPlanner({ itinerary, setItinerary }: TripPlannerProps) {
     }
   };
 
-  const handleFieldChange = (field: keyof ItineraryItem, value: string) => {
+  const handleFieldChange = (field: keyof Omit<ItineraryItem, 'activities' | 'userPhotos'>, value: string) => {
     if (editingItem) {
       setEditingItem({ ...editingItem, [field]: value });
     }
@@ -116,6 +124,38 @@ export function TripPlanner({ itinerary, setItinerary }: TripPlannerProps) {
     if (editingItem) {
       const updatedActivities = editingItem.activities.filter(act => act.id !== actId);
       setEditingItem({ ...editingItem, activities: updatedActivities });
+    }
+  };
+
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && editingItem) {
+      const files = Array.from(e.target.files);
+      const newPhotos: UserPhoto[] = [];
+
+      files.forEach(file => {
+          const reader = new FileReader();
+          reader.onload = (event) => {
+              if (event.target?.result) {
+                  newPhotos.push({ id: `photo_${new Date().getTime()}_${Math.random()}`, url: event.target.result as string });
+                  if (newPhotos.length === files.length) {
+                      setEditingItem({
+                          ...editingItem,
+                          userPhotos: [...(editingItem.userPhotos || []), ...newPhotos],
+                      });
+                  }
+              }
+          };
+          reader.readAsDataURL(file);
+      });
+    }
+  };
+
+  const handleDeletePhoto = (photoId: string) => {
+    if (editingItem) {
+      setEditingItem({
+        ...editingItem,
+        userPhotos: editingItem.userPhotos?.filter(p => p.id !== photoId),
+      });
     }
   };
 
@@ -192,7 +232,22 @@ export function TripPlanner({ itinerary, setItinerary }: TripPlannerProps) {
                     </DropdownMenu>
                   </div>
                 </div>
-                <AccordionContent className="p-4 bg-card/80 backdrop-blur-sm rounded-b-lg">
+                <AccordionContent className="p-4 bg-card/80 backdrop-blur-sm rounded-b-lg space-y-4">
+                   {item.remarks && (
+                    <div className="prose prose-sm max-w-none text-foreground">
+                        <p>{item.remarks}</p>
+                    </div>
+                  )}
+
+                  {item.userPhotos && item.userPhotos.length > 0 && (
+                    <div className="grid grid-cols-3 gap-2">
+                        {item.userPhotos.map((photo) => (
+                            <div key={photo.id} className="relative aspect-square rounded-md overflow-hidden">
+                                <Image src={photo.url} alt="User photo" fill className="object-cover" />
+                            </div>
+                        ))}
+                    </div>
+                  )}
                   <ul className="space-y-4">
                     {item.activities.map((activity, actIndex) => {
                       const ActivityIcon = iconMap[activity.icon];
@@ -238,7 +293,43 @@ export function TripPlanner({ itinerary, setItinerary }: TripPlannerProps) {
                   <Label htmlFor="date">Date</Label>
                   <Input id="date" type="date" value={editingItem.date} onChange={(e) => handleFieldChange('date', e.target.value)} />
                 </div>
-                
+
+                <div className="space-y-2">
+                  <Label htmlFor="remarks">Remarks</Label>
+                  <Textarea id="remarks" value={editingItem.remarks || ''} onChange={(e) => handleFieldChange('remarks', e.target.value)} placeholder="Write your feelings or reflections..."/>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Your Photos</Label>
+                   <Input 
+                      type="file" 
+                      accept="image/*" 
+                      multiple 
+                      ref={photoInputRef}
+                      onChange={handlePhotoUpload}
+                      className="hidden"
+                  />
+                  <div className="grid grid-cols-3 gap-2">
+                    {(editingItem.userPhotos || []).map((photo) => (
+                      <div key={photo.id} className="relative aspect-square">
+                        <Image src={photo.url} alt="User upload" fill className="rounded-md object-cover" />
+                        <Button
+                          variant="destructive"
+                          size="icon"
+                          className="absolute top-1 right-1 h-6 w-6 z-10"
+                          onClick={() => handleDeletePhoto(photo.id)}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                     <Button variant="outline" className="aspect-square flex-col gap-1" onClick={() => photoInputRef.current?.click()}>
+                        <Upload className="h-6 w-6" />
+                        <span className="text-xs">Upload</span>
+                    </Button>
+                  </div>
+                </div>
+
                 <div className="space-y-2">
                   <div className="flex justify-between items-center">
                     <h3 className="text-lg font-semibold">Activities</h3>
