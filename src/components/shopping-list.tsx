@@ -85,6 +85,13 @@ const AddCategoryDialog = ({ onAddCategory }: { onAddCategory: (name: string) =>
     );
 };
 
+const MOCK_RATES = {
+    USD: 1,
+    JPY: 157,
+    EUR: 0.92,
+    HKD: 7.8,
+};
+
 export function ShoppingList({ list, setList, onCheckChange, trip }: ShoppingListProps) {
     const [newItems, setNewItems] = useState<NewItemInputs>({});
     const fileInputRefs = useRef<{[key: string]: HTMLInputElement | null}>({});
@@ -93,16 +100,8 @@ export function ShoppingList({ list, setList, onCheckChange, trip }: ShoppingLis
     const [newCategoryName, setNewCategoryName] = useState('');
     const [displayCurrency, setDisplayCurrency] = useState<DisplayCurrency>('trip');
 
-    const currentRate = displayCurrency === 'trip' ? 1 : tripRate / MOCK_RATES[homeCurrency];
     const currentFormatter = displayCurrency === 'trip' ? formatCurrency : formatHomeCurrency;
     const currentCurrency = displayCurrency === 'trip' ? tripCurrency : homeCurrency;
-
-    const MOCK_RATES = {
-        USD: 1,
-        JPY: 157,
-        EUR: 0.92,
-        HKD: 7.8,
-      };
 
     const toggleCurrency = () => {
         setDisplayCurrency(prev => (prev === 'trip' ? 'home' : 'trip'));

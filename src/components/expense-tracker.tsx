@@ -71,6 +71,13 @@ const chartConfig = {
   },
 } satisfies ChartConfig;
 
+const MOCK_RATES = {
+    USD: 1,
+    JPY: 157,
+    EUR: 0.92,
+    HKD: 7.8,
+  };
+
 export function ExpenseTracker({ transactions, setTransactions, trip }: ExpenseTrackerProps) {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [newTransaction, setNewTransaction] = useState<{name: string, category: TransactionCategory | '', amount: string}>({
@@ -83,7 +90,6 @@ export function ExpenseTracker({ transactions, setTransactions, trip }: ExpenseT
 
   const { tripCurrency, tripRate, formatCurrency, homeCurrency, convertToHomeCurrency, formatHomeCurrency } = useCurrency();
 
-  const currentRate = displayCurrency === 'trip' ? tripRate : 1;
   const currentFormatter = displayCurrency === 'trip' ? formatCurrency : formatHomeCurrency;
   const currentCurrency = displayCurrency === 'trip' ? tripCurrency : homeCurrency;
   
@@ -111,13 +117,6 @@ export function ExpenseTracker({ transactions, setTransactions, trip }: ExpenseT
   
   const toggleCurrency = () => {
     setDisplayCurrency(prev => (prev === 'trip' ? 'home' : 'trip'));
-  };
-
-  const MOCK_RATES = {
-    USD: 1,
-    JPY: 157,
-    EUR: 0.92,
-    HKD: 7.8,
   };
 
   return (
