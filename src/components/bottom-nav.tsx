@@ -58,7 +58,8 @@ export function BottomNav({ activeItem, setActiveTab }: BottomNavProps) {
           className={cn(
             'flex flex-1 flex-col items-center gap-1 p-3 text-primary-foreground/70 transition-colors duration-200',
             {
-              'text-primary': activeItem === item.id,
+              'text-white': activeItem === item.id && !!setActiveTab,
+              'text-primary': activeItem === item.id && !setActiveTab,
               'opacity-50 cursor-not-allowed': !setActiveTab && !item.action,
             }
           )}
