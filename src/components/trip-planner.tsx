@@ -371,9 +371,9 @@ export function TripPlanner({ itinerary, setItinerary, checklist, setChecklist }
 
       {itinerary.map((item, index) => (
           <div key={item.day} className={cn(activeView === `day-${item.day}` ? 'block' : 'hidden')}>
-            <Card className="overflow-hidden bg-transparent border-0 shadow-none">
+            <Card className="overflow-hidden bg-card/80 backdrop-blur-sm border-white/20 shadow-lg">
               <div className="relative">
-                <div className="relative w-full h-32 rounded-lg overflow-hidden">
+                <div className="relative w-full h-32 rounded-t-lg overflow-hidden">
                   <Image
                     src={item.image.url}
                     alt={item.title}
@@ -405,7 +405,7 @@ export function TripPlanner({ itinerary, setItinerary, checklist, setChecklist }
                   </DropdownMenu>
                 </div>
               </div>
-              <div className="p-4 bg-card/80 backdrop-blur-sm rounded-b-lg space-y-4">
+              <div className="p-4 space-y-4">
                  {item.remarks && (
                   <div className="prose prose-sm max-w-none text-card-foreground">
                       <p>{item.remarks}</p>
@@ -561,6 +561,9 @@ export function TripPlanner({ itinerary, setItinerary, checklist, setChecklist }
       {viewingPhoto && (
         <Dialog open={!!viewingPhoto} onOpenChange={() => setViewingPhoto(null)}>
             <DialogContent className="max-w-3xl p-2 bg-transparent border-0 shadow-none">
+                 <DialogHeader>
+                    <DialogTitle className="sr-only">Full screen user photo</DialogTitle>
+                </DialogHeader>
                 <div className="relative w-full h-auto">
                     <Image
                         src={viewingPhoto.url}
