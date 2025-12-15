@@ -181,7 +181,7 @@ const TabContent: FC<TabContentProps> = ({ trip, setTrip, activeTab, setActiveTa
 
   return (
     <>
-      <div className="flex-grow overflow-hidden">
+      <div className="flex-grow overflow-hidden pt-8">
         <AnimatePresence mode="wait">
           <motion.div
             key={activeTab}
@@ -304,108 +304,102 @@ export default function TripDetailsPage({ params }: TripDetailsPageProps) {
 
 
   return (
-    <main className="bg-muted flex min-h-screen items-center justify-center p-4 font-body">
+    <main className="font-body">
       <div
-        className="relative mx-auto h-[800px] w-full max-w-sm max-h-[90vh] rounded-[48px] border-8 border-black bg-cover bg-center shadow-2xl overflow-hidden"
+        className="relative h-screen w-full bg-cover bg-center flex flex-col"
         style={{ backgroundImage: `url(${trip.imageUrl})` }}
       >
         <div className="absolute inset-0 bg-black/50 z-0" />
         <div className="relative z-10 h-full flex flex-col">
-            <div className="absolute top-0 left-1/2 z-20 h-7 w-1/3 -translate-x-1/2 bg-black rounded-b-2xl">
-              <div className="absolute left-6 top-1/2 h-3 w-3 -translate-y-1/2 rounded-full bg-gray-700"></div>
-              <div className="absolute left-1/2 top-1/2 h-4 w-10 -translate-x-1/2 -translate-y-1/2 rounded-full bg-gray-800"></div>
-            </div>
-            <div className="flex h-full flex-col pt-7">
-              <TabContent trip={trip} setTrip={setTrip} activeTab={activeTab} setActiveTab={setActiveTab} />
-            </div>
+          <TabContent trip={trip} setTrip={setTrip} activeTab={activeTab} setActiveTab={setActiveTab} />
+        </div>
 
-            {activeTab === 'shopping' && (
-              <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-                  <DialogTrigger asChild>
-                      <Button className="absolute bottom-20 right-8 h-16 w-16 rounded-full shadow-lg z-20">
-                          <PlusCircle className="h-8 w-8" />
-                      </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                      <DialogHeader>
-                          <DialogTitle>Add New Shopping Item</DialogTitle>
-                      </DialogHeader>
-                      <div className="grid gap-4 py-4">
-                          <div className="space-y-2">
-                              <Label htmlFor="item-name">Item Name</Label>
-                              <Input id="item-name" value={newItem.name} onChange={(e) => handleInputChange('name', e.target.value)} placeholder="e.g. Japanese KitKats" />
-                          </div>
-                          <div className="space-y-2">
-                              <Label htmlFor="item-price">Price ({tripCurrency})</Label>
-                              <Input id="item-price" type="number" value={newItem.price} onChange={(e) => handleInputChange('price', e.target.value)} placeholder="e.g. 15.00" />
-                          </div>
-                          <div className="space-y-2">
-                              <Label htmlFor="item-category">Category</Label>
-                              <Select value={newItem.categoryId} onValueChange={(value) => handleInputChange('categoryId', value)}>
-                                  <SelectTrigger id="item-category">
-                                      <SelectValue placeholder="Select a category" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                      {trip.shoppingList.map(cat => (
-                                          <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
-                                      ))}
-                                  </SelectContent>
-                              </Select>
-                          </div>
-                          <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <Label htmlFor="item-location">Location</Label>
-                                <Select value={newItem.location} onValueChange={(value) => handleInputChange('location', value)}>
-                                    <SelectTrigger id="item-location">
-                                        <SelectValue placeholder="Select a location" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {itineraryLocations.map(loc => (
-                                            <SelectItem key={loc} value={loc}>{loc}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                             <div className="space-y-2">
-                                <Label htmlFor="item-store">Store / POI</Label>
-                                <Select value={newItem.store} onValueChange={(value) => handleInputChange('store', value)} disabled={!newItem.location}>
-                                    <SelectTrigger id="item-store">
-                                        <SelectValue placeholder="Select a store" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {pointsOfInterest.map(poi => (
-                                            <SelectItem key={poi.name} value={poi.name}>{poi.name}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                          </div>
-                          <div className="space-y-2">
-                              <Label>Image (Optional)</Label>
-                              <div className="flex items-center gap-4">
-                                  {newItem.previewUrl && <Image src={newItem.previewUrl} alt="preview" width={60} height={60} className="rounded-md object-cover" />}
-                                  <Input 
-                                      type="file" 
-                                      accept="image/*" 
-                                      ref={fileInputRef} 
-                                      onChange={(e) => handleInputChange('file', e.target.files ? e.target.files[0] : null)}
-                                      className="hidden"
-                                  />
-                                  <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
-                                      <Camera className="mr-2 h-4 w-4" />
-                                      Upload
-                                  </Button>
-                              </div>
+        {activeTab === 'shopping' && (
+          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+              <DialogTrigger asChild>
+                  <Button className="absolute bottom-24 right-8 h-16 w-16 rounded-full shadow-lg z-20">
+                      <PlusCircle className="h-8 w-8" />
+                  </Button>
+              </DialogTrigger>
+              <DialogContent>
+                  <DialogHeader>
+                      <DialogTitle>Add New Shopping Item</DialogTitle>
+                  </DialogHeader>
+                  <div className="grid gap-4 py-4">
+                      <div className="space-y-2">
+                          <Label htmlFor="item-name">Item Name</Label>
+                          <Input id="item-name" value={newItem.name} onChange={(e) => handleInputChange('name', e.target.value)} placeholder="e.g. Japanese KitKats" />
+                      </div>
+                      <div className="space-y-2">
+                          <Label htmlFor="item-price">Price ({tripCurrency})</Label>
+                          <Input id="item-price" type="number" value={newItem.price} onChange={(e) => handleInputChange('price', e.target.value)} placeholder="e.g. 15.00" />
+                      </div>
+                      <div className="space-y-2">
+                          <Label htmlFor="item-category">Category</Label>
+                          <Select value={newItem.categoryId} onValueChange={(value) => handleInputChange('categoryId', value)}>
+                              <SelectTrigger id="item-category">
+                                  <SelectValue placeholder="Select a category" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                  {trip.shoppingList.map(cat => (
+                                      <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+                                  ))}
+                              </SelectContent>
+                          </Select>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="item-location">Location</Label>
+                            <Select value={newItem.location} onValueChange={(value) => handleInputChange('location', value)}>
+                                <SelectTrigger id="item-location">
+                                    <SelectValue placeholder="Select a location" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {itineraryLocations.map(loc => (
+                                        <SelectItem key={loc} value={loc}>{loc}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                         <div className="space-y-2">
+                            <Label htmlFor="item-store">Store / POI</Label>
+                            <Select value={newItem.store} onValueChange={(value) => handleInputChange('store', value)} disabled={!newItem.location}>
+                                <SelectTrigger id="item-store">
+                                    <SelectValue placeholder="Select a store" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {pointsOfInterest.map(poi => (
+                                        <SelectItem key={poi.name} value={poi.name}>{poi.name}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                          <Label>Image (Optional)</Label>
+                          <div className="flex items-center gap-4">
+                              {newItem.previewUrl && <Image src={newItem.previewUrl} alt="preview" width={60} height={60} className="rounded-md object-cover" />}
+                              <Input 
+                                  type="file" 
+                                  accept="image/*" 
+                                  ref={fileInputRef} 
+                                  onChange={(e) => handleInputChange('file', e.target.files ? e.target.files[0] : null)}
+                                  className="hidden"
+                              />
+                              <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
+                                  <Camera className="mr-2 h-4 w-4" />
+                                  Upload
+                              </Button>
                           </div>
                       </div>
-                      <DialogFooter>
-                          <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>Cancel</Button>
-                          <Button onClick={handleAddItem}>Add Item</Button>
-                      </DialogFooter>
-                  </DialogContent>
-              </Dialog>
-            )}
-        </div>
+                  </div>
+                  <DialogFooter>
+                      <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>Cancel</Button>
+                      <Button onClick={handleAddItem}>Add Item</Button>
+                  </DialogFooter>
+              </DialogContent>
+          </Dialog>
+        )}
       </div>
     </main>
   );
