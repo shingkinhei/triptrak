@@ -311,43 +311,43 @@ export function ShoppingList({ list, setList, onCheckChange }: ShoppingListProps
                             </div>
                         </div>
                     ))}
-                    <div className="flex gap-2 pt-2">
-                        {newItems[category.id]?.previewUrl && (
-                            <Image src={newItems[category.id]!.previewUrl!} alt="Preview" width={40} height={40} className="rounded-md object-cover" />
-                        )}
-                         <div className="relative flex-grow">
-                            <Input 
-                                placeholder="Add new item..." 
-                                className="h-9"
-                                value={newItems[category.id]?.name || ''}
-                                onKeyDown={(e) => e.key === 'Enter' && handleAddItem(category.id)}
-                                onChange={(e) => handleInputChange(category.id, 'name', e.target.value)}
-                            />
-                         </div>
-                         <div className="relative w-24">
-                             <DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                            <Input 
-                                type="number"
-                                placeholder="Price" 
-                                className="h-9 pl-7"
-                                value={newItems[category.id]?.price || ''}
-                                onKeyDown={(e) => e.key === 'Enter' && handleAddItem(category.id)}
-                                onChange={(e) => handleInputChange(category.id, 'price', e.target.value)}
-                            />
-                         </div>
-                         <input 
-                            type="file" 
-                            accept="image/*"
-                            className="hidden" 
-                            ref={(el) => fileInputRefs.current[category.id] = el}
-                            onChange={(e) => handleFileChange(category.id, e)}
-                         />
-                        <Button size="icon" variant="outline" className="h-9 w-9 shrink-0" onClick={() => fileInputRefs.current[category.id]?.click()}>
-                            <Camera className="h-4 w-4" />
-                        </Button>
-                        <Button size="icon" className="h-9 w-9 shrink-0" onClick={() => handleAddItem(category.id)}>
-                            <Plus className="h-4 w-4" />
-                        </Button>
+                    <div className="space-y-2 pt-2">
+                        <Input 
+                            placeholder="Add new item..." 
+                            className="h-9"
+                            value={newItems[category.id]?.name || ''}
+                            onKeyDown={(e) => e.key === 'Enter' && handleAddItem(category.id)}
+                            onChange={(e) => handleInputChange(category.id, 'name', e.target.value)}
+                        />
+                        <div className="flex gap-2 items-center">
+                           {newItems[category.id]?.previewUrl && (
+                                <Image src={newItems[category.id]!.previewUrl!} alt="Preview" width={40} height={40} className="rounded-md object-cover" />
+                            )}
+                             <div className="relative w-28 flex-grow">
+                                <DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                                <Input 
+                                    type="number"
+                                    placeholder="Price" 
+                                    className="h-9 pl-7"
+                                    value={newItems[category.id]?.price || ''}
+                                    onKeyDown={(e) => e.key === 'Enter' && handleAddItem(category.id)}
+                                    onChange={(e) => handleInputChange(category.id, 'price', e.target.value)}
+                                />
+                             </div>
+                             <input 
+                                type="file" 
+                                accept="image/*"
+                                className="hidden" 
+                                ref={(el) => fileInputRefs.current[category.id] = el}
+                                onChange={(e) => handleFileChange(category.id, e)}
+                             />
+                            <Button size="icon" variant="outline" className="h-9 w-9 shrink-0" onClick={() => fileInputRefs.current[category.id]?.click()}>
+                                <Camera className="h-4 w-4" />
+                            </Button>
+                            <Button size="icon" className="h-9 w-9 shrink-0" onClick={() => handleAddItem(category.id)}>
+                                <Plus className="h-4 w-4" />
+                            </Button>
+                        </div>
                     </div>
                 </CardContent>
             </Card>
