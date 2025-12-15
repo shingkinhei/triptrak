@@ -207,7 +207,7 @@ export function TripPlanner({ itinerary, setItinerary }: TripPlannerProps) {
                             )}
                           </div>
                           <div>
-                            <p className="font-semibold">{activity.time}</p>
+                            <p className="font-semibold text-primary-foreground">{activity.time}</p>
                             <p className="text-primary-foreground/80">
                               {activity.description}
                             </p>
