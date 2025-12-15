@@ -135,6 +135,14 @@ export const mockTrips: Trip[] = [
           { id: '6', name: 'Jacket', checked: true, imageUrl: 'https://picsum.photos/seed/jacket/100/100', price: 120 },
         ],
       },
+    ],
+    checklist: [
+        { id: 'check-flights', label: 'Confirm flights and check-in times', checked: true },
+        { id: 'check-documents', label: 'Save digital copies of tickets & documents', checked: true },
+        { id: 'check-passport', label: 'Check passport and visa requirements', checked: false },
+        { id: 'check-roaming', label: 'Activate international roaming or get a local SIM', checked: false },
+        { id: 'check-banks', label: 'Notify banks of your travel plans', checked: false },
+        { id: 'check-meds', label: 'Pack essential medications and first-aid kit', checked: false },
     ]
   },
   {
@@ -149,6 +157,10 @@ export const mockTrips: Trip[] = [
     imageHint: "colosseum rome",
     itinerary: [],
     transactions: [],
-    shoppingList: []
+    shoppingList: [],
+    checklist: [
+        { id: 'check-flights', label: 'Confirm flights and check-in times', checked: false },
+        { id: 'check-passport', label: 'Check passport and visa requirements', checked: false },
+    ]
   }
 ];

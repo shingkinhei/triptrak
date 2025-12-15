@@ -13,6 +13,12 @@ export type UserPhoto = {
     url: string;
 };
 
+export type ChecklistItem = {
+    id: string;
+    label: string;
+    checked: boolean;
+};
+
 export type ItineraryItem = {
   day: number;
   title: string;
@@ -74,4 +80,5 @@ export type Trip = {
   itinerary: ItineraryItem[];
   transactions: Transaction[];
   shoppingList: ShoppingCategory[];
+  checklist: ChecklistItem[];
 };

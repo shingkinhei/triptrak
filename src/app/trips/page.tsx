@@ -60,6 +60,7 @@ export default function TripsPage() {
       itinerary: [],
       transactions: [],
       shoppingList: [],
+      checklist: [],
     };
     setTrips(prev => [newTripData, ...prev]);
     setNewTrip({ name: '', destination: '', country: '', startDate: '', endDate: '' });
@@ -101,7 +102,7 @@ export default function TripsPage() {
     setTrips(prevTrips => 
       prevTrips.map(trip => 
         trip.id === editingTrip.id 
-          ? { ...trip, ...tripForm, id: trip.id, status: trip.status, itinerary: trip.itinerary, transactions: trip.transactions, shoppingList: trip.shoppingList } as Trip
+          ? { ...trip, ...tripForm, id: trip.id, status: trip.status, itinerary: trip.itinerary, transactions: trip.transactions, shoppingList: trip.shoppingList, checklist: trip.checklist } as Trip
           : trip
       )
     );

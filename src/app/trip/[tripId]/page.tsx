@@ -20,7 +20,7 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import type { Currency, Transaction, ShoppingCategory, Trip, ShoppingItem, ItineraryItem, Activity } from '@/lib/types';
+import type { Currency, Transaction, ShoppingCategory, Trip, ShoppingItem, ItineraryItem, Activity, ChecklistItem } from '@/lib/types';
 import { mockTrips } from '@/lib/mock-data';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -152,6 +152,14 @@ const TabContent: FC<TabContentProps> = ({ trip, setTrip, activeTab, setActiveTa
               }
             : undefined
         ),
+      checklist: trip.checklist,
+      setChecklist: (updater: React.SetStateAction<ChecklistItem[]>) => {
+        setTrip((currentTrip) => {
+            if (!currentTrip) return undefined;
+            const newChecklist = typeof updater === 'function' ? updater(currentTrip.checklist) : updater;
+            return { ...currentTrip, checklist: newChecklist };
+        });
+      },
     },
     map: {
       locations: trip.itinerary.map((i) => ({

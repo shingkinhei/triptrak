@@ -8,7 +8,7 @@ import {
   AccordionTrigger,
 } from '@/components/ui/accordion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import type { ItineraryItem, Activity, UserPhoto } from '@/lib/types';
+import type { ItineraryItem, Activity, UserPhoto, ChecklistItem } from '@/lib/types';
 import {
   BedDouble,
   Camera,
@@ -27,6 +27,7 @@ import {
   Building,
   ArrowLeft,
   CheckCircle2,
+  Edit,
 } from 'lucide-react';
 import { Button } from './ui/button';
 import {
@@ -35,6 +36,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
+  DialogTrigger,
 } from './ui/dialog';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
@@ -50,6 +52,8 @@ import { Textarea } from './ui/textarea';
 import { useRouter } from 'next/navigation';
 import { Checkbox } from './ui/checkbox';
 import { cn } from '@/lib/utils';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from './ui/alert-dialog';
+
 
 const iconMap: Record<string, LucideIcon> = {
   Plane,
@@ -76,44 +80,77 @@ const iconOptions = [
 interface TripPlannerProps {
   itinerary: ItineraryItem[];
   setItinerary: React.Dispatch<React.SetStateAction<ItineraryItem[]>>;
+  checklist: ChecklistItem[];
+  setChecklist: React.Dispatch<React.SetStateAction<ChecklistItem[]>>;
 }
 
-const preTripChecklistItems = [
-    { id: 'check-flights', label: 'Confirm flights and check-in times' },
-    { id: 'check-documents', label: 'Save digital copies of tickets & documents' },
-    { id: 'check-passport', label: 'Check passport and visa requirements' },
-    { id: 'check-roaming', label: 'Activate international roaming or get a local SIM' },
-    { id: 'check-banks', label: 'Notify banks of your travel plans' },
-    { id: 'check-meds', label: 'Pack essential medications and first-aid kit' },
-];
+const PreTripChecklist = ({ checklist, setChecklist }: { checklist: ChecklistItem[], setChecklist: React.Dispatch<React.SetStateAction<ChecklistItem[]>> }) => {
+    const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+    const [editingChecklist, setEditingChecklist] = useState<ChecklistItem[]>([]);
+    const [newItemLabel, setNewItemLabel] = useState('');
 
-const PreTripChecklist = () => {
-    const [checkedItems, setCheckedItems] = useState<Record<string, boolean>>({});
     const handleCheckChange = (id: string, checked: boolean) => {
-        setCheckedItems(prev => ({...prev, [id]: checked}));
+        setChecklist(prev => prev.map(item => item.id === id ? { ...item, checked } : item));
     };
+
+    const handleEditClick = () => {
+        setEditingChecklist([...checklist]);
+        setIsEditDialogOpen(true);
+    };
+
+    const handleSave = () => {
+        setChecklist(editingChecklist);
+        setIsEditDialogOpen(false);
+    };
+
+    const handleItemLabelChange = (id: string, label: string) => {
+        setEditingChecklist(prev => prev.map(item => item.id === id ? { ...item, label } : item));
+    };
+
+    const handleAddItem = () => {
+        if (newItemLabel.trim()) {
+            const newItem: ChecklistItem = {
+                id: `check-${new Date().getTime()}`,
+                label: newItemLabel.trim(),
+                checked: false,
+            };
+            setEditingChecklist(prev => [...prev, newItem]);
+            setNewItemLabel('');
+        }
+    };
+
+    const handleDeleteItem = (id: string) => {
+        setEditingChecklist(prev => prev.filter(item => item.id !== id));
+    };
+
     return (
         <Card className="shadow-lg">
             <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-lg font-headline">
-                    <CheckCircle2 className="h-5 w-5 text-primary" />
-                    Pre-Trip Checklist
-                </CardTitle>
+                <div className="flex items-center justify-between">
+                    <CardTitle className="flex items-center gap-2 text-lg font-headline">
+                        <CheckCircle2 className="h-5 w-5 text-primary" />
+                        Pre-Trip Checklist
+                    </CardTitle>
+                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleEditClick}>
+                        <Edit className="h-4 w-4" />
+                        <span className="sr-only">Edit Checklist</span>
+                    </Button>
+                </div>
             </CardHeader>
             <CardContent>
                 <div className="space-y-3">
-                    {preTripChecklistItems.map(item => (
+                    {checklist.map(item => (
                         <div key={item.id} className="flex items-center gap-3">
-                            <Checkbox 
-                                id={item.id} 
+                            <Checkbox
+                                id={item.id}
                                 onCheckedChange={(checked) => handleCheckChange(item.id, !!checked)}
-                                checked={checkedItems[item.id] || false}
+                                checked={item.checked}
                             />
-                            <Label 
+                            <Label
                                 htmlFor={item.id}
                                 className={cn(
                                     "text-sm font-normal text-card-foreground transition-colors",
-                                    checkedItems[item.id] && "text-muted-foreground line-through"
+                                    item.checked && "text-muted-foreground line-through"
                                 )}
                             >
                                 {item.label}
@@ -122,11 +159,63 @@ const PreTripChecklist = () => {
                     ))}
                 </div>
             </CardContent>
+
+            <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+                <DialogContent className="shadow-lg">
+                    <DialogHeader>
+                        <DialogTitle>Edit Pre-Trip Checklist</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4 max-h-[60vh] overflow-y-auto py-4 pr-2">
+                        {editingChecklist.map(item => (
+                            <div key={item.id} className="flex items-center gap-2">
+                                <Input
+                                    value={item.label}
+                                    onChange={(e) => handleItemLabelChange(item.id, e.target.value)}
+                                    className="flex-grow"
+                                />
+                                <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                        <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0">
+                                            <Trash2 className="h-4 w-4 text-destructive" />
+                                        </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                            <AlertDialogDescription>This will permanently delete the item "{item.label}".</AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                            <AlertDialogAction onClick={() => handleDeleteItem(item.id)} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
+                                        </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                </AlertDialog>
+                            </div>
+                        ))}
+                         <div className="flex items-center gap-2 pt-4 border-t">
+                            <Input
+                                placeholder="Add new item..."
+                                value={newItemLabel}
+                                onChange={(e) => setNewItemLabel(e.target.value)}
+                                onKeyDown={(e) => e.key === 'Enter' && handleAddItem()}
+                            />
+                            <Button onClick={handleAddItem} className="shrink-0">
+                                <PlusCircle className="mr-2 h-4 w-4" />
+                                Add
+                            </Button>
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>Cancel</Button>
+                        <Button onClick={handleSave}>Save</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </Card>
     )
 }
 
-export function TripPlanner({ itinerary, setItinerary }: TripPlannerProps) {
+export function TripPlanner({ itinerary, setItinerary, checklist, setChecklist }: TripPlannerProps) {
   const [editingItem, setEditingItem] = useState<ItineraryItem | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [activeDay, setActiveDay] = useState<string>('item-0');
@@ -154,7 +243,7 @@ export function TripPlanner({ itinerary, setItinerary }: TripPlannerProps) {
     setEditingItem(null);
   }
 
-  const handleFieldChange = (field: keyof Omit<ItineraryItem, 'activities' | 'userPhotos'>, value: string) => {
+  const handleFieldChange = (field: keyof Omit<ItineraryItem, 'activities' | 'userPhotos' | 'checklist'>, value: string) => {
     if (editingItem) {
       setEditingItem({ ...editingItem, [field]: value });
     }
@@ -252,7 +341,7 @@ export function TripPlanner({ itinerary, setItinerary }: TripPlannerProps) {
         </Button>
       </header>
 
-      <PreTripChecklist />
+      <PreTripChecklist checklist={checklist} setChecklist={setChecklist} />
 
       {activeItineraryItem && <WeatherCard location={activeItineraryItem.title.replace(/arrival in |exploring |day trip to /i, '')} />}
 
@@ -345,7 +434,7 @@ export function TripPlanner({ itinerary, setItinerary }: TripPlannerProps) {
       
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="max-h-[90vh] flex flex-col shadow-lg">
-          {editingItem && (
+          {editingItem ? (
             <>
               <DialogHeader>
                 <DialogTitle>Edit Day {editingItem.day}</DialogTitle>
@@ -450,7 +539,7 @@ export function TripPlanner({ itinerary, setItinerary }: TripPlannerProps) {
                 <Button onClick={handleSave}>Save Changes</Button>
               </DialogFooter>
             </>
-          )}
+          ) : null}
         </DialogContent>
       </Dialog>
     </div>
