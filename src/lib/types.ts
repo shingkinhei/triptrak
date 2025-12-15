@@ -48,3 +48,16 @@ export type Currency = 'USD' | 'JPY' | 'EUR';
 export type ExchangeRates = {
   [key in Currency]: number;
 };
+
+export type CatalogueItem = {
+  id: string;
+  name: string;
+  price: number;
+  imageUrl: string;
+};
+
+export type CatalogueCategory = {
+  id: string;
+  name: string;
+  items: CatalogueItem[];
+};
