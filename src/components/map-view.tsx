@@ -2,14 +2,13 @@
 import { APIProvider, Map, AdvancedMarker } from '@vis.gl/react-google-maps';
 import { Pin } from 'lucide-react';
 
-const locations = [
-  { lat: 35.6895, lng: 139.6917, name: 'Tokyo' },
-  { lat: 35.0116, lng: 135.7681, name: 'Kyoto' },
-  { lat: 34.6937, lng: 135.5023, name: 'Osaka' },
-];
+interface MapViewProps {
+  locations: { lat: number; lng: number, name: string }[];
+}
 
-export function MapView() {
+export function MapView({ locations }: MapViewProps) {
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+  const defaultCenter = locations.length > 0 ? locations[0] : { lat: 35.6895, lng: 139.6917 };
 
   if (!apiKey) {
     return (
@@ -34,7 +33,7 @@ export function MapView() {
       <div className="flex-grow rounded-xl overflow-hidden border">
         <APIProvider apiKey={apiKey}>
             <Map
-              defaultCenter={locations[0]}
+              defaultCenter={defaultCenter}
               defaultZoom={6}
               mapId="triptrak_map"
               gestureHandling={'greedy'}

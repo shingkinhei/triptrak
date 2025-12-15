@@ -8,9 +8,7 @@ import {
   AccordionTrigger,
 } from '@/components/ui/accordion';
 import { Card, CardContent } from '@/components/ui/card';
-import { PlaceHolderImages } from '@/lib/placeholder-images';
 import type { ItineraryItem, Activity } from '@/lib/types';
-import { cn } from '@/lib/utils';
 import {
   BedDouble,
   Camera,
@@ -45,93 +43,6 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { WeatherCard } from './weather-card';
 
-const initialItineraryData: ItineraryItem[] = [
-  {
-    day: 1,
-    title: 'Arrival in Tokyo',
-    date: '2024-10-26',
-    image: {
-      url: PlaceHolderImages.find((p) => p.id === 'tokyo')?.imageUrl || '',
-      hint: PlaceHolderImages.find((p) => p.id === 'tokyo')?.imageHint || '',
-    },
-    activities: [
-      {
-        id: 'act1',
-        time: '14:00',
-        description: 'Land at Narita Airport (NRT)',
-        icon: 'Plane',
-      },
-      { id: 'act2', time: '16:00', description: 'Train to Shinjuku', icon: 'Train' },
-      {
-        id: 'act3',
-        time: '17:00',
-        description: 'Check-in at Park Hyatt Tokyo',
-        icon: 'BedDouble',
-      },
-      {
-        id: 'act4',
-        time: '19:00',
-        description: 'Dinner at Ichiran Ramen',
-        icon: 'UtensilsCrossed',
-      },
-    ],
-  },
-  {
-    day: 2,
-    title: 'Exploring Kyoto',
-    date: '2024-10-27',
-    image: {
-      url: PlaceHolderImages.find((p) => p.id === 'kyoto')?.imageUrl || '',
-      hint: PlaceHolderImages.find((p) => p.id === 'kyoto')?.imageHint || '',
-    },
-    activities: [
-      {
-        id: 'act5',
-        time: '09:00',
-        description: 'Visit Fushimi Inari Shrine',
-        icon: 'Camera',
-      },
-      { id: 'act6', time: '12:00', description: 'Lunch near Gion', icon: 'UtensilsCrossed' },
-      {
-        id: 'act7',
-        time: '14:00',
-        description: 'Walk through Arashiyama Bamboo Grove',
-        icon: 'Camera',
-      },
-      {
-        id: 'act8',
-        time: '18:00',
-        description: 'Traditional Kaiseki Dinner',
-        icon: 'UtensilsCrossed',
-      },
-    ],
-  },
-  {
-    day: 3,
-    title: 'Day trip to Osaka',
-    date: '2024-10-28',
-    image: {
-      url: PlaceHolderImages.find((p) => p.id === 'osaka')?.imageUrl || '',
-      hint: PlaceHolderImages.find((p) => p.id === 'osaka')?.imageHint || '',
-    },
-    activities: [
-      {
-        id: 'act9',
-        time: '10:00',
-        description: 'Explore Osaka Castle',
-        icon: 'Camera',
-      },
-      { id: 'act10', time: '13:00', description: 'Street food at Dotonbori', icon: 'UtensilsCrossed' },
-      {
-        id: 'act11',
-        time: '17:00',
-        description: 'Return to Kyoto',
-        icon: 'Train',
-      },
-    ],
-  },
-];
-
 const iconMap: Record<string, LucideIcon> = {
   Plane,
   Train,
@@ -154,8 +65,12 @@ const iconOptions = [
   { value: 'Building', label: 'City' },
 ];
 
-export function TripPlanner() {
-  const [itinerary, setItinerary] = useState<ItineraryItem[]>(initialItineraryData);
+interface TripPlannerProps {
+  itinerary: ItineraryItem[];
+  setItinerary: React.Dispatch<React.SetStateAction<ItineraryItem[]>>;
+}
+
+export function TripPlanner({ itinerary, setItinerary }: TripPlannerProps) {
   const [editingItem, setEditingItem] = useState<ItineraryItem | null>(null);
   const [activeDay, setActiveDay] = useState<string>('item-0');
   

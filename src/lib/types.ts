@@ -48,3 +48,16 @@ export type Currency = 'USD' | 'JPY' | 'EUR';
 export type ExchangeRates = {
   [key in Currency]: number;
 };
+
+export type Trip = {
+  id: string;
+  name: string;
+  destination: string;
+  startDate: string;
+  endDate: string;
+  imageUrl: string;
+  imageHint: string;
+  itinerary: ItineraryItem[];
+  transactions: Transaction[];
+  shoppingList: ShoppingCategory[];
+};
