@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import { Pie, PieChart, ResponsiveContainer, Cell, Label } from 'recharts';
+import { Pie, PieChart, ResponsiveContainer, Cell, Label as ChartLabel } from 'recharts';
 import {
   MoreVertical,
   Pizza,
@@ -156,7 +156,7 @@ export function ExpenseTracker({ transactions, setTransactions, trip }: ExpenseT
           <div className="flex justify-between items-start">
             <div>
               <CardDescription>Total Expenses ({currentCurrency})</CardDescription>
-              <CardTitle>{currentFormatter(totalExpensesInCurrent)}</CardTitle>
+              <CardTitle className='text-foreground'>{currentFormatter(totalExpensesInCurrent)}</CardTitle>
             </div>
             <Button variant="outline" size="sm" onClick={toggleCurrency}>
                 <Repeat className="h-4 w-4 mr-2" />
