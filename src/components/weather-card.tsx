@@ -33,9 +33,9 @@ export function WeatherCard({ location }: WeatherCardProps) {
   const WeatherIcon = weatherIcons[weather.condition];
 
   return (
-    <Card>
+    <Card className="bg-white/10 border-white/20 text-white">
       <CardHeader className="pb-2">
-        <CardTitle className="text-lg font-headline">Weather in {location}</CardTitle>
+        <CardTitle className="text-lg font-headline text-primary-foreground">Weather in {location}</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="flex items-center justify-between">
@@ -43,11 +43,11 @@ export function WeatherCard({ location }: WeatherCardProps) {
             <WeatherIcon className="h-12 w-12 text-yellow-400" />
             <div>
               <p className="text-2xl font-bold">{weather.condition}</p>
-              <p className="text-sm text-muted-foreground">Feels like a beautiful day</p>
+              <p className="text-sm text-primary-foreground/80">Feels like a beautiful day</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Thermometer className="h-6 w-6 text-muted-foreground" />
+            <Thermometer className="h-6 w-6 text-primary-foreground/80" />
             <p className="text-3xl font-bold">{weather.temperature}°C</p>
           </div>
         </div>

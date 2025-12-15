@@ -136,15 +136,15 @@ export function TripPlanner({ itinerary, setItinerary }: TripPlannerProps) {
   const activeItineraryItem = itinerary[parseInt(activeDay.split('-')[1] || '0')];
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 text-white">
       <header className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold font-headline text-foreground">
+          <h1 className="text-2xl font-bold font-headline text-primary-foreground">
             Trip Itinerary
           </h1>
-          <p className="text-muted-foreground">Your adventure at a glance.</p>
+          <p className="text-primary-foreground/80">Your adventure at a glance.</p>
         </div>
-        <Button onClick={handleAddDay}>
+        <Button onClick={handleAddDay} variant="outline" className="bg-transparent text-white hover:bg-white/20 hover:text-white border-white/50">
           <PlusCircle className="mr-2 h-4 w-4" /> Add Day
         </Button>
       </header>
@@ -154,10 +154,10 @@ export function TripPlanner({ itinerary, setItinerary }: TripPlannerProps) {
       <Accordion type="single" collapsible defaultValue="item-0" value={activeDay} onValueChange={setActiveDay} className="w-full space-y-4">
         {itinerary.map((item, index) => {
           return (
-            <Card key={item.day} className="overflow-hidden">
+            <Card key={item.day} className="overflow-hidden bg-transparent border-0 shadow-none">
               <AccordionItem value={`item-${index}`} className="border-b-0">
                 <div className="relative">
-                  <AccordionTrigger className="p-0 hover:no-underline">
+                  <AccordionTrigger className="p-0 hover:no-underline rounded-lg overflow-hidden">
                     <div className="relative w-full h-32">
                       <Image
                         src={item.image.url}
@@ -167,7 +167,7 @@ export function TripPlanner({ itinerary, setItinerary }: TripPlannerProps) {
                         data-ai-hint={item.image.hint}
                       />
                       <div className="absolute inset-0 bg-black/40 flex items-end p-4">
-                        <div className="text-primary-foreground flex-grow">
+                        <div className="text-primary-foreground flex-grow text-left">
                           <h2 className="font-bold text-lg font-headline">
                             Day {item.day}: {item.title}
                           </h2>
@@ -192,14 +192,14 @@ export function TripPlanner({ itinerary, setItinerary }: TripPlannerProps) {
                     </DropdownMenu>
                   </div>
                 </div>
-                <AccordionContent className="p-4">
+                <AccordionContent className="p-4 bg-white/10 rounded-b-lg">
                   <ul className="space-y-4">
                     {item.activities.map((activity, actIndex) => {
                       const ActivityIcon = iconMap[activity.icon];
                       return (
                         <li key={actIndex} className="flex items-start gap-4">
                           <div className="flex flex-col items-center">
-                            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-secondary text-secondary-foreground">
+                            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/20 text-primary-foreground">
                               {ActivityIcon && <ActivityIcon className="h-4 w-4" />}
                             </div>
                             {actIndex < item.activities.length - 1 && (
@@ -208,7 +208,7 @@ export function TripPlanner({ itinerary, setItinerary }: TripPlannerProps) {
                           </div>
                           <div>
                             <p className="font-semibold">{activity.time}</p>
-                            <p className="text-muted-foreground">
+                            <p className="text-primary-foreground/80">
                               {activity.description}
                             </p>
                           </div>

@@ -38,7 +38,7 @@ export function BottomNav({ activeItem, setActiveTab }: BottomNavProps) {
   ];
 
   return (
-    <nav className="flex items-center justify-around border-t bg-card/80 backdrop-blur-sm shrink-0">
+    <nav className="flex items-center justify-around border-t bg-black/30 border-white/20 backdrop-blur-sm shrink-0">
       {navItems.map((item) => (
         <button
           key={item.id}
@@ -51,7 +51,7 @@ export function BottomNav({ activeItem, setActiveTab }: BottomNavProps) {
           }}
           disabled={!setActiveTab && !item.action}
           className={cn(
-            'flex flex-1 flex-col items-center gap-1 p-3 text-muted-foreground transition-colors duration-200',
+            'flex flex-1 flex-col items-center gap-1 p-3 text-primary-foreground/70 transition-colors duration-200',
             {
               'text-primary': activeItem === item.id,
               'opacity-50 cursor-not-allowed': !setActiveTab && !item.action,
