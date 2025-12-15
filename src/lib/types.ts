@@ -1,5 +1,12 @@
 import type { LucideIcon } from "lucide-react";
 
+export type Activity = {
+  id: string;
+  time: string;
+  description: string;
+  icon: string; // Now a string to match icon map keys
+};
+
 export type ItineraryItem = {
   day: number;
   title: string;
@@ -8,11 +15,7 @@ export type ItineraryItem = {
     url: string;
     hint: string;
   }
-  activities: {
-    time: string;
-    description: string;
-    icon: LucideIcon;
-  }[];
+  activities: Activity[];
 };
 
 export type TransactionCategory = 'Food' | 'Transport' | 'Shopping' | 'Accommodation' | 'Other';
