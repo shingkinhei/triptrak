@@ -41,7 +41,7 @@ export function BottomNav({ activeItem, setActiveTab, isLightMode = true }: Bott
   ];
 
   const filteredNavItems = setActiveTab
-    ? navItems.filter(item => item.id !== 'settings' && item.id !== 'trips')
+    ? navItems.filter(item => item.id !== 'settings')
     : navItems.filter(item => item.action);
 
 
