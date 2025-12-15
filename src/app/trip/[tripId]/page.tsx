@@ -176,30 +176,6 @@ const TabContent: FC<TabContentProps> = ({ trip, setTrip }) => {
   );
 };
 
-const CurrencySelector = () => {
-  const { tripCurrency, setTripCurrency, rates } = useCurrency();
-  return (
-    <div className="absolute top-2 right-2 z-20">
-      <Select
-        value={tripCurrency}
-        onValueChange={(value) => setTripCurrency(value as Currency)}
-      >
-        <SelectTrigger className="h-8 w-28 bg-background/50 text-foreground border-border">
-          <Globe className="h-4 w-4 mr-1" />
-          <SelectValue placeholder="Currency" />
-        </SelectTrigger>
-        <SelectContent>
-          {Object.keys(rates).map((c) => (
-            <SelectItem key={c} value={c}>
-              {c}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </div>
-  );
-};
-
 export default function TripDetailsPage({ params }: TripDetailsPageProps) {
   const resolvedParams = use(params);
   const [trip, setTrip] = useState<Trip | undefined>();
@@ -234,7 +210,6 @@ export default function TripDetailsPage({ params }: TripDetailsPageProps) {
               <div className="absolute left-6 top-1/2 h-3 w-3 -translate-y-1/2 rounded-full bg-gray-700"></div>
               <div className="absolute left-1/2 top-1/2 h-4 w-10 -translate-x-1/2 -translate-y-1/2 rounded-full bg-gray-800"></div>
             </div>
-            <CurrencySelector />
             <div className="flex h-full flex-col pt-7">
               <TabContent trip={trip} setTrip={setTrip} />
             </div>

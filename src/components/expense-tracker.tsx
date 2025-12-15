@@ -8,6 +8,7 @@ import {
   Hotel,
   Train,
   PlusCircle,
+  Repeat,
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -38,6 +39,8 @@ interface ExpenseTrackerProps {
   setTransactions: React.Dispatch<React.SetStateAction<Transaction[]>>;
   trip: Trip;
 }
+
+type DisplayCurrency = 'trip' | 'home';
 
 const transactionCategories: TransactionCategory[] = ['Food', 'Transport', 'Shopping', 'Accommodation', 'Other'];
 
@@ -76,13 +79,19 @@ export function ExpenseTracker({ transactions, setTransactions, trip }: ExpenseT
     amount: '',
   });
 
+  const [displayCurrency, setDisplayCurrency] = useState<DisplayCurrency>('trip');
+
   const { tripCurrency, tripRate, formatCurrency, homeCurrency, convertToHomeCurrency, formatHomeCurrency } = useCurrency();
 
+  const currentRate = displayCurrency === 'trip' ? tripRate : 1;
+  const currentFormatter = displayCurrency === 'trip' ? formatCurrency : formatHomeCurrency;
+  const currentCurrency = displayCurrency === 'trip' ? tripCurrency : homeCurrency;
+  
   const totalExpenses = transactions.reduce((sum, t) => sum + t.amount, 0);
-  const totalExpensesInTripCurrency = totalExpenses * tripRate;
-  const totalExpensesInHomeCurrency = convertToHomeCurrency(totalExpenses);
 
-  const chartData = getChartData(transactions, tripRate);
+  const totalExpensesInCurrent = displayCurrency === 'trip' ? totalExpenses * tripRate : convertToHomeCurrency(totalExpenses);
+
+  const chartData = getChartData(transactions, currentRate);
 
   const handleAddTransaction = () => {
     if (!newTransaction.name || !newTransaction.category || !newTransaction.amount) {
@@ -99,6 +108,10 @@ export function ExpenseTracker({ transactions, setTransactions, trip }: ExpenseT
     setNewTransaction({ name: '', category: '', amount: '' });
     setIsAddDialogOpen(false);
   }
+  
+  const toggleCurrency = () => {
+    setDisplayCurrency(prev => (prev === 'trip' ? 'home' : 'trip'));
+  };
 
   return (
     <div className="space-y-4">
@@ -113,13 +126,13 @@ export function ExpenseTracker({ transactions, setTransactions, trip }: ExpenseT
         <CardHeader>
           <div className="flex justify-between items-start">
             <div>
-              <CardDescription>Total Expenses ({tripCurrency})</CardDescription>
-              <CardTitle>{formatCurrency(totalExpensesInTripCurrency)}</CardTitle>
+              <CardDescription>Total Expenses ({currentCurrency})</CardDescription>
+              <CardTitle>{currentFormatter(totalExpensesInCurrent)}</CardTitle>
             </div>
-            <div className="text-right">
-              <CardDescription>In {homeCurrency}</CardDescription>
-              <CardTitle className="text-lg">{formatHomeCurrency(totalExpensesInHomeCurrency)}</CardTitle>
-            </div>
+            <Button variant="ghost" size="icon" onClick={toggleCurrency}>
+                <Repeat className="h-4 w-4" />
+                <span className="sr-only">Swap Currency</span>
+            </Button>
           </div>
         </CardHeader>
         <CardContent>
@@ -137,11 +150,11 @@ export function ExpenseTracker({ transactions, setTransactions, trip }: ExpenseT
                 fontSize={12}
                 tickLine={false}
                 axisLine={false}
-                tickFormatter={(value) => formatCurrency(value, 0)}
+                tickFormatter={(value) => currentFormatter(value, 0)}
               />
                <ChartTooltip
                 cursor={{ fill: 'hsl(var(--muted))', radius: 4 }}
-                content={<ChartTooltipContent formatter={(value) => formatCurrency(value as number)} />}
+                content={<ChartTooltipContent formatter={(value) => currentFormatter(value as number)} />}
               />
               <Bar dataKey="total" fill="var(--color-total)" radius={[4, 4, 0, 0]} />
             </BarChart>
@@ -197,6 +210,7 @@ export function ExpenseTracker({ transactions, setTransactions, trip }: ExpenseT
         <div className="space-y-2">
           {transactions.map((t) => {
             const Icon = categoryIcons[t.category];
+            const amount = displayCurrency === 'trip' ? t.amount * tripRate : convertToHomeCurrency(t.amount);
             return (
               <Card key={t.id}>
                 <CardContent className="flex items-center p-3 gap-3">
@@ -209,7 +223,7 @@ export function ExpenseTracker({ transactions, setTransactions, trip }: ExpenseT
                   </div>
                   <div className="text-right">
                     <p className="font-bold text-lg text-foreground">
-                      -{formatCurrency(t.amount * tripRate)}
+                      -{currentFormatter(amount)}
                     </p>
                     <p className="text-sm text-muted-foreground">{t.date}</p>
                   </div>
