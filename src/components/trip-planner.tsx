@@ -1,4 +1,5 @@
 'use client';
+import React, { useState } from 'react';
 import Image from 'next/image';
 import {
   Accordion,
@@ -25,7 +26,6 @@ import {
   Mountain,
   Building,
 } from 'lucide-react';
-import React, { useState } from 'react';
 import { Button } from './ui/button';
 import {
   Dialog,
@@ -202,13 +202,32 @@ export function TripPlanner() {
     }
   };
 
+  const handleAddDay = () => {
+    const newDay: ItineraryItem = {
+      day: itinerary.length + 1,
+      title: 'New Destination',
+      date: new Date().toISOString().split('T')[0],
+      image: {
+        url: 'https://picsum.photos/seed/newday/600/400',
+        hint: 'landscape',
+      },
+      activities: [],
+    };
+    setItinerary([...itinerary, newDay]);
+  };
+
   return (
     <div className="space-y-4">
-      <header>
-        <h1 className="text-2xl font-bold font-headline text-foreground">
-          Trip Itinerary
-        </h1>
-        <p className="text-muted-foreground">Your adventure at a glance.</p>
+      <header className="flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-bold font-headline text-foreground">
+            Trip Itinerary
+          </h1>
+          <p className="text-muted-foreground">Your adventure at a glance.</p>
+        </div>
+        <Button onClick={handleAddDay}>
+          <PlusCircle className="mr-2 h-4 w-4" /> Add Day
+        </Button>
       </header>
 
       <Accordion type="single" collapsible defaultValue="item-0" className="w-full space-y-4">
@@ -283,8 +302,8 @@ export function TripPlanner() {
         })}
       </Accordion>
       
-      <Dialog open={!!editingItem} onOpenChange={(isOpen) => !isOpen && setEditingItem(null)}>
-          {editingItem && (
+      {editingItem && (
+        <Dialog open={!!editingItem} onOpenChange={(isOpen) => !isOpen && setEditingItem(null)}>
             <DialogContent className="max-h-[90vh] flex flex-col">
               <DialogHeader>
                 <DialogTitle>Edit Day {editingItem.day}</DialogTitle>
@@ -353,8 +372,8 @@ export function TripPlanner() {
                 <Button onClick={handleSave}>Save Changes</Button>
               </DialogFooter>
             </DialogContent>
-          )}
-      </Dialog>
+        </Dialog>
+      )}
     </div>
   );
 }
