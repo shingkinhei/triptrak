@@ -9,6 +9,7 @@ import {
   Train,
   PlusCircle,
   Repeat,
+  ArrowLeft,
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -33,6 +34,7 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { useCurrency } from '@/context/CurrencyContext';
+import { useRouter } from 'next/navigation';
 
 interface ExpenseTrackerProps {
   transactions: Transaction[];
@@ -89,6 +91,7 @@ export function ExpenseTracker({ transactions, setTransactions, trip }: ExpenseT
   });
 
   const [displayCurrency, setDisplayCurrency] = useState<DisplayCurrency>('trip');
+  const router = useRouter();
 
   const { tripCurrency, tripRate, formatCurrency, homeCurrency, convertToHomeCurrency, formatHomeCurrency, rates } = useCurrency();
 
@@ -127,11 +130,16 @@ export function ExpenseTracker({ transactions, setTransactions, trip }: ExpenseT
 
   return (
     <div className="space-y-4">
-      <header>
-        <h1 className="text-2xl font-bold font-headline text-white">
-          Expense Tracker
-        </h1>
-        <p className="text-white/80">Keep an eye on your budget.</p>
+      <header className="flex items-center gap-2">
+        <Button variant="ghost" size="icon" className="h-8 w-8 text-white hover:bg-white/20 hover:text-white" onClick={() => router.push('/trips')}>
+            <ArrowLeft className="h-5 w-5" />
+        </Button>
+        <div>
+            <h1 className="text-2xl font-bold font-headline text-white">
+                Expense Tracker
+            </h1>
+            <p className="text-white/80">Keep an eye on your budget.</p>
+        </div>
       </header>
 
       <Card>
@@ -176,7 +184,7 @@ export function ExpenseTracker({ transactions, setTransactions, trip }: ExpenseT
 
       <div className="space-y-2">
         <div className="flex justify-between items-center">
-            <h2 className="font-semibold font-headline text-white">Recent Transactions</h2>
+            <h2 className="font-semibold font-headline text-card-foreground">Recent Transactions</h2>
             <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
                 <DialogTrigger asChild>
                     <Button size="sm" variant="ghost" className="text-white hover:bg-white/20 hover:text-white">

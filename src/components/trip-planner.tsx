@@ -25,6 +25,7 @@ import {
   Ticket,
   Mountain,
   Building,
+  ArrowLeft,
 } from 'lucide-react';
 import { Button } from './ui/button';
 import {
@@ -45,6 +46,7 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { WeatherCard } from './weather-card';
 import { Textarea } from './ui/textarea';
+import { useRouter } from 'next/navigation';
 
 const iconMap: Record<string, LucideIcon> = {
   Plane,
@@ -77,6 +79,7 @@ export function TripPlanner({ itinerary, setItinerary }: TripPlannerProps) {
   const [editingItem, setEditingItem] = useState<ItineraryItem | null>(null);
   const [activeDay, setActiveDay] = useState<string>('item-0');
   const photoInputRef = useRef<HTMLInputElement>(null);
+  const router = useRouter();
   
   const handleEditClick = (item: ItineraryItem) => {
     setEditingItem({
@@ -178,11 +181,16 @@ export function TripPlanner({ itinerary, setItinerary }: TripPlannerProps) {
   return (
     <div className="space-y-4">
       <header className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold font-headline text-white">
-            Trip Itinerary
-          </h1>
-          <p className="text-white/80">Your adventure at a glance.</p>
+        <div className="flex items-center gap-2">
+            <Button variant="ghost" size="icon" className="h-8 w-8 text-white hover:bg-white/20 hover:text-white" onClick={() => router.push('/trips')}>
+                <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <div>
+                <h1 className="text-2xl font-bold font-headline text-white">
+                    Trip Itinerary
+                </h1>
+                <p className="text-white/80">Your adventure at a glance.</p>
+            </div>
         </div>
         <Button onClick={handleAddDay} variant="outline">
           <PlusCircle className="mr-2 h-4 w-4" /> Add Day

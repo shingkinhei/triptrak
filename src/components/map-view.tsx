@@ -1,6 +1,8 @@
 'use client';
 import { APIProvider, Map, AdvancedMarker } from '@vis.gl/react-google-maps';
-import { Pin } from 'lucide-react';
+import { Pin, ArrowLeft } from 'lucide-react';
+import { Button } from './ui/button';
+import { useRouter } from 'next/navigation';
 
 interface MapViewProps {
   locations: { lat: number; lng: number, name: string }[];
@@ -9,6 +11,7 @@ interface MapViewProps {
 export function MapView({ locations }: MapViewProps) {
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
   const defaultCenter = locations.length > 0 ? locations[0] : { lat: 35.6895, lng: 139.6917 };
+  const router = useRouter();
 
   if (!apiKey) {
     return (
@@ -24,11 +27,16 @@ export function MapView({ locations }: MapViewProps) {
 
   return (
     <div className="space-y-4 h-full flex flex-col">
-       <header>
-        <h1 className="text-2xl font-bold font-headline text-white">
-          Trip Map
-        </h1>
-        <p className="text-white/80">Your points of interest.</p>
+       <header className="flex items-center gap-2">
+        <Button variant="ghost" size="icon" className="h-8 w-8 text-white hover:bg-white/20 hover:text-white" onClick={() => router.push('/trips')}>
+            <ArrowLeft className="h-5 w-5" />
+        </Button>
+        <div>
+            <h1 className="text-2xl font-bold font-headline text-white">
+            Trip Map
+            </h1>
+            <p className="text-white/80">Your points of interest.</p>
+        </div>
       </header>
       <div className="flex-grow rounded-xl overflow-hidden border border-border">
         <APIProvider apiKey={apiKey}>
@@ -52,5 +60,3 @@ export function MapView({ locations }: MapViewProps) {
     </div>
   );
 }
-
-    

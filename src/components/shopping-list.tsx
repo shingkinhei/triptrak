@@ -12,7 +12,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
-import { ListPlus, MoreVertical, Edit, Trash2, Repeat, Gift, Home, Plane, Shirt, ShoppingBasket, UtensilsCrossed, Luggage, type LucideIcon, Store, MapPin } from 'lucide-react';
+import { ListPlus, MoreVertical, Edit, Trash2, Repeat, Gift, Home, Plane, Shirt, ShoppingBasket, UtensilsCrossed, Luggage, type LucideIcon, Store, MapPin, ArrowLeft } from 'lucide-react';
 import Image from 'next/image';
 import { useCurrency } from '@/context/CurrencyContext';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from './ui/dialog';
@@ -20,6 +20,7 @@ import { Label } from './ui/label';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from './ui/alert-dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from './ui/dropdown-menu';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+import { useRouter } from 'next/navigation';
 
 interface ShoppingListProps {
   list: ShoppingCategory[];
@@ -125,6 +126,7 @@ export function ShoppingList({ list, setList, onCheckChange, trip }: ShoppingLis
     const [renamingCategory, setRenamingCategory] = useState<ShoppingCategory | null>(null);
     const [editFormData, setEditFormData] = useState<{name: string; icon: string}>({ name: '', icon: '' });
     const [displayCurrency, setDisplayCurrency] = useState<DisplayCurrency>('trip');
+    const router = useRouter();
     
 
     const currentFormatter = displayCurrency === 'trip' ? formatCurrency : formatHomeCurrency;
@@ -176,13 +178,18 @@ export function ShoppingList({ list, setList, onCheckChange, trip }: ShoppingLis
   return (
     <div className="space-y-4 pb-20">
       <header className="flex justify-between items-center">
-        <div>
-            <h1 className="text-2xl font-bold font-headline text-white">
-            Shopping List
-            </h1>
-            <p className="text-white/80">
-            Everything you need for your trip.
-            </p>
+        <div className="flex items-center gap-2">
+            <Button variant="ghost" size="icon" className="h-8 w-8 text-white hover:bg-white/20 hover:text-white" onClick={() => router.push('/trips')}>
+                <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <div>
+                <h1 className="text-2xl font-bold font-headline text-white">
+                Shopping List
+                </h1>
+                <p className="text-white/80">
+                Everything you need for your trip.
+                </p>
+            </div>
         </div>
         <AddCategoryDialog onAddCategory={handleAddCategory} />
       </header>
@@ -259,7 +266,7 @@ export function ShoppingList({ list, setList, onCheckChange, trip }: ShoppingLis
                             const baseItemPrice = item.price || 0;
                             const itemPriceInCurrent = displayCurrency === 'trip' ? baseItemPrice : convertToHomeCurrency(baseItemPrice);
                             return (
-                                <Card key={item.id} className={cn("overflow-hidden relative bg-card/80 backdrop-blur-sm border-white/20", item.checked && "opacity-50")}>
+                                <Card key={item.id} className={cn("overflow-hidden relative bg-card/80 backdrop-blur-sm border-white/20 shadow-lg", item.checked && "opacity-50")}>
                                      <div className="absolute top-2 left-2 z-10">
                                          <Checkbox
                                             id={`${category.id}-${item.id}`}
@@ -284,7 +291,7 @@ export function ShoppingList({ list, setList, onCheckChange, trip }: ShoppingLis
                                     <div className="p-2 space-y-1">
                                         <p className={cn(
                                             'text-sm font-medium leading-tight truncate',
-                                            item.checked ? 'text-muted-foreground line-through' : 'text-foreground'
+                                            item.checked ? 'text-muted-foreground line-through' : 'text-card-foreground'
                                         )}>
                                             {item.name}
                                         </p>
@@ -304,7 +311,7 @@ export function ShoppingList({ list, setList, onCheckChange, trip }: ShoppingLis
                                         </div>
                                         <p className={cn(
                                             "text-xs font-semibold pt-1",
-                                            item.checked ? 'text-muted-foreground line-through' : 'text-foreground'
+                                            item.checked ? 'text-muted-foreground line-through' : 'text-card-foreground'
                                         )}>
                                             {currentFormatter(itemPriceInCurrent)}
                                         </p>

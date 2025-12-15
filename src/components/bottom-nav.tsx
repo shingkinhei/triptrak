@@ -41,8 +41,8 @@ export function BottomNav({ activeItem, setActiveTab, isLightMode = true }: Bott
   ];
 
   const filteredNavItems = setActiveTab
-    ? navItems.filter(item => item.id !== 'settings')
-    : navItems.filter(item => item.action);
+    ? navItems.filter(item => !item.action) // Inside a trip, show only tabs
+    : navItems.filter(item => item.action); // On main pages, show only actionable items
 
 
   return (
