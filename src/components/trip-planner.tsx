@@ -185,11 +185,9 @@ export function TripPlanner({ itinerary, setItinerary }: TripPlannerProps) {
             <Button variant="ghost" size="icon" className="h-8 w-8 text-white hover:bg-white/20 hover:text-white" onClick={() => router.push('/trips')}>
                 <ArrowLeft className="h-5 w-5" />
             </Button>
-            <div>
-                <h1 className="text-2xl font-bold font-headline text-white">
-                    Trip Itinerary
-                </h1>
-            </div>
+            <h1 className="text-2xl font-bold font-headline text-white">
+                Trip Itinerary
+            </h1>
         </div>
         <Button onClick={handleAddDay} variant="outline">
           <PlusCircle className="mr-2 h-4 w-4" /> Add Day
@@ -286,7 +284,7 @@ export function TripPlanner({ itinerary, setItinerary }: TripPlannerProps) {
       </Accordion>
       
       {editingItem && (
-        <Dialog open={!!editingItem} onOpenChange={(isOpen) => !isOpen && setEditingItem(null)}>
+        <Dialog open={!!editingItem} onOpenChange={(isOpen) => { if (!isOpen) setEditingItem(null); }}>
             <DialogContent className="max-h-[90vh] flex flex-col shadow-lg">
               <DialogHeader>
                 <DialogTitle>Edit Day {editingItem.day}</DialogTitle>
