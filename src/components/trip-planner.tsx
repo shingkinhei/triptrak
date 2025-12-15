@@ -218,7 +218,7 @@ const PreTripChecklist = ({ checklist, setChecklist }: { checklist: ChecklistIte
 export function TripPlanner({ itinerary, setItinerary, checklist, setChecklist }: TripPlannerProps) {
   const [editingItem, setEditingItem] = useState<ItineraryItem | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [activeDay, setActiveDay] = useState<string>('item-0');
+  const [activeView, setActiveView] = useState<string>('checklist');
   const photoInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
   
@@ -323,7 +323,7 @@ export function TripPlanner({ itinerary, setItinerary, checklist, setChecklist }
     setItinerary([...itinerary, newDay]);
   };
   
-  const activeItineraryItem = itinerary[parseInt(activeDay.split('-')[1] || '0')];
+  const activeItineraryItem = itinerary.find(item => `day-${item.day}` === activeView);
 
   return (
     <div className="space-y-4">
@@ -343,12 +343,20 @@ export function TripPlanner({ itinerary, setItinerary, checklist, setChecklist }
 
       <ScrollArea className="w-full whitespace-nowrap">
         <div className="flex space-x-2 pb-2">
-          {itinerary.map((item, index) => (
+          <Button
+            variant={activeView === 'checklist' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setActiveView('checklist')}
+            className="shrink-0"
+          >
+            Checklist
+          </Button>
+          {itinerary.map((item) => (
             <Button
               key={item.day}
-              variant={activeDay === `item-${index}` ? 'default' : 'outline'}
+              variant={activeView === `day-${item.day}` ? 'default' : 'outline'}
               size="sm"
-              onClick={() => setActiveDay(`item-${index}`)}
+              onClick={() => setActiveView(`day-${item.day}`)}
               className="shrink-0"
             >
               Day {item.day}
@@ -358,96 +366,89 @@ export function TripPlanner({ itinerary, setItinerary, checklist, setChecklist }
         <ScrollBar orientation="horizontal" />
       </ScrollArea>
 
-      <PreTripChecklist checklist={checklist} setChecklist={setChecklist} />
+      {activeView === 'checklist' && <PreTripChecklist checklist={checklist} setChecklist={setChecklist} />}
 
       {activeItineraryItem && <WeatherCard location={activeItineraryItem.title.replace(/arrival in |exploring |day trip to /i, '')} />}
 
-      <Accordion type="single" collapsible defaultValue="item-0" value={activeDay} onValueChange={setActiveDay} className="w-full space-y-4">
-        {itinerary.map((item, index) => {
-          return (
-            <Card key={item.day} className="overflow-hidden bg-transparent border-0 shadow-none">
-              <AccordionItem value={`item-${index}`} className="border-b-0">
-                <div className="relative">
-                  <AccordionTrigger className="p-0 hover:no-underline rounded-lg overflow-hidden">
-                    <div className="relative w-full h-32">
-                      <Image
-                        src={item.image.url}
-                        alt={item.title}
-                        fill
-                        className="object-cover"
-                        data-ai-hint={item.image.hint}
-                      />
-                      <div className="absolute inset-0 bg-black/40 flex items-end p-4">
-                        <div className="text-white flex-grow text-left">
-                          <h2 className="font-bold text-lg font-headline">
-                            Day {item.day}: {item.title}
-                          </h2>
-                          <p className="text-sm">{item.date}</p>
-                        </div>
-                        <ChevronDown className="h-4 w-4 shrink-0 transition-transform duration-200 text-white ml-auto" />
-                      </div>
+      {itinerary.map((item, index) => (
+          <div key={item.day} className={cn(activeView === `day-${item.day}` ? 'block' : 'hidden')}>
+            <Card className="overflow-hidden bg-transparent border-0 shadow-none">
+              <div className="relative">
+                <div className="relative w-full h-32 rounded-lg overflow-hidden">
+                  <Image
+                    src={item.image.url}
+                    alt={item.title}
+                    fill
+                    className="object-cover"
+                    data-ai-hint={item.image.hint}
+                  />
+                  <div className="absolute inset-0 bg-black/40 flex items-end p-4">
+                    <div className="text-white flex-grow text-left">
+                      <h2 className="font-bold text-lg font-headline">
+                        Day {item.day}: {item.title}
+                      </h2>
+                      <p className="text-sm">{item.date}</p>
                     </div>
-                  </AccordionTrigger>
-                  <div className="absolute top-2 right-2 z-10">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-white hover:bg-white/20 hover:text-white">
-                          <MoreVertical className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="shadow-lg">
-                        <DropdownMenuItem onClick={() => handleEditClick(item)}>
-                          Edit
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
                   </div>
                 </div>
-                <AccordionContent className="p-4 bg-card/80 backdrop-blur-sm rounded-b-lg space-y-4">
-                   {item.remarks && (
-                    <div className="prose prose-sm max-w-none text-card-foreground">
-                        <p>{item.remarks}</p>
-                    </div>
-                  )}
+                <div className="absolute top-2 right-2 z-10">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-white hover:bg-white/20 hover:text-white">
+                        <MoreVertical className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="shadow-lg">
+                      <DropdownMenuItem onClick={() => handleEditClick(item)}>
+                        Edit
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              </div>
+              <div className="p-4 bg-card/80 backdrop-blur-sm rounded-b-lg space-y-4">
+                 {item.remarks && (
+                  <div className="prose prose-sm max-w-none text-card-foreground">
+                      <p>{item.remarks}</p>
+                  </div>
+                )}
 
-                  {item.userPhotos && item.userPhotos.length > 0 && (
-                    <div className="grid grid-cols-3 gap-2">
-                        {item.userPhotos.map((photo) => (
-                            <div key={photo.id} className="relative aspect-square rounded-md overflow-hidden">
-                                <Image src={photo.url} alt="User photo" fill className="object-cover" />
-                            </div>
-                        ))}
-                    </div>
-                  )}
-                  <ul className="space-y-4">
-                    {item.activities.map((activity, actIndex) => {
-                      const ActivityIcon = iconMap[activity.icon];
-                      return (
-                        <li key={actIndex} className="flex items-start gap-4">
-                          <div className="flex flex-col items-center">
-                            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary">
-                              {ActivityIcon && <ActivityIcon className="h-4 w-4" />}
-                            </div>
-                            {actIndex < item.activities.length - 1 && (
-                              <div className="w-px h-6 bg-primary mt-1"></div>
-                            )}
+                {item.userPhotos && item.userPhotos.length > 0 && (
+                  <div className="grid grid-cols-3 gap-2">
+                      {item.userPhotos.map((photo) => (
+                          <div key={photo.id} className="relative aspect-square rounded-md overflow-hidden">
+                              <Image src={photo.url} alt="User photo" fill className="object-cover" />
                           </div>
-                          <div>
-                            <p className="font-semibold text-card-foreground">{activity.time}</p>
-                            <p className="text-muted-foreground">
-                              {activity.description}
-                            </p>
+                      ))}
+                  </div>
+                )}
+                <ul className="space-y-4">
+                  {item.activities.map((activity, actIndex) => {
+                    const ActivityIcon = iconMap[activity.icon];
+                    return (
+                      <li key={actIndex} className="flex items-start gap-4">
+                        <div className="flex flex-col items-center">
+                          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary">
+                            {ActivityIcon && <ActivityIcon className="h-4 w-4" />}
                           </div>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </AccordionContent>
-              </AccordionItem>
+                          {actIndex < item.activities.length - 1 && (
+                            <div className="w-px h-6 bg-primary mt-1"></div>
+                          )}
+                        </div>
+                        <div>
+                          <p className="font-semibold text-card-foreground">{activity.time}</p>
+                          <p className="text-muted-foreground">
+                            {activity.description}
+                          </p>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
             </Card>
-          );
-        })}
-      </Accordion>
+          </div>
+      ))}
       
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         {editingItem && (
