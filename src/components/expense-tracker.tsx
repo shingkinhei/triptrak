@@ -129,9 +129,9 @@ export function ExpenseTracker({ transactions, setTransactions, trip }: ExpenseT
               <CardDescription>Total Expenses ({currentCurrency})</CardDescription>
               <CardTitle>{currentFormatter(totalExpensesInCurrent)}</CardTitle>
             </div>
-            <Button variant="ghost" size="icon" onClick={toggleCurrency}>
-                <Repeat className="h-4 w-4" />
-                <span className="sr-only">Swap Currency</span>
+            <Button variant="outline" size="sm" onClick={toggleCurrency}>
+                <Repeat className="h-4 w-4 mr-2" />
+                <span>{tripCurrency} &harr; {homeCurrency}</span>
             </Button>
           </div>
         </CardHeader>

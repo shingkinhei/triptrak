@@ -206,9 +206,9 @@ export function ShoppingList({ list, setList, onCheckChange, trip }: ShoppingLis
                     <CardDescription>Grand Total ({currentCurrency})</CardDescription>
                     <CardTitle>{currentFormatter(grandTotalInCurrent)}</CardTitle>
                 </div>
-                <Button variant="ghost" size="icon" onClick={toggleCurrency}>
-                    <Repeat className="h-4 w-4" />
-                    <span className="sr-only">Swap Currency</span>
+                <Button variant="outline" size="sm" onClick={toggleCurrency}>
+                    <Repeat className="h-4 w-4 mr-2" />
+                    <span>{tripCurrency} &harr; {homeCurrency}</span>
                 </Button>
             </div>
         </CardHeader>
