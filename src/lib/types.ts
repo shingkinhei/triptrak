@@ -43,7 +43,7 @@ export type ShoppingCategory = {
   items: ShoppingItem[];
 };
 
-export type Currency = 'USD' | 'JPY' | 'EUR';
+export type Currency = 'USD' | 'JPY' | 'EUR' | 'HKD';
 
 export type ExchangeRates = {
   [key in Currency]: number;

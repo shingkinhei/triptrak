@@ -6,6 +6,7 @@ const MOCK_RATES: ExchangeRates = {
   USD: 1,
   JPY: 157,
   EUR: 0.92,
+  HKD: 7.8,
 };
 
 const countryCurrencyMap: Record<string, Currency> = {
