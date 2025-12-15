@@ -12,7 +12,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
-import { Plus, Camera, DollarSign, ListPlus, MoreVertical, Edit, Trash2 } from 'lucide-react';
+import { Plus, Camera, DollarSign, ListPlus, MoreVertical, Edit, Trash2, Repeat } from 'lucide-react';
 import Image from 'next/image';
 import { useCurrency } from '@/context/CurrencyContext';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from './ui/dialog';
@@ -35,6 +35,8 @@ interface NewItemInputs {
       previewUrl?: string;
     };
   }
+
+type DisplayCurrency = 'trip' | 'home';
 
 const AddCategoryDialog = ({ onAddCategory }: { onAddCategory: (name: string) => void }) => {
     const [categoryName, setCategoryName] = useState('');
@@ -86,10 +88,18 @@ const AddCategoryDialog = ({ onAddCategory }: { onAddCategory: (name: string) =>
 export function ShoppingList({ list, setList, onCheckChange, trip }: ShoppingListProps) {
     const [newItems, setNewItems] = useState<NewItemInputs>({});
     const fileInputRefs = useRef<{[key: string]: HTMLInputElement | null}>({});
-    const { tripCurrency, tripRate, formatCurrency } = useCurrency();
+    const { tripCurrency, tripRate, formatCurrency, homeCurrency, convertToHomeCurrency, formatHomeCurrency } = useCurrency();
     const [renamingCategory, setRenamingCategory] = useState<ShoppingCategory | null>(null);
     const [newCategoryName, setNewCategoryName] = useState('');
+    const [displayCurrency, setDisplayCurrency] = useState<DisplayCurrency>('trip');
 
+    const currentRate = displayCurrency === 'trip' ? tripRate : 1;
+    const currentFormatter = displayCurrency === 'trip' ? formatCurrency : formatHomeCurrency;
+    const currentCurrency = displayCurrency === 'trip' ? tripCurrency : homeCurrency;
+
+    const toggleCurrency = () => {
+        setDisplayCurrency(prev => (prev === 'trip' ? 'home' : 'trip'));
+    };
 
     const handleFileChange = (categoryId: string, e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0] || null;
@@ -170,8 +180,10 @@ export function ShoppingList({ list, setList, onCheckChange, trip }: ShoppingLis
     const calculateTotal = (items: ShoppingItem[]) => {
         return items.reduce((total, item) => total + (item.price || 0), 0);
     }
-
-    const grandTotal = list.reduce((total, category) => total + calculateTotal(category.items), 0) * tripRate;
+    
+    const baseGrandTotal = list.reduce((total, category) => total + calculateTotal(category.items), 0);
+    
+    const grandTotalInCurrent = displayCurrency === 'trip' ? baseGrandTotal * tripRate : convertToHomeCurrency(baseGrandTotal);
 
   return (
     <div className="space-y-4">
@@ -189,21 +201,30 @@ export function ShoppingList({ list, setList, onCheckChange, trip }: ShoppingLis
 
       <Card>
         <CardHeader>
-          <CardDescription>Grand Total ({tripCurrency})</CardDescription>
-          <CardTitle>{formatCurrency(grandTotal)}</CardTitle>
+            <div className="flex justify-between items-start">
+                <div>
+                    <CardDescription>Grand Total ({currentCurrency})</CardDescription>
+                    <CardTitle>{currentFormatter(grandTotalInCurrent)}</CardTitle>
+                </div>
+                <Button variant="ghost" size="icon" onClick={toggleCurrency}>
+                    <Repeat className="h-4 w-4" />
+                    <span className="sr-only">Swap Currency</span>
+                </Button>
+            </div>
         </CardHeader>
       </Card>
 
       <div className="space-y-4">
         {list.map(category => {
-            const categoryTotal = calculateTotal(category.items) * tripRate;
+            const baseCategoryTotal = calculateTotal(category.items);
+            const categoryTotalInCurrent = displayCurrency === 'trip' ? baseCategoryTotal * tripRate : convertToHomeCurrency(baseCategoryTotal);
             return (
             <Card key={category.id}>
                 <CardHeader>
                     <div className="flex justify-between items-center">
                         <CardTitle className="text-lg font-headline text-foreground">{category.name}</CardTitle>
                         <div className="flex items-center gap-2">
-                            <span className="font-semibold text-muted-foreground">{formatCurrency(categoryTotal)}</span>
+                            <span className="font-semibold text-muted-foreground">{currentFormatter(categoryTotalInCurrent)}</span>
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
                                     <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -241,40 +262,44 @@ export function ShoppingList({ list, setList, onCheckChange, trip }: ShoppingLis
                     </div>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                    {category.items.map(item => (
-                        <div key={item.id} className="flex items-center space-x-3">
-                            <Checkbox
-                                id={`${category.id}-${item.id}`}
-                                checked={item.checked}
-                                onCheckedChange={(checked) =>
-                                  onCheckChange(category.id, item.id, !!checked)
-                                }
-                                className="peer"
-                            />
-                            {item.imageUrl && (
-                              <Image 
-                                src={item.imageUrl}
-                                alt={item.name}
-                                width={40}
-                                height={40}
-                                className="rounded-md object-cover"
-                              />
-                            )}
-                            <label
-                                htmlFor={`${category.id}-${item.id}`}
-                                className={cn(
-                                'text-sm font-medium leading-none flex-grow',
-                                'peer-disabled:cursor-not-allowed peer-disabled:opacity-70',
-                                item.checked ? 'text-muted-foreground line-through' : 'text-foreground'
+                    {category.items.map(item => {
+                        const baseItemPrice = item.price || 0;
+                        const itemPriceInCurrent = displayCurrency === 'trip' ? baseItemPrice * tripRate : convertToHomeCurrency(baseItemPrice);
+                        return (
+                            <div key={item.id} className="flex items-center space-x-3">
+                                <Checkbox
+                                    id={`${category.id}-${item.id}`}
+                                    checked={item.checked}
+                                    onCheckedChange={(checked) =>
+                                      onCheckChange(category.id, item.id, !!checked)
+                                    }
+                                    className="peer"
+                                />
+                                {item.imageUrl && (
+                                  <Image 
+                                    src={item.imageUrl}
+                                    alt={item.name}
+                                    width={40}
+                                    height={40}
+                                    className="rounded-md object-cover"
+                                  />
                                 )}
-                            >
-                                {item.name}
-                            </label>
-                            <div className={cn("text-sm font-semibold", item.checked ? 'text-muted-foreground line-through' : 'text-foreground')}>
-                                {formatCurrency((item.price || 0) * tripRate)}
+                                <label
+                                    htmlFor={`${category.id}-${item.id}`}
+                                    className={cn(
+                                    'text-sm font-medium leading-none flex-grow',
+                                    'peer-disabled:cursor-not-allowed peer-disabled:opacity-70',
+                                    item.checked ? 'text-muted-foreground line-through' : 'text-foreground'
+                                    )}
+                                >
+                                    {item.name}
+                                </label>
+                                <div className={cn("text-sm font-semibold", item.checked ? 'text-muted-foreground line-through' : 'text-foreground')}>
+                                    {currentFormatter(itemPriceInCurrent)}
+                                </div>
                             </div>
-                        </div>
-                    ))}
+                        )
+                    })}
                     <div className="space-y-2 pt-2">
                         <Input 
                             placeholder="Add new item..." 
