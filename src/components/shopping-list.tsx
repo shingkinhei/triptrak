@@ -12,33 +12,34 @@ import { cn } from '@/lib/utils';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Plus } from 'lucide-react';
+import Image from 'next/image';
 
 const initialShoppingList: ShoppingCategory[] = [
     {
       id: 'essentials',
       name: 'Essentials',
       items: [
-        { id: '1', name: 'Passport', checked: true },
-        { id: '2', name: 'Flight tickets', checked: true },
-        { id: '3', name: 'Hotel confirmation', checked: false },
+        { id: '1', name: 'Passport', checked: true, imageUrl: 'https://picsum.photos/seed/passport/100/100' },
+        { id: '2', name: 'Flight tickets', checked: true, imageUrl: 'https://picsum.photos/seed/tickets/100/100' },
+        { id: '3', name: 'Hotel confirmation', checked: false, imageUrl: 'https://picsum.photos/seed/hotel/100/100' },
       ],
     },
     {
       id: 'clothing',
       name: 'Clothing',
       items: [
-        { id: '4', name: 'T-shirts (x5)', checked: false },
-        { id: '5', name: 'Jeans (x2)', checked: false },
-        { id: '6', name: 'Jacket', checked: true },
+        { id: '4', name: 'T-shirts (x5)', checked: false, imageUrl: 'https://picsum.photos/seed/tshirt/100/100' },
+        { id: '5', name: 'Jeans (x2)', checked: false, imageUrl: 'https://picsum.photos/seed/jeans/100/100' },
+        { id: '6', name: 'Jacket', checked: true, imageUrl: 'https://picsum.photos/seed/jacket/100/100' },
       ],
     },
     {
       id: 'toiletries',
       name: 'Toiletries',
       items: [
-        { id: '7', name: 'Toothbrush', checked: true },
-        { id: '8', name: 'Toothpaste', checked: false },
-        { id: '9', name: 'Shampoo', checked: false },
+        { id: '7', name: 'Toothbrush', checked: true, imageUrl: 'https://picsum.photos/seed/toothbrush/100/100' },
+        { id: '8', name: 'Toothpaste', checked: false, imageUrl: 'https://picsum.photos/seed/toothpaste/100/100' },
+        { id: '9', name: 'Shampoo', checked: false, imageUrl: 'https://picsum.photos/seed/shampoo/100/100' },
       ],
     },
   ];
@@ -69,6 +70,7 @@ export function ShoppingList() {
             id: new Date().toISOString(),
             name: newItemName.trim(),
             checked: false,
+            imageUrl: `https://picsum.photos/seed/${newItemName.trim()}/100/100`
         };
 
         setList(prevList =>
@@ -110,11 +112,21 @@ export function ShoppingList() {
                                 onCheckedChange={(checked) =>
                                   handleCheckChange(category.id, item.id, !!checked)
                                 }
+                                className="peer"
                             />
+                            {item.imageUrl && (
+                              <Image 
+                                src={item.imageUrl}
+                                alt={item.name}
+                                width={40}
+                                height={40}
+                                className="rounded-md object-cover"
+                              />
+                            )}
                             <label
                                 htmlFor={`${category.id}-${item.id}`}
                                 className={cn(
-                                'text-sm font-medium leading-none',
+                                'text-sm font-medium leading-none flex-grow',
                                 'peer-disabled:cursor-not-allowed peer-disabled:opacity-70',
                                 item.checked ? 'text-muted-foreground line-through' : 'text-foreground'
                                 )}
@@ -127,8 +139,12 @@ export function ShoppingList() {
                         <Input 
                             placeholder="Add new item..." 
                             className="h-9"
+                            value={newItemName}
                             onKeyDown={(e) => {
-                                if (e.key === 'Enter') handleAddItem(category.id);
+                                if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    handleAddItem(category.id);
+                                }
                             }}
                             onChange={(e) => setNewItemName(e.target.value)}
                          />

@@ -29,6 +29,7 @@ export type ShoppingItem = {
   id: string;
   name:string;
   checked: boolean;
+  imageUrl?: string;
 };
 
 export type ShoppingCategory = {
