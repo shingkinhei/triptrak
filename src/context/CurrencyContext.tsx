@@ -39,7 +39,7 @@ interface CurrencyContextType {
   formatCurrency: (amount: number, minimumFractionDigits?: number) => string;
   formatHomeCurrency: (amount: number, minimumFractionDigits?: number) => string;
   setTripCurrencyFromCountry: (countryCode: string) => void;
-  convertToHomeCurrency: (amountInUsd: number) => number;
+  convertToHomeCurrency: (amountInTripCurrency: number) => number;
 }
 
 const CurrencyContext = createContext<CurrencyContextType | undefined>(undefined);
@@ -83,7 +83,8 @@ export const CurrencyProvider = ({ children }: CurrencyProviderProps) => {
     }).format(amount);
   };
 
-  const convertToHomeCurrency = (amountInUsd: number) => {
+  const convertToHomeCurrency = (amountInTripCurrency: number) => {
+    const amountInUsd = amountInTripCurrency / tripRate;
     return amountInUsd * homeRate;
   }
 

@@ -89,9 +89,9 @@ export function ExpenseTracker({ transactions, setTransactions, trip }: ExpenseT
   
   const totalExpenses = transactions.reduce((sum, t) => sum + t.amount, 0);
 
-  const totalExpensesInCurrent = displayCurrency === 'trip' ? totalExpenses * tripRate : convertToHomeCurrency(totalExpenses);
+  const totalExpensesInCurrent = displayCurrency === 'trip' ? totalExpenses : convertToHomeCurrency(totalExpenses);
 
-  const chartData = getChartData(transactions, currentRate);
+  const chartData = getChartData(transactions, displayCurrency === 'trip' ? 1 : tripRate / MOCK_RATES[homeCurrency]);
 
   const handleAddTransaction = () => {
     if (!newTransaction.name || !newTransaction.category || !newTransaction.amount) {
@@ -113,6 +113,13 @@ export function ExpenseTracker({ transactions, setTransactions, trip }: ExpenseT
     setDisplayCurrency(prev => (prev === 'trip' ? 'home' : 'trip'));
   };
 
+  const MOCK_RATES = {
+    USD: 1,
+    JPY: 157,
+    EUR: 0.92,
+    HKD: 7.8,
+  };
+
   return (
     <div className="space-y-4">
       <header>
@@ -131,7 +138,11 @@ export function ExpenseTracker({ transactions, setTransactions, trip }: ExpenseT
             </div>
             <Button variant="outline" size="sm" onClick={toggleCurrency}>
                 <Repeat className="h-4 w-4 mr-2" />
-                <span>{tripCurrency} &harr; {homeCurrency}</span>
+                {displayCurrency === 'trip' ? (
+                    <span>{tripCurrency} &harr; {homeCurrency}</span>
+                ) : (
+                    <span>{homeCurrency} &harr; {tripCurrency}</span>
+                )}
             </Button>
           </div>
         </CardHeader>
@@ -181,7 +192,7 @@ export function ExpenseTracker({ transactions, setTransactions, trip }: ExpenseT
                             <Input id="name" value={newTransaction.name} onChange={(e) => setNewTransaction({...newTransaction, name: e.target.value})} className="col-span-3" placeholder="e.g. Coffee" />
                         </div>
                         <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="amount" className="text-right">Amount (USD)</Label>
+                            <Label htmlFor="amount" className="text-right">Amount ({tripCurrency})</Label>
                             <Input id="amount" type="number" value={newTransaction.amount} onChange={(e) => setNewTransaction({...newTransaction, amount: e.target.value})} className="col-span-3" placeholder="e.g. 5.00" />
                         </div>
                         <div className="grid grid-cols-4 items-center gap-4">
@@ -210,7 +221,7 @@ export function ExpenseTracker({ transactions, setTransactions, trip }: ExpenseT
         <div className="space-y-2">
           {transactions.map((t) => {
             const Icon = categoryIcons[t.category];
-            const amount = displayCurrency === 'trip' ? t.amount * tripRate : convertToHomeCurrency(t.amount);
+            const amount = displayCurrency === 'trip' ? t.amount : convertToHomeCurrency(t.amount);
             return (
               <Card key={t.id}>
                 <CardContent className="flex items-center p-3 gap-3">

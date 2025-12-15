@@ -93,9 +93,16 @@ export function ShoppingList({ list, setList, onCheckChange, trip }: ShoppingLis
     const [newCategoryName, setNewCategoryName] = useState('');
     const [displayCurrency, setDisplayCurrency] = useState<DisplayCurrency>('trip');
 
-    const currentRate = displayCurrency === 'trip' ? tripRate : 1;
+    const currentRate = displayCurrency === 'trip' ? 1 : tripRate / MOCK_RATES[homeCurrency];
     const currentFormatter = displayCurrency === 'trip' ? formatCurrency : formatHomeCurrency;
     const currentCurrency = displayCurrency === 'trip' ? tripCurrency : homeCurrency;
+
+    const MOCK_RATES = {
+        USD: 1,
+        JPY: 157,
+        EUR: 0.92,
+        HKD: 7.8,
+      };
 
     const toggleCurrency = () => {
         setDisplayCurrency(prev => (prev === 'trip' ? 'home' : 'trip'));
@@ -183,7 +190,7 @@ export function ShoppingList({ list, setList, onCheckChange, trip }: ShoppingLis
     
     const baseGrandTotal = list.reduce((total, category) => total + calculateTotal(category.items), 0);
     
-    const grandTotalInCurrent = displayCurrency === 'trip' ? baseGrandTotal * tripRate : convertToHomeCurrency(baseGrandTotal);
+    const grandTotalInCurrent = displayCurrency === 'trip' ? baseGrandTotal : convertToHomeCurrency(baseGrandTotal);
 
   return (
     <div className="space-y-4">
@@ -208,7 +215,11 @@ export function ShoppingList({ list, setList, onCheckChange, trip }: ShoppingLis
                 </div>
                 <Button variant="outline" size="sm" onClick={toggleCurrency}>
                     <Repeat className="h-4 w-4 mr-2" />
-                    <span>{tripCurrency} &harr; {homeCurrency}</span>
+                    {displayCurrency === 'trip' ? (
+                        <span>{tripCurrency} &harr; {homeCurrency}</span>
+                    ) : (
+                        <span>{homeCurrency} &harr; {tripCurrency}</span>
+                    )}
                 </Button>
             </div>
         </CardHeader>
@@ -217,7 +228,7 @@ export function ShoppingList({ list, setList, onCheckChange, trip }: ShoppingLis
       <div className="space-y-4">
         {list.map(category => {
             const baseCategoryTotal = calculateTotal(category.items);
-            const categoryTotalInCurrent = displayCurrency === 'trip' ? baseCategoryTotal * tripRate : convertToHomeCurrency(baseCategoryTotal);
+            const categoryTotalInCurrent = displayCurrency === 'trip' ? baseCategoryTotal : convertToHomeCurrency(baseCategoryTotal);
             return (
             <Card key={category.id}>
                 <CardHeader>
@@ -264,7 +275,7 @@ export function ShoppingList({ list, setList, onCheckChange, trip }: ShoppingLis
                 <CardContent className="space-y-3">
                     {category.items.map(item => {
                         const baseItemPrice = item.price || 0;
-                        const itemPriceInCurrent = displayCurrency === 'trip' ? baseItemPrice * tripRate : convertToHomeCurrency(baseItemPrice);
+                        const itemPriceInCurrent = displayCurrency === 'trip' ? baseItemPrice : convertToHomeCurrency(baseItemPrice);
                         return (
                             <div key={item.id} className="flex items-center space-x-3">
                                 <Checkbox
@@ -316,7 +327,7 @@ export function ShoppingList({ list, setList, onCheckChange, trip }: ShoppingLis
                                 <DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                                 <Input 
                                     type="number"
-                                    placeholder="Price (USD)" 
+                                    placeholder={`Price (${tripCurrency})`}
                                     className="h-9 pl-7 w-full"
                                     value={newItems[category.id]?.price || ''}
                                     onKeyDown={(e) => e.key === 'Enter' && handleAddItem(category.id)}
