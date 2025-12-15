@@ -12,13 +12,14 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
-import { Plus, Camera, DollarSign, ListPlus, MoreVertical, Edit, Trash2, Repeat } from 'lucide-react';
+import { Plus, Camera, DollarSign, ListPlus, MoreVertical, Edit, Trash2, Repeat, PlusCircle } from 'lucide-react';
 import Image from 'next/image';
 import { useCurrency } from '@/context/CurrencyContext';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from './ui/dialog';
 import { Label } from './ui/label';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from './ui/alert-dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from './ui/dropdown-menu';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 
 interface ShoppingListProps {
   list: ShoppingCategory[];
@@ -27,14 +28,13 @@ interface ShoppingListProps {
   trip: Trip;
 }
 
-interface NewItemInputs {
-    [categoryId: string]: {
-      name: string;
-      price: string;
-      file: File | null;
-      previewUrl?: string;
-    };
-  }
+interface NewItemInput {
+    name: string;
+    price: string;
+    categoryId: string;
+    file: File | null;
+    previewUrl?: string;
+}
 
 type DisplayCurrency = 'trip' | 'home';
 
@@ -93,12 +93,13 @@ const MOCK_RATES = {
 };
 
 export function ShoppingList({ list, setList, onCheckChange, trip }: ShoppingListProps) {
-    const [newItems, setNewItems] = useState<NewItemInputs>({});
-    const fileInputRefs = useRef<{[key: string]: HTMLInputElement | null}>({});
     const { tripCurrency, tripRate, formatCurrency, homeCurrency, convertToHomeCurrency, formatHomeCurrency } = useCurrency();
     const [renamingCategory, setRenamingCategory] = useState<ShoppingCategory | null>(null);
     const [newCategoryName, setNewCategoryName] = useState('');
     const [displayCurrency, setDisplayCurrency] = useState<DisplayCurrency>('trip');
+    const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+    const [newItem, setNewItem] = useState<NewItemInput>({ name: '', price: '', categoryId: '', file: null, previewUrl: '' });
+    const fileInputRef = useRef<HTMLInputElement | null>(null);
 
     const currentFormatter = displayCurrency === 'trip' ? formatCurrency : formatHomeCurrency;
     const currentCurrency = displayCurrency === 'trip' ? tripCurrency : homeCurrency;
@@ -106,59 +107,43 @@ export function ShoppingList({ list, setList, onCheckChange, trip }: ShoppingLis
     const toggleCurrency = () => {
         setDisplayCurrency(prev => (prev === 'trip' ? 'home' : 'trip'));
     };
-
-    const handleFileChange = (categoryId: string, e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0] || null;
-        if (file) {
+    
+    const handleInputChange = (field: keyof NewItemInput, value: string | File | null) => {
+        if (field === 'file' && value instanceof File) {
             const reader = new FileReader();
             reader.onloadend = () => {
-                setNewItems(prev => ({
-                    ...prev,
-                    [categoryId]: { ...prev[categoryId], file, previewUrl: reader.result as string },
-                }));
-            };
-            reader.readAsDataURL(file);
+                setNewItem(prev => ({ ...prev, file: value, previewUrl: reader.result as string }));
+            }
+            reader.readAsDataURL(value);
+        } else {
+            setNewItem(prev => ({ ...prev, [field]: value as string }));
         }
     };
-    
-    const handleInputChange = (categoryId: string, field: 'name' | 'price', value: string) => {
-        setNewItems(prev => ({
-            ...prev,
-            [categoryId]: { ...prev[categoryId], [field]: value },
-        }));
-    };
 
-    const handleAddItem = (categoryId: string) => {
-        const newItemInput = newItems[categoryId];
-        if (!newItemInput || !newItemInput.name.trim()) return;
+    const handleAddItem = () => {
+        if (!newItem.name.trim() || !newItem.categoryId) return;
 
-        const newItem: ShoppingItem = {
+        const newItemData: ShoppingItem = {
             id: new Date().toISOString(),
-            name: newItemInput.name.trim(),
+            name: newItem.name.trim(),
             checked: false,
-            price: parseFloat(newItemInput.price) || 0,
-            imageUrl: newItemInput.previewUrl || `https://picsum.photos/seed/${newItemInput.name.trim()}/100/100`
+            price: parseFloat(newItem.price) || 0,
+            imageUrl: newItem.previewUrl || `https://picsum.photos/seed/${newItem.name.trim()}/100/100`
         };
 
         setList(prevList =>
             prevList.map(category =>
-              category.id === categoryId
+              category.id === newItem.categoryId
                 ? {
                     ...category,
-                    items: [...category.items, newItem],
+                    items: [...category.items, newItemData],
                   }
                 : category
             )
         );
         
-        setNewItems(prev => ({
-            ...prev,
-            [categoryId]: { name: '', price: '', file: null, previewUrl: '' },
-        }));
-
-        if(fileInputRefs.current[categoryId]) {
-            fileInputRefs.current[categoryId]!.value = '';
-        }
+        setNewItem({ name: '', price: '', categoryId: '', file: null, previewUrl: '' });
+        setIsAddDialogOpen(false);
     }
 
     const handleAddCategory = (name: string) => {
@@ -192,7 +177,7 @@ export function ShoppingList({ list, setList, onCheckChange, trip }: ShoppingLis
     const grandTotalInCurrent = displayCurrency === 'trip' ? baseGrandTotal : convertToHomeCurrency(baseGrandTotal);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 relative pb-20 h-full">
       <header className="flex justify-between items-center">
         <div>
             <h1 className="text-2xl font-bold font-headline text-foreground">
@@ -310,44 +295,6 @@ export function ShoppingList({ list, setList, onCheckChange, trip }: ShoppingLis
                             </div>
                         )
                     })}
-                    <div className="space-y-2 pt-2">
-                        <Input 
-                            placeholder="Add new item..." 
-                            className="h-9"
-                            value={newItems[category.id]?.name || ''}
-                            onKeyDown={(e) => e.key === 'Enter' && handleAddItem(category.id)}
-                            onChange={(e) => handleInputChange(category.id, 'name', e.target.value)}
-                        />
-                        <div className="flex gap-2 items-center">
-                           {newItems[category.id]?.previewUrl && (
-                                <Image src={newItems[category.id]!.previewUrl!} alt="Preview" width={40} height={40} className="rounded-md object-cover" />
-                            )}
-                             <div className="relative flex-grow">
-                                <DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                                <Input 
-                                    type="number"
-                                    placeholder={`Price (${tripCurrency})`}
-                                    className="h-9 pl-7 w-full"
-                                    value={newItems[category.id]?.price || ''}
-                                    onKeyDown={(e) => e.key === 'Enter' && handleAddItem(category.id)}
-                                    onChange={(e) => handleInputChange(category.id, 'price', e.target.value)}
-                                />
-                             </div>
-                             <input 
-                                type="file" 
-                                accept="image/*"
-                                className="hidden" 
-                                ref={(el) => fileInputRefs.current[category.id] = el}
-                                onChange={(e) => handleFileChange(category.id, e)}
-                             />
-                            <Button size="icon" variant="outline" className="h-9 w-9 shrink-0" onClick={() => fileInputRefs.current[category.id]?.click()}>
-                                <Camera className="h-4 w-4" />
-                            </Button>
-                            <Button size="icon" className="h-9 w-9 shrink-0" onClick={() => handleAddItem(category.id)}>
-                                <Plus className="h-4 w-4" />
-                            </Button>
-                        </div>
-                    </div>
                 </CardContent>
             </Card>
         )})}
@@ -380,6 +327,63 @@ export function ShoppingList({ list, setList, onCheckChange, trip }: ShoppingLis
             </DialogContent>
         </Dialog>
        )}
+
+        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+            <DialogTrigger asChild>
+                 <Button className="fixed bottom-24 right-8 h-16 w-16 rounded-full shadow-lg z-20">
+                    <PlusCircle className="h-8 w-8" />
+                </Button>
+            </DialogTrigger>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Add New Shopping Item</DialogTitle>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="item-name">Item Name</Label>
+                        <Input id="item-name" value={newItem.name} onChange={(e) => handleInputChange('name', e.target.value)} placeholder="e.g. Japanese KitKats" />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="item-price">Price ({tripCurrency})</Label>
+                        <Input id="item-price" type="number" value={newItem.price} onChange={(e) => handleInputChange('price', e.target.value)} placeholder="e.g. 15.00" />
+                    </div>
+                     <div className="space-y-2">
+                        <Label htmlFor="item-category">Category</Label>
+                        <Select value={newItem.categoryId} onValueChange={(value) => handleInputChange('categoryId', value)}>
+                            <SelectTrigger id="item-category">
+                                <SelectValue placeholder="Select a category" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {list.map(cat => (
+                                    <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div className="space-y-2">
+                        <Label>Image (Optional)</Label>
+                        <div className="flex items-center gap-4">
+                            {newItem.previewUrl && <Image src={newItem.previewUrl} alt="preview" width={60} height={60} className="rounded-md object-cover" />}
+                            <Input 
+                                type="file" 
+                                accept="image/*" 
+                                ref={fileInputRef} 
+                                onChange={(e) => handleInputChange('file', e.target.files ? e.target.files[0] : null)}
+                                className="hidden"
+                            />
+                            <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
+                                <Camera className="mr-2 h-4 w-4" />
+                                Upload
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+                <DialogFooter>
+                    <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>Cancel</Button>
+                    <Button onClick={handleAddItem}>Add Item</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     </div>
   );
 }
