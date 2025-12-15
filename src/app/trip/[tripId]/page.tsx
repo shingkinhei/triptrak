@@ -4,7 +4,7 @@ import { useState, useEffect, use } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Globe } from 'lucide-react';
 
-import { BottomNav, type Tab } from '@/components/bottom-nav';
+import { BottomNav, type Tab, type NavItemIds } from '@/components/bottom-nav';
 import { ExpenseTracker } from '@/components/expense-tracker';
 import { MapView } from '@/components/map-view';
 import { ShoppingList } from '@/components/shopping-list';
@@ -126,7 +126,7 @@ const TabContent: FC<TabContentProps> = ({ trip, setTrip }) => {
           </motion.div>
         </AnimatePresence>
       </div>
-      <BottomNav activeTab={activeTab} setActiveTab={setActiveTab} />
+      <BottomNav activeItem={activeTab} setActiveTab={setActiveTab} />
     </>
   );
 };

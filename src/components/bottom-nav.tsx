@@ -12,20 +12,21 @@ import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 
 export type Tab = 'planner' | 'map' | 'expenses' | 'shopping';
+export type NavItemIds = Tab | 'trips';
 
 interface NavItem {
-  id: Tab | 'trips';
+  id: NavItemIds;
   label: string;
   icon: LucideIcon;
   action?: () => void;
 }
 
 interface BottomNavProps {
-  activeTab: Tab;
-  setActiveTab: Dispatch<SetStateAction<Tab>>;
+  activeItem: NavItemIds;
+  setActiveTab?: Dispatch<SetStateAction<Tab>>;
 }
 
-export function BottomNav({ activeTab, setActiveTab }: BottomNavProps) {
+export function BottomNav({ activeItem, setActiveTab }: BottomNavProps) {
   const router = useRouter();
 
   const navItems: NavItem[] = [
@@ -37,27 +38,29 @@ export function BottomNav({ activeTab, setActiveTab }: BottomNavProps) {
   ];
 
   return (
-    <nav className="flex items-center justify-around border-t bg-card/80 backdrop-blur-sm">
+    <nav className="flex items-center justify-around border-t bg-card/80 backdrop-blur-sm shrink-0">
       {navItems.map((item) => (
         <button
           key={item.id}
           onClick={() => {
             if (item.action) {
               item.action();
-            } else {
+            } else if (setActiveTab) {
               setActiveTab(item.id as Tab);
             }
           }}
+          disabled={!setActiveTab && !item.action}
           className={cn(
             'flex flex-1 flex-col items-center gap-1 p-3 text-muted-foreground transition-colors duration-200',
             {
-              'text-primary': activeTab === item.id,
+              'text-primary': activeItem === item.id,
+              'opacity-50 cursor-not-allowed': !setActiveTab && !item.action,
             }
           )}
         >
           <item.icon
             className="h-6 w-6"
-            strokeWidth={activeTab === item.id ? 2.5 : 2}
+            strokeWidth={activeItem === item.id ? 2.5 : 2}
           />
           <span className="text-xs font-medium">{item.label}</span>
         </button>
