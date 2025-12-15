@@ -157,24 +157,20 @@ const iconOptions = [
 
 export function TripPlanner() {
   const [itinerary, setItinerary] = useState<ItineraryItem[]>(initialItineraryData);
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<ItineraryItem | null>(null);
 
   const handleEditClick = (item: ItineraryItem) => {
     setEditingItem({ ...item, activities: [...item.activities] });
-    setIsEditDialogOpen(true);
   };
 
   const handleSave = () => {
     if (editingItem) {
       setItinerary(itinerary.map(item => item.day === editingItem.day ? editingItem : item));
-      setIsEditDialogOpen(false);
       setEditingItem(null);
     }
   };
 
   const handleDialogClose = (open: boolean) => {
-    setIsEditDialogOpen(open);
     if (!open) {
       setEditingItem(null);
     }
@@ -296,80 +292,82 @@ export function TripPlanner() {
         })}
       </Accordion>
       
-      {editingItem && (
-        <Dialog open={isEditDialogOpen} onOpenChange={handleDialogClose}>
-          <DialogContent className="max-h-[90vh] flex flex-col">
-            <DialogHeader>
-              <DialogTitle>Edit Day {editingItem.day}</DialogTitle>
-            </DialogHeader>
-            <div className="flex-grow overflow-y-auto pr-6 -mr-6 space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="title">Title</Label>
-                <Input id="title" value={editingItem.title} onChange={(e) => handleFieldChange('title', e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="date">Date</Label>
-                <Input id="date" type="date" value={editingItem.date} onChange={(e) => handleFieldChange('date', e.target.value)} />
-              </div>
-              
-              <div className="space-y-2">
-                <div className="flex justify-between items-center">
-                  <h3 className="text-lg font-semibold">Activities</h3>
-                  <Button variant="ghost" size="sm" onClick={handleAddActivity}><PlusCircle className="mr-2 h-4 w-4"/>Add Activity</Button>
+      <Dialog open={!!editingItem} onOpenChange={handleDialogClose}>
+          {editingItem && (
+            <DialogContent className="max-h-[90vh] flex flex-col">
+              <DialogHeader>
+                <DialogTitle>Edit Day {editingItem.day}</DialogTitle>
+              </DialogHeader>
+              <div className="flex-grow overflow-y-auto pr-6 -mr-6 space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="title">Title</Label>
+                  <Input id="title" value={editingItem.title} onChange={(e) => handleFieldChange('title', e.target.value)} />
                 </div>
-                <div className="space-y-4">
-                  {editingItem.activities.map((act) => (
-                    <div key={act.id} className="flex items-center gap-2 p-2 border rounded-lg">
-                      <div className="grid gap-2 flex-grow">
-                        <div className="flex items-center gap-2">
-                            <Select value={act.icon} onValueChange={(val) => handleActivityChange(act.id, 'icon', val)}>
-                                <SelectTrigger className="w-16 h-8">
-                                    <SelectValue>
-                                        {iconMap[act.icon] && React.createElement(iconMap[act.icon], {className: "h-4 w-4"})}
-                                    </SelectValue>
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {iconOptions.map(opt => (
-                                        <SelectItem key={opt.value} value={opt.value}>
-                                            <div className="flex items-center gap-2">
-                                                {React.createElement(iconMap[opt.value], {className: "h-4 w-4"})}
-                                                <span>{opt.label}</span>
-                                            </div>
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                           <Input
-                            type="time"
-                            value={act.time}
-                            onChange={(e) => handleActivityChange(act.id, 'time', e.target.value)}
-                            className="w-24 h-8"
+                <div className="space-y-2">
+                  <Label htmlFor="date">Date</Label>
+                  <Input id="date" type="date" value={editingItem.date} onChange={(e) => handleFieldChange('date', e.target.value)} />
+                </div>
+                
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <h3 className="text-lg font-semibold">Activities</h3>
+                    <Button variant="ghost" size="sm" onClick={handleAddActivity}><PlusCircle className="mr-2 h-4 w-4"/>Add Activity</Button>
+                  </div>
+                  <div className="space-y-4">
+                    {editingItem.activities.map((act) => (
+                      <div key={act.id} className="flex items-center gap-2 p-2 border rounded-lg">
+                        <div className="grid gap-2 flex-grow">
+                          <div className="flex items-center gap-2">
+                              <Select value={act.icon} onValueChange={(val) => handleActivityChange(act.id, 'icon', val)}>
+                                  <SelectTrigger className="w-16 h-8">
+                                      <SelectValue>
+                                          {iconMap[act.icon] && React.createElement(iconMap[act.icon], {className: "h-4 w-4"})}
+                                      </SelectValue>
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                      {iconOptions.map(opt => (
+                                          <SelectItem key={opt.value} value={opt.value}>
+                                              <div className="flex items-center gap-2">
+                                                  {React.createElement(iconMap[opt.value], {className: "h-4 w-4"})}
+                                                  <span>{opt.label}</span>
+                                              </div>
+                                          </SelectItem>
+                                      ))}
+                                  </SelectContent>
+                              </Select>
+                             <Input
+                              type="time"
+                              value={act.time}
+                              onChange={(e) => handleActivityChange(act.id, 'time', e.target.value)}
+                              className="w-24 h-8"
+                            />
+                          </div>
+                          <Input
+                            value={act.description}
+                            onChange={(e) => handleActivityChange(act.id, 'description', e.target.value)}
+                            placeholder="Activity description"
+                            className="h-8"
                           />
                         </div>
-                        <Input
-                          value={act.description}
-                          onChange={(e) => handleActivityChange(act.id, 'description', e.target.value)}
-                          placeholder="Activity description"
-                          className="h-8"
-                        />
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDeleteActivity(act.id)}>
+                          <Trash2 className="h-4 w-4 text-destructive"/>
+                        </Button>
                       </div>
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDeleteActivity(act.id)}>
-                        <Trash2 className="h-4 w-4 text-destructive"/>
-                      </Button>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
               </div>
-            </div>
-            <DialogFooter>
-              <DialogClose asChild>
-                <Button variant="outline">Cancel</Button>
-              </DialogClose>
-              <Button onClick={handleSave}>Save Changes</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      )}
+              <DialogFooter>
+                <DialogClose asChild>
+                  <Button variant="outline">Cancel</Button>
+                </DialogClose>
+                <Button onClick={handleSave}>Save Changes</Button>
+              </DialogFooter>
+            </DialogContent>
+          )}
+      </Dialog>
     </div>
   );
 }
+
+    
