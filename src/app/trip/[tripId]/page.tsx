@@ -155,17 +155,9 @@ const CurrencySelector = () => {
   );
 };
 
-const BackToTripsButton = () => {
-    const router = useRouter();
-    return (
-        <Button variant="ghost" size="icon" className="absolute top-2 left-2 z-20 h-8 w-8 bg-black/20 text-white border-white/30" onClick={() => router.push('/trips')}>
-            <ArrowLeft className="h-4 w-4" />
-        </Button>
-    )
-}
-
 export default function TripDetailsPage({ params }: TripDetailsPageProps) {
   const [trip, setTrip] = useState<Trip | undefined>();
+  const router = useRouter();
 
   useEffect(() => {
     const foundTrip = mockTrips.find(t => t.id === params.tripId);
@@ -188,7 +180,6 @@ export default function TripDetailsPage({ params }: TripDetailsPageProps) {
             <div className="absolute left-6 top-1/2 h-3 w-3 -translate-y-1/2 rounded-full bg-gray-700"></div>
             <div className="absolute left-1/2 top-1/2 h-4 w-10 -translate-x-1/2 -translate-y-1/2 rounded-full bg-gray-800"></div>
           </div>
-          <BackToTripsButton />
           <CurrencySelector />
           <div className="flex h-full flex-col pt-7">
             <TabContent 
