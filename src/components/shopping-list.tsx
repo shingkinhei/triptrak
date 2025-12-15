@@ -28,13 +28,6 @@ interface ShoppingListProps {
   trip: Trip;
 }
 
-interface NewItemInput {
-    name: string;
-    price: string;
-    categoryId: string;
-    file: File | null;
-    previewUrl?: string;
-}
 
 type DisplayCurrency = 'trip' | 'home';
 
@@ -97,9 +90,7 @@ export function ShoppingList({ list, setList, onCheckChange, trip }: ShoppingLis
     const [renamingCategory, setRenamingCategory] = useState<ShoppingCategory | null>(null);
     const [newCategoryName, setNewCategoryName] = useState('');
     const [displayCurrency, setDisplayCurrency] = useState<DisplayCurrency>('trip');
-    const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-    const [newItem, setNewItem] = useState<NewItemInput>({ name: '', price: '', categoryId: '', file: null, previewUrl: '' });
-    const fileInputRef = useRef<HTMLInputElement | null>(null);
+    
 
     const currentFormatter = displayCurrency === 'trip' ? formatCurrency : formatHomeCurrency;
     const currentCurrency = displayCurrency === 'trip' ? tripCurrency : homeCurrency;
@@ -107,44 +98,6 @@ export function ShoppingList({ list, setList, onCheckChange, trip }: ShoppingLis
     const toggleCurrency = () => {
         setDisplayCurrency(prev => (prev === 'trip' ? 'home' : 'trip'));
     };
-    
-    const handleInputChange = (field: keyof NewItemInput, value: string | File | null) => {
-        if (field === 'file' && value instanceof File) {
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                setNewItem(prev => ({ ...prev, file: value, previewUrl: reader.result as string }));
-            }
-            reader.readAsDataURL(value);
-        } else {
-            setNewItem(prev => ({ ...prev, [field]: value as string }));
-        }
-    };
-
-    const handleAddItem = () => {
-        if (!newItem.name.trim() || !newItem.categoryId) return;
-
-        const newItemData: ShoppingItem = {
-            id: new Date().toISOString(),
-            name: newItem.name.trim(),
-            checked: false,
-            price: parseFloat(newItem.price) || 0,
-            imageUrl: newItem.previewUrl || `https://picsum.photos/seed/${newItem.name.trim()}/100/100`
-        };
-
-        setList(prevList =>
-            prevList.map(category =>
-              category.id === newItem.categoryId
-                ? {
-                    ...category,
-                    items: [...category.items, newItemData],
-                  }
-                : category
-            )
-        );
-        
-        setNewItem({ name: '', price: '', categoryId: '', file: null, previewUrl: '' });
-        setIsAddDialogOpen(false);
-    }
 
     const handleAddCategory = (name: string) => {
         const newCategory: ShoppingCategory = {
@@ -177,7 +130,7 @@ export function ShoppingList({ list, setList, onCheckChange, trip }: ShoppingLis
     const grandTotalInCurrent = displayCurrency === 'trip' ? baseGrandTotal : convertToHomeCurrency(baseGrandTotal);
 
   return (
-    <div className="space-y-4 relative pb-20 h-full">
+    <div className="space-y-4 pb-20">
       <header className="flex justify-between items-center">
         <div>
             <h1 className="text-2xl font-bold font-headline text-foreground">
@@ -327,63 +280,6 @@ export function ShoppingList({ list, setList, onCheckChange, trip }: ShoppingLis
             </DialogContent>
         </Dialog>
        )}
-
-        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-            <DialogTrigger asChild>
-                 <Button className="absolute bottom-4 right-4 h-16 w-16 rounded-full shadow-lg z-20">
-                    <PlusCircle className="h-8 w-8" />
-                </Button>
-            </DialogTrigger>
-            <DialogContent>
-                <DialogHeader>
-                    <DialogTitle>Add New Shopping Item</DialogTitle>
-                </DialogHeader>
-                <div className="grid gap-4 py-4">
-                    <div className="space-y-2">
-                        <Label htmlFor="item-name">Item Name</Label>
-                        <Input id="item-name" value={newItem.name} onChange={(e) => handleInputChange('name', e.target.value)} placeholder="e.g. Japanese KitKats" />
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="item-price">Price ({tripCurrency})</Label>
-                        <Input id="item-price" type="number" value={newItem.price} onChange={(e) => handleInputChange('price', e.target.value)} placeholder="e.g. 15.00" />
-                    </div>
-                     <div className="space-y-2">
-                        <Label htmlFor="item-category">Category</Label>
-                        <Select value={newItem.categoryId} onValueChange={(value) => handleInputChange('categoryId', value)}>
-                            <SelectTrigger id="item-category">
-                                <SelectValue placeholder="Select a category" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {list.map(cat => (
-                                    <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
-                    <div className="space-y-2">
-                        <Label>Image (Optional)</Label>
-                        <div className="flex items-center gap-4">
-                            {newItem.previewUrl && <Image src={newItem.previewUrl} alt="preview" width={60} height={60} className="rounded-md object-cover" />}
-                            <Input 
-                                type="file" 
-                                accept="image/*" 
-                                ref={fileInputRef} 
-                                onChange={(e) => handleInputChange('file', e.target.files ? e.target.files[0] : null)}
-                                className="hidden"
-                            />
-                            <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
-                                <Camera className="mr-2 h-4 w-4" />
-                                Upload
-                            </Button>
-                        </div>
-                    </div>
-                </div>
-                <DialogFooter>
-                    <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>Cancel</Button>
-                    <Button onClick={handleAddItem}>Add Item</Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
     </div>
   );
 }

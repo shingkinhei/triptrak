@@ -1,8 +1,8 @@
 'use client';
 import type { FC } from 'react';
-import { useState, useEffect, use } from 'react';
+import { useState, useEffect, use, useRef } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Globe, ArrowLeft, Settings } from 'lucide-react';
+import { Globe, ArrowLeft, Settings, PlusCircle, Camera } from 'lucide-react';
 
 import { BottomNav, type Tab } from '@/components/bottom-nav';
 import { ExpenseTracker } from '@/components/expense-tracker';
@@ -17,10 +17,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import type { Currency, Transaction, ShoppingCategory, Trip } from '@/lib/types';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import type { Currency, Transaction, ShoppingCategory, Trip, ShoppingItem } from '@/lib/types';
 import { mockTrips } from '@/lib/mock-data';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
+import Image from 'next/image';
 
 interface TripDetailsPageProps {
   params: {
@@ -28,13 +32,26 @@ interface TripDetailsPageProps {
   };
 }
 
+interface NewItemInput {
+    name: string;
+    price: string;
+    categoryId: string;
+    file: File | null;
+    previewUrl?: string;
+}
+
 interface TabContentProps {
   trip: Trip;
   setTrip: React.Dispatch<React.SetStateAction<Trip | undefined>>;
+  activeTab: Tab;
+  setActiveTab: React.Dispatch<React.SetStateAction<Tab>>;
 }
 
-const TabContent: FC<TabContentProps> = ({ trip, setTrip }) => {
-  const [activeTab, setActiveTab] = useState<Tab>('planner');
+const TabContent: FC<TabContentProps> = ({ trip, setTrip, activeTab, setActiveTab }) => {
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [newItem, setNewItem] = useState<NewItemInput>({ name: '', price: '', categoryId: '', file: null, previewUrl: '' });
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const { tripCurrency } = useCurrency();
 
   const handleShoppingItemCheck = (
     categoryId: string,
@@ -121,6 +138,45 @@ const TabContent: FC<TabContentProps> = ({ trip, setTrip }) => {
     });
   };
 
+  const handleInputChange = (field: keyof NewItemInput, value: string | File | null) => {
+    if (field === 'file' && value instanceof File) {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            setNewItem(prev => ({ ...prev, file: value, previewUrl: reader.result as string }));
+        }
+        reader.readAsDataURL(value);
+    } else {
+        setNewItem(prev => ({ ...prev, [field]: value as string }));
+    }
+  };
+
+  const handleAddItem = () => {
+      if (!newItem.name.trim() || !newItem.categoryId) return;
+
+      const newItemData: ShoppingItem = {
+          id: new Date().toISOString(),
+          name: newItem.name.trim(),
+          checked: false,
+          price: parseFloat(newItem.price) || 0,
+          imageUrl: newItem.previewUrl || `https://picsum.photos/seed/${newItem.name.trim()}/100/100`
+      };
+
+      setShoppingList(prevList =>
+          prevList.map(category =>
+            category.id === newItem.categoryId
+              ? {
+                  ...category,
+                  items: [...category.items, newItemData],
+                }
+              : category
+          )
+      );
+      
+      setNewItem({ name: '', price: '', categoryId: '', file: null, previewUrl: '' });
+      setIsAddDialogOpen(false);
+  }
+
+
   const componentProps = {
     planner: {
       itinerary: trip.itinerary,
@@ -171,6 +227,66 @@ const TabContent: FC<TabContentProps> = ({ trip, setTrip }) => {
           </motion.div>
         </AnimatePresence>
       </div>
+
+       {activeTab === 'shopping' && (
+        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+            <DialogTrigger asChild>
+                 <Button className="absolute bottom-20 right-8 h-16 w-16 rounded-full shadow-lg z-20">
+                    <PlusCircle className="h-8 w-8" />
+                </Button>
+            </DialogTrigger>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Add New Shopping Item</DialogTitle>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="item-name">Item Name</Label>
+                        <Input id="item-name" value={newItem.name} onChange={(e) => handleInputChange('name', e.target.value)} placeholder="e.g. Japanese KitKats" />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="item-price">Price ({tripCurrency})</Label>
+                        <Input id="item-price" type="number" value={newItem.price} onChange={(e) => handleInputChange('price', e.target.value)} placeholder="e.g. 15.00" />
+                    </div>
+                     <div className="space-y-2">
+                        <Label htmlFor="item-category">Category</Label>
+                        <Select value={newItem.categoryId} onValueChange={(value) => handleInputChange('categoryId', value)}>
+                            <SelectTrigger id="item-category">
+                                <SelectValue placeholder="Select a category" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {trip.shoppingList.map(cat => (
+                                    <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div className="space-y-2">
+                        <Label>Image (Optional)</Label>
+                        <div className="flex items-center gap-4">
+                            {newItem.previewUrl && <Image src={newItem.previewUrl} alt="preview" width={60} height={60} className="rounded-md object-cover" />}
+                            <Input 
+                                type="file" 
+                                accept="image/*" 
+                                ref={fileInputRef} 
+                                onChange={(e) => handleInputChange('file', e.target.files ? e.target.files[0] : null)}
+                                className="hidden"
+                            />
+                            <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
+                                <Camera className="mr-2 h-4 w-4" />
+                                Upload
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+                <DialogFooter>
+                    <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>Cancel</Button>
+                    <Button onClick={handleAddItem}>Add Item</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+      )}
+
       <BottomNav activeItem={activeTab} setActiveTab={setActiveTab} isLightMode={true} />
     </>
   );
@@ -179,6 +295,7 @@ const TabContent: FC<TabContentProps> = ({ trip, setTrip }) => {
 export default function TripDetailsPage({ params }: TripDetailsPageProps) {
   const resolvedParams = use(params);
   const [trip, setTrip] = useState<Trip | undefined>();
+  const [activeTab, setActiveTab] = useState<Tab>('planner');
   const router = useRouter();
   const { setTripCurrencyFromCountry } = useCurrency();
 
@@ -211,7 +328,7 @@ export default function TripDetailsPage({ params }: TripDetailsPageProps) {
               <div className="absolute left-1/2 top-1/2 h-4 w-10 -translate-x-1/2 -translate-y-1/2 rounded-full bg-gray-800"></div>
             </div>
             <div className="flex h-full flex-col pt-7">
-              <TabContent trip={trip} setTrip={setTrip} />
+              <TabContent trip={trip} setTrip={setTrip} activeTab={activeTab} setActiveTab={setActiveTab} />
             </div>
         </div>
       </div>
