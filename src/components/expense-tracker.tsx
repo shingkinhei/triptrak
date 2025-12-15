@@ -226,22 +226,22 @@ export function ExpenseTracker({ transactions, setTransactions, trip }: ExpenseT
             return (
               <Card key={t.id} className="bg-card/80 backdrop-blur-sm border-white/20">
                 <CardContent className="flex items-center p-3 gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-black/30">
-                    {Icon && <Icon className="h-5 w-5 text-white/80" />}
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-secondary">
+                    {Icon && <Icon className="h-5 w-5 text-secondary-foreground" />}
                   </div>
                   <div className="flex-grow">
-                    <p className="font-semibold text-white">{t.name}</p>
-                    <p className="text-sm text-white/70">{t.category}</p>
+                    <p className="font-semibold text-card-foreground">{t.name}</p>
+                    <p className="text-sm text-muted-foreground">{t.category}</p>
                   </div>
                   <div className="text-right">
-                    <p className="font-bold text-lg text-white">
+                    <p className="font-bold text-lg text-card-foreground">
                       -{currentFormatter(amount)}
                     </p>
-                    <p className="text-sm text-white/70">{t.date}</p>
+                    <p className="text-sm text-muted-foreground">{t.date}</p>
                   </div>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 ml-2 text-white hover:bg-white/20 hover:text-white">
+                      <Button variant="ghost" size="icon" className="h-8 w-8 ml-2 text-muted-foreground hover:bg-accent hover:text-accent-foreground">
                         <MoreVertical className="h-4 w-4" />
                       </Button>
                     </DropdownMenuTrigger>
@@ -259,5 +259,3 @@ export function ExpenseTracker({ transactions, setTransactions, trip }: ExpenseT
     </div>
   );
 }
-
-    

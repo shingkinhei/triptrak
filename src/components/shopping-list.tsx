@@ -211,15 +211,15 @@ export function ShoppingList({ list, setList, onCheckChange, trip }: ShoppingLis
             <Card key={category.id} className="bg-card/80 backdrop-blur-sm border-white/20">
                 <CardHeader>
                     <div className="flex justify-between items-center">
-                        <CardTitle className="text-lg font-headline text-white flex items-center gap-2">
+                        <CardTitle className="text-lg font-headline text-card-foreground flex items-center gap-2">
                             {CategoryIcon && <CategoryIcon className="h-5 w-5 text-primary" />}
                             {category.name}
                         </CardTitle>
                         <div className="flex items-center gap-2">
-                            <span className="font-semibold text-white/80">{currentFormatter(categoryTotalInCurrent)}</span>
+                            <span className="font-semibold text-muted-foreground">{currentFormatter(categoryTotalInCurrent)}</span>
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-white hover:bg-white/20 hover:text-white">
+                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:bg-accent hover:text-accent-foreground">
                                         <MoreVertical className="h-4 w-4" />
                                     </Button>
                                 </DropdownMenuTrigger>
@@ -368,5 +368,3 @@ export function ShoppingList({ list, setList, onCheckChange, trip }: ShoppingLis
     </div>
   );
 }
-
-    

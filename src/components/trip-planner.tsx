@@ -234,7 +234,7 @@ export function TripPlanner({ itinerary, setItinerary }: TripPlannerProps) {
                 </div>
                 <AccordionContent className="p-4 bg-card/80 backdrop-blur-sm rounded-b-lg space-y-4">
                    {item.remarks && (
-                    <div className="prose prose-sm max-w-none text-foreground">
+                    <div className="prose prose-sm max-w-none text-card-foreground">
                         <p>{item.remarks}</p>
                     </div>
                   )}
@@ -262,7 +262,7 @@ export function TripPlanner({ itinerary, setItinerary }: TripPlannerProps) {
                             )}
                           </div>
                           <div>
-                            <p className="font-semibold text-foreground">{activity.time}</p>
+                            <p className="font-semibold text-card-foreground">{activity.time}</p>
                             <p className="text-muted-foreground">
                               {activity.description}
                             </p>
@@ -389,5 +389,3 @@ export function TripPlanner({ itinerary, setItinerary }: TripPlannerProps) {
     </div>
   );
 }
-
-    
