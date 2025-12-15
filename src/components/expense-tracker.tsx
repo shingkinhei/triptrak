@@ -31,6 +31,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+import { useCurrency } from '@/context/CurrencyContext';
 
 const mockTransactions: Transaction[] = [
   { id: '1', name: 'Ichiran Ramen', category: 'Food', amount: 15, date: '2024-10-26' },
@@ -51,9 +52,9 @@ const categoryIcons: Record<TransactionCategory, React.ElementType> = {
   Other: PlusCircle,
 };
 
-const getChartData = (transactions: Transaction[]) => {
+const getChartData = (transactions: Transaction[], rate: number) => {
   const categoryTotals = transactions.reduce((acc, t) => {
-    acc[t.category] = (acc[t.category] || 0) + t.amount;
+    acc[t.category] = (acc[t.category] || 0) + t.amount * rate;
     return acc;
   }, {} as Record<TransactionCategory, number>);
 
@@ -79,8 +80,10 @@ export function ExpenseTracker() {
     amount: '',
   });
 
-  const totalExpenses = transactions.reduce((sum, t) => sum + t.amount, 0);
-  const chartData = getChartData(transactions);
+  const { currency, rate, formatCurrency } = useCurrency();
+
+  const totalExpenses = transactions.reduce((sum, t) => sum + t.amount, 0) * rate;
+  const chartData = getChartData(transactions, rate);
 
   const handleAddTransaction = () => {
     if (!newTransaction.name || !newTransaction.category || !newTransaction.amount) {
@@ -109,8 +112,8 @@ export function ExpenseTracker() {
 
       <Card>
         <CardHeader>
-          <CardDescription>Total Expenses</CardDescription>
-          <CardTitle>${totalExpenses.toLocaleString()}</CardTitle>
+          <CardDescription>Total Expenses ({currency})</CardDescription>
+          <CardTitle>{formatCurrency(totalExpenses)}</CardTitle>
         </CardHeader>
         <CardContent>
           <ChartContainer config={chartConfig} className="h-[150px] w-full">
@@ -127,11 +130,11 @@ export function ExpenseTracker() {
                 fontSize={12}
                 tickLine={false}
                 axisLine={false}
-                tickFormatter={(value) => `$${value}`}
+                tickFormatter={(value) => formatCurrency(value, 0)}
               />
                <ChartTooltip
                 cursor={{ fill: 'hsl(var(--muted))', radius: 4 }}
-                content={<ChartTooltipContent />}
+                content={<ChartTooltipContent formatter={(value) => formatCurrency(value as number)} />}
               />
               <Bar dataKey="total" fill="var(--color-total)" radius={[4, 4, 0, 0]} />
             </BarChart>
@@ -158,7 +161,7 @@ export function ExpenseTracker() {
                             <Input id="name" value={newTransaction.name} onChange={(e) => setNewTransaction({...newTransaction, name: e.target.value})} className="col-span-3" placeholder="e.g. Coffee" />
                         </div>
                         <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="amount" className="text-right">Amount</Label>
+                            <Label htmlFor="amount" className="text-right">Amount (USD)</Label>
                             <Input id="amount" type="number" value={newTransaction.amount} onChange={(e) => setNewTransaction({...newTransaction, amount: e.target.value})} className="col-span-3" placeholder="e.g. 5.00" />
                         </div>
                         <div className="grid grid-cols-4 items-center gap-4">
@@ -199,7 +202,7 @@ export function ExpenseTracker() {
                   </div>
                   <div className="text-right">
                     <p className="font-bold text-lg text-foreground">
-                      -${t.amount.toLocaleString()}
+                      -{formatCurrency(t.amount * rate)}
                     </p>
                     <p className="text-sm text-muted-foreground">{t.date}</p>
                   </div>

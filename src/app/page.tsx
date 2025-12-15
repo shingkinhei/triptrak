@@ -2,12 +2,22 @@
 import type { FC } from 'react';
 import { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
+import { Globe } from 'lucide-react';
 
 import { BottomNav, type Tab } from '@/components/bottom-nav';
 import { ExpenseTracker } from '@/components/expense-tracker';
 import { MapView } from '@/components/map-view';
 import { ShoppingList } from '@/components/shopping-list';
 import { TripPlanner } from '@/components/trip-planner';
+import { CurrencyProvider, useCurrency } from '@/context/CurrencyContext';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import type { Currency } from '@/lib/types';
 
 const tabComponents: Record<Tab, FC> = {
   planner: TripPlanner,
@@ -16,35 +26,69 @@ const tabComponents: Record<Tab, FC> = {
   shopping: ShoppingList,
 };
 
-export default function Home() {
+const TabContent = () => {
   const [activeTab, setActiveTab] = useState<Tab>('planner');
   const ActiveComponent = tabComponents[activeTab];
 
   return (
+    <>
+      <div className="flex-grow overflow-hidden">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={activeTab}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            transition={{ duration: 0.2 }}
+            className="h-full overflow-y-auto px-4 pb-4"
+          >
+            <ActiveComponent />
+          </motion.div>
+        </AnimatePresence>
+      </div>
+      <BottomNav activeTab={activeTab} setActiveTab={setActiveTab} />
+    </>
+  );
+};
+
+const CurrencySelector = () => {
+  const { currency, setCurrency, rates } = useCurrency();
+  return (
+    <div className="absolute top-2 right-2 z-20">
+      <Select
+        value={currency}
+        onValueChange={(value) => setCurrency(value as Currency)}
+      >
+        <SelectTrigger className="h-8 w-28 bg-black/20 text-white border-white/30">
+          <Globe className="h-4 w-4 mr-1" />
+          <SelectValue placeholder="Currency" />
+        </SelectTrigger>
+        <SelectContent>
+          {Object.keys(rates).map((c) => (
+            <SelectItem key={c} value={c}>
+              {c}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+};
+
+export default function Home() {
+  return (
     <main className="bg-muted flex min-h-screen items-center justify-center p-4 font-body">
       <div className="relative mx-auto h-[800px] w-full max-w-sm max-h-[90vh] rounded-[48px] border-8 border-black bg-background shadow-2xl overflow-hidden">
-        <div className="absolute top-0 left-1/2 z-20 h-7 w-1/3 -translate-x-1/2 bg-black rounded-b-2xl">
-          <div className="absolute left-6 top-1/2 h-3 w-3 -translate-y-1/2 rounded-full bg-gray-700"></div>
-          <div className="absolute left-1/2 top-1/2 h-4 w-10 -translate-x-1/2 -translate-y-1/2 rounded-full bg-gray-800"></div>
-        </div>
-
-        <div className="flex h-full flex-col pt-7">
-          <div className="flex-grow overflow-hidden">
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={activeTab}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                transition={{ duration: 0.2 }}
-                className="h-full overflow-y-auto px-4 pb-4"
-              >
-                <ActiveComponent />
-              </motion.div>
-            </AnimatePresence>
+        <CurrencyProvider>
+          <div className="absolute top-0 left-1/2 z-20 h-7 w-1/3 -translate-x-1/2 bg-black rounded-b-2xl">
+            <div className="absolute left-6 top-1/2 h-3 w-3 -translate-y-1/2 rounded-full bg-gray-700"></div>
+            <div className="absolute left-1/2 top-1/2 h-4 w-10 -translate-x-1/2 -translate-y-1/2 rounded-full bg-gray-800"></div>
           </div>
-          <BottomNav activeTab={activeTab} setActiveTab={setActiveTab} />
-        </div>
+          <CurrencySelector />
+          <div className="flex h-full flex-col pt-7">
+            <TabContent />
+          </div>
+        </CurrencyProvider>
       </div>
     </main>
   );

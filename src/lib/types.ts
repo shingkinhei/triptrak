@@ -1,3 +1,4 @@
+'use client';
 import type { LucideIcon } from "lucide-react";
 
 export type Activity = {
@@ -40,4 +41,10 @@ export type ShoppingCategory = {
   id: string;
   name: string;
   items: ShoppingItem[];
+};
+
+export type Currency = 'USD' | 'JPY' | 'EUR';
+
+export type ExchangeRates = {
+  [key in Currency]: number;
 };

@@ -14,6 +14,7 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Plus, Camera, DollarSign } from 'lucide-react';
 import Image from 'next/image';
+import { useCurrency } from '@/context/CurrencyContext';
 
 const initialShoppingList: ShoppingCategory[] = [
     {
@@ -58,6 +59,7 @@ export function ShoppingList() {
     const [list, setList] = useState<ShoppingCategory[]>(initialShoppingList);
     const [newItems, setNewItems] = useState<NewItemInputs>({});
     const fileInputRefs = useRef<{[key: string]: HTMLInputElement | null}>({});
+    const { currency, rate, formatCurrency } = useCurrency();
 
     const handleCheckChange = (categoryId: string, itemId: string, checked: boolean) => {
         setList(prevList =>
@@ -132,7 +134,7 @@ export function ShoppingList() {
         return items.reduce((total, item) => total + (item.price || 0), 0);
     }
 
-    const grandTotal = list.reduce((total, category) => total + calculateTotal(category.items), 0);
+    const grandTotal = list.reduce((total, category) => total + calculateTotal(category.items), 0) * rate;
 
   return (
     <div className="space-y-4">
@@ -147,20 +149,20 @@ export function ShoppingList() {
 
       <Card>
         <CardHeader>
-          <CardDescription>Grand Total</CardDescription>
-          <CardTitle>${grandTotal.toLocaleString()}</CardTitle>
+          <CardDescription>Grand Total ({currency})</CardDescription>
+          <CardTitle>{formatCurrency(grandTotal)}</CardTitle>
         </CardHeader>
       </Card>
 
       <div className="space-y-4">
         {list.map(category => {
-            const categoryTotal = calculateTotal(category.items);
+            const categoryTotal = calculateTotal(category.items) * rate;
             return (
             <Card key={category.id}>
                 <CardHeader>
                     <div className="flex justify-between items-center">
                         <CardTitle className="text-lg font-headline">{category.name}</CardTitle>
-                        <span className="font-semibold text-muted-foreground">${categoryTotal.toLocaleString()}</span>
+                        <span className="font-semibold text-muted-foreground">{formatCurrency(categoryTotal)}</span>
                     </div>
                 </CardHeader>
                 <CardContent className="space-y-3">
@@ -194,7 +196,7 @@ export function ShoppingList() {
                                 {item.name}
                             </label>
                             <div className={cn("text-sm font-semibold", item.checked ? 'text-muted-foreground line-through' : 'text-foreground')}>
-                                ${item.price?.toLocaleString() || '0'}
+                                {formatCurrency((item.price || 0) * rate)}
                             </div>
                         </div>
                     ))}
