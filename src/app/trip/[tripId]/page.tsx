@@ -1,6 +1,6 @@
 'use client';
 import type { FC } from 'react';
-import { useState, useEffect, use, useRef } from 'react';
+import { useState, useEffect, use, useRef, useMemo } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Globe, ArrowLeft, Settings, PlusCircle, Camera } from 'lucide-react';
 
@@ -20,7 +20,7 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import type { Currency, Transaction, ShoppingCategory, Trip, ShoppingItem } from '@/lib/types';
+import type { Currency, Transaction, ShoppingCategory, Trip, ShoppingItem, ItineraryItem, Activity } from '@/lib/types';
 import { mockTrips } from '@/lib/mock-data';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -36,6 +36,7 @@ interface NewItemInput {
     name: string;
     price: string;
     categoryId: string;
+    location: string;
     store: string;
     file: File | null;
     previewUrl?: string;
@@ -199,7 +200,7 @@ export default function TripDetailsPage({ params }: TripDetailsPageProps) {
   const { setTripCurrencyFromCountry, tripCurrency } = useCurrency();
 
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [newItem, setNewItem] = useState<NewItemInput>({ name: '', price: '', categoryId: '', store: '', file: null, previewUrl: '' });
+  const [newItem, setNewItem] = useState<NewItemInput>({ name: '', price: '', categoryId: '', location: '', store: '', file: null, previewUrl: '' });
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -209,6 +210,24 @@ export default function TripDetailsPage({ params }: TripDetailsPageProps) {
       setTripCurrencyFromCountry(foundTrip.country);
     }
   }, [resolvedParams, setTripCurrencyFromCountry]);
+
+  const itineraryLocations = useMemo(() => {
+      if (!trip) return [];
+      return [...new Set(trip.itinerary.map(i => i.title.replace(/arrival in |exploring |day trip to /i, '')))];
+  }, [trip]);
+
+  const pointsOfInterest = useMemo(() => {
+      if (!trip) return [];
+      const allPois = trip.itinerary.flatMap(day => 
+          day.activities.map(activity => ({
+              name: activity.description,
+              location: day.title.replace(/arrival in |exploring |day trip to /i, '')
+          }))
+      );
+      return allPois.filter(poi => 
+          newItem.location ? poi.location === newItem.location : true
+      );
+  }, [trip, newItem.location]);
 
   if (!trip) {
     return (
@@ -239,7 +258,11 @@ export default function TripDetailsPage({ params }: TripDetailsPageProps) {
         }
         reader.readAsDataURL(value);
     } else {
-        setNewItem(prev => ({ ...prev, [field]: value as string }));
+        if (field === 'location') {
+            setNewItem(prev => ({...prev, location: value as string, store: ''}));
+        } else {
+            setNewItem(prev => ({ ...prev, [field]: value as string }));
+        }
     }
   };
 
@@ -252,6 +275,7 @@ export default function TripDetailsPage({ params }: TripDetailsPageProps) {
           checked: false,
           price: parseFloat(newItem.price) || 0,
           imageUrl: newItem.previewUrl || `https://picsum.photos/seed/${newItem.name.trim()}/100/100`,
+          location: newItem.location,
           store: newItem.store,
       };
 
@@ -266,11 +290,9 @@ export default function TripDetailsPage({ params }: TripDetailsPageProps) {
           )
       );
       
-      setNewItem({ name: '', price: '', categoryId: '', store: '', file: null, previewUrl: '' });
+      setNewItem({ name: '', price: '', categoryId: '', location: '', store: '', file: null, previewUrl: '' });
       setIsAddDialogOpen(false);
   }
-
-  const itineraryLocations = trip.itinerary.map(i => i.title.replace(/arrival in |exploring |day trip to /i, ''));
 
 
   return (
@@ -322,18 +344,33 @@ export default function TripDetailsPage({ params }: TripDetailsPageProps) {
                                   </SelectContent>
                               </Select>
                           </div>
-                          <div className="space-y-2">
-                              <Label htmlFor="item-store">Store / Location</Label>
-                              <Select value={newItem.store} onValueChange={(value) => handleInputChange('store', value)}>
-                                  <SelectTrigger id="item-store">
-                                      <SelectValue placeholder="Select a store" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                      {[...new Set(itineraryLocations)].map(loc => (
-                                          <SelectItem key={loc} value={loc}>{loc}</SelectItem>
-                                      ))}
-                                  </SelectContent>
-                              </Select>
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="item-location">Location</Label>
+                                <Select value={newItem.location} onValueChange={(value) => handleInputChange('location', value)}>
+                                    <SelectTrigger id="item-location">
+                                        <SelectValue placeholder="Select a location" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {itineraryLocations.map(loc => (
+                                            <SelectItem key={loc} value={loc}>{loc}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                             <div className="space-y-2">
+                                <Label htmlFor="item-store">Store / POI</Label>
+                                <Select value={newItem.store} onValueChange={(value) => handleInputChange('store', value)} disabled={!newItem.location}>
+                                    <SelectTrigger id="item-store">
+                                        <SelectValue placeholder="Select a store" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {pointsOfInterest.map(poi => (
+                                            <SelectItem key={poi.name} value={poi.name}>{poi.name}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
                           </div>
                           <div className="space-y-2">
                               <Label>Image (Optional)</Label>

@@ -42,6 +42,7 @@ export type ShoppingItem = {
   checked: boolean;
   imageUrl?: string;
   price?: number;
+  location?: string;
   store?: string;
 };
 

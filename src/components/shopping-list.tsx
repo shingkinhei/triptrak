@@ -12,7 +12,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
-import { ListPlus, MoreVertical, Edit, Trash2, Repeat, Gift, Home, Plane, Shirt, ShoppingBasket, UtensilsCrossed, Luggage, type LucideIcon, Store } from 'lucide-react';
+import { ListPlus, MoreVertical, Edit, Trash2, Repeat, Gift, Home, Plane, Shirt, ShoppingBasket, UtensilsCrossed, Luggage, type LucideIcon, Store, MapPin } from 'lucide-react';
 import Image from 'next/image';
 import { useCurrency } from '@/context/CurrencyContext';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from './ui/dialog';
@@ -192,9 +192,9 @@ export function ShoppingList({ list, setList, onCheckChange, trip }: ShoppingLis
                  <Button variant="outline" size="sm" onClick={toggleCurrency}>
                     <Repeat className="h-4 w-4 mr-2" />
                     {displayCurrency === 'trip' ? (
-                        <span>{tripCurrency} &harr; {homeCurrency}</span>
-                    ) : (
                         <span>{homeCurrency} &harr; {tripCurrency}</span>
+                    ) : (
+                        <span>{tripCurrency} &harr; {homeCurrency}</span>
                     )}
                 </Button>
             </div>
@@ -280,21 +280,29 @@ export function ShoppingList({ list, setList, onCheckChange, trip }: ShoppingLis
                                         )}
                                         {item.checked && <div className="absolute inset-0 bg-background/60"></div>}
                                     </div>
-                                    <div className="p-2">
+                                    <div className="p-2 space-y-1">
                                         <p className={cn(
                                             'text-sm font-medium leading-tight truncate',
                                             item.checked ? 'text-muted-foreground line-through' : 'text-foreground'
                                         )}>
                                             {item.name}
                                         </p>
-                                        {item.store && (
-                                            <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
-                                                <Store className="h-3 w-3" />
-                                                <span>{item.store}</span>
-                                            </div>
-                                        )}
+                                        <div className="space-y-1 text-xs text-muted-foreground">
+                                            {item.location && (
+                                                <div className="flex items-center gap-1">
+                                                    <MapPin className="h-3 w-3" />
+                                                    <span>{item.location}</span>
+                                                </div>
+                                            )}
+                                            {item.store && (
+                                                <div className="flex items-center gap-1">
+                                                    <Store className="h-3 w-3" />
+                                                    <span className="truncate">{item.store}</span>
+                                                </div>
+                                            )}
+                                        </div>
                                         <p className={cn(
-                                            "text-xs font-semibold mt-1",
+                                            "text-xs font-semibold pt-1",
                                             item.checked ? 'text-muted-foreground line-through' : 'text-foreground'
                                         )}>
                                             {currentFormatter(itemPriceInCurrent)}
