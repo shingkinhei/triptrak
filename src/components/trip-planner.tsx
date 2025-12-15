@@ -13,6 +13,7 @@ import { cn } from '@/lib/utils';
 import {
   BedDouble,
   Camera,
+  ChevronDown,
   Plane,
   Train,
   UtensilsCrossed,
@@ -127,11 +128,6 @@ export function TripPlanner() {
                              </h2>
                              <p className="text-sm">{item.date}</p>
                            </div>
-                        </div>
-                        <div className="absolute top-2 right-2 bg-card/70 text-card-foreground rounded-full p-2 h-8 w-8 flex items-center justify-center">
-                            <AccordionTrigger asChild>
-                                <div className="[&_svg]:-mr-2 [&_svg]:h-5 [&_svg]:w-5 [&_svg]:text-primary-foreground"></div>
-                            </AccordionTrigger>
                         </div>
                       </div>
                   </AccordionTrigger>
