@@ -55,6 +55,7 @@ export type Trip = {
   id: string;
   name: string;
   destination: string;
+  country: string; // e.g., 'JP', 'IT'
   startDate: string;
   endDate: string;
   status: TripStatus;

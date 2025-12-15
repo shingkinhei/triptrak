@@ -225,7 +225,7 @@ export default function TripDetailsPage({ params }: TripDetailsPageProps) {
       >
         <div className="absolute inset-0 bg-black/50 z-0" />
         <div className="relative z-10 h-full flex flex-col">
-          <CurrencyProvider>
+          <CurrencyProvider countryCode={trip.country}>
             <div className="absolute top-0 left-1/2 z-20 h-7 w-1/3 -translate-x-1/2 bg-black rounded-b-2xl">
               <div className="absolute left-6 top-1/2 h-3 w-3 -translate-y-1/2 rounded-full bg-gray-700"></div>
               <div className="absolute left-1/2 top-1/2 h-4 w-10 -translate-x-1/2 -translate-y-1/2 rounded-full bg-gray-800"></div>

@@ -1,5 +1,5 @@
 'use client';
-import { createContext, useContext, useState, useMemo, type ReactNode } from 'react';
+import { createContext, useContext, useState, useMemo, type ReactNode, useEffect } from 'react';
 import type { Currency, ExchangeRates } from '@/lib/types';
 
 // Mock exchange rates relative to USD
@@ -8,6 +8,12 @@ const MOCK_RATES: ExchangeRates = {
   JPY: 157,
   EUR: 0.92,
 };
+
+const countryCurrencyMap: Record<string, Currency> = {
+    JP: 'JPY',
+    IT: 'EUR',
+    US: 'USD',
+  };
 
 interface CurrencyContextType {
   currency: Currency;
@@ -19,8 +25,19 @@ interface CurrencyContextType {
 
 const CurrencyContext = createContext<CurrencyContextType | undefined>(undefined);
 
-export const CurrencyProvider = ({ children }: { children: ReactNode }) => {
-  const [currency, setCurrency] = useState<Currency>('USD');
+interface CurrencyProviderProps {
+    children: ReactNode;
+    countryCode?: string;
+}
+
+export const CurrencyProvider = ({ children, countryCode }: CurrencyProviderProps) => {
+  const defaultCurrency = (countryCode && countryCurrencyMap[countryCode.toUpperCase()]) || 'USD';
+  const [currency, setCurrency] = useState<Currency>(defaultCurrency);
+
+  useEffect(() => {
+    const newDefaultCurrency = (countryCode && countryCurrencyMap[countryCode.toUpperCase()]) || 'USD';
+    setCurrency(newDefaultCurrency);
+  }, [countryCode]);
 
   const rate = useMemo(() => MOCK_RATES[currency], [currency]);
 
