@@ -18,6 +18,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 
 type EditableTrip = Partial<Pick<Trip, 'name' | 'destination' | 'country' | 'startDate' | 'endDate' | 'imageUrl' | 'imageHint'>>;
 
+// A small list of countries for the dropdown.
+const countryOptions = [
+  { value: 'US', label: 'United States' },
+  { value: 'JP', label: 'Japan' },
+  { value: 'IT', label: 'Italy' },
+  { value: 'FR', label: 'France' },
+  { value: 'ES', label: 'Spain' },
+  { value: 'GB', label: 'United Kingdom' },
+];
+
 export default function TripsPage() {
   const [trips, setTrips] = useState<Trip[]>(mockTrips);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -161,8 +171,17 @@ export default function TripsPage() {
                         <Input id="destination" value={newTrip.destination} onChange={(e) => setNewTrip({...newTrip, destination: e.target.value})} className="col-span-3" placeholder="e.g. Italy" />
                         </div>
                          <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="country" className="text-right">Country Code</Label>
-                        <Input id="country" value={newTrip.country} onChange={(e) => setNewTrip({...newTrip, country: e.target.value})} className="col-span-3" placeholder="e.g. IT" />
+                            <Label htmlFor="country" className="text-right">Country</Label>
+                            <Select value={newTrip.country} onValueChange={(value) => setNewTrip({...newTrip, country: value})}>
+                                <SelectTrigger className="col-span-3">
+                                    <SelectValue placeholder="Select a country" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {countryOptions.map(option => (
+                                        <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
                         </div>
                         <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="start-date" className="text-right">Start Date</Label>
@@ -244,8 +263,17 @@ export default function TripsPage() {
                 <Input id="edit-destination" value={tripForm.destination || ''} onChange={(e) => handleFormChange('destination', e.target.value)} className="col-span-3" />
               </div>
                <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="edit-country" className="text-right">Country Code</Label>
-                <Input id="edit-country" value={tripForm.country || ''} onChange={(e) => handleFormChange('country', e.target.value)} className="col-span-3" />
+                <Label htmlFor="edit-country" className="text-right">Country</Label>
+                <Select value={tripForm.country || ''} onValueChange={(value) => handleFormChange('country', value)}>
+                    <SelectTrigger className="col-span-3">
+                        <SelectValue placeholder="Select a country" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {countryOptions.map(option => (
+                            <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="edit-start-date" className="text-right">Start Date</Label>
@@ -292,3 +320,5 @@ export default function TripsPage() {
     </main>
   );
 }
+
+    
