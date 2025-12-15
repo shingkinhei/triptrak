@@ -40,7 +40,9 @@ export function BottomNav({ activeItem, setActiveTab, isLightMode }: BottomNavPr
     { id: 'settings', label: 'Settings', icon: Settings, action: () => router.push('/settings') },
   ];
 
-  const filteredNavItems = setActiveTab ? navItems : navItems.filter(item => item.action);
+  const filteredNavItems = setActiveTab
+    ? navItems.filter(item => item.id !== 'settings')
+    : navItems.filter(item => item.action);
 
 
   return (
