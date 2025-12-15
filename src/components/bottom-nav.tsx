@@ -28,7 +28,7 @@ interface BottomNavProps {
   isLightMode?: boolean;
 }
 
-export function BottomNav({ activeItem, setActiveTab, isLightMode }: BottomNavProps) {
+export function BottomNav({ activeItem, setActiveTab, isLightMode = true }: BottomNavProps) {
   const router = useRouter();
 
   const navItems: NavItem[] = [
@@ -41,7 +41,7 @@ export function BottomNav({ activeItem, setActiveTab, isLightMode }: BottomNavPr
   ];
 
   const filteredNavItems = setActiveTab
-    ? navItems.filter(item => item.id !== 'settings')
+    ? navItems.filter(item => item.id !== 'settings' && item.id !== 'trips')
     : navItems.filter(item => item.action);
 
 
@@ -69,8 +69,8 @@ export function BottomNav({ activeItem, setActiveTab, isLightMode }: BottomNavPr
               ? 'text-muted-foreground'
               : 'text-primary-foreground/70',
             {
-              'text-primary': activeItem === item.id,
-              'text-white': activeItem === item.id && !isLightMode && !!setActiveTab, // backwards compat
+              'text-primary': activeItem === item.id && isLightMode,
+              'text-white': activeItem === item.id && !isLightMode,
               'opacity-50 cursor-not-allowed': !setActiveTab && !item.action,
             }
           )}

@@ -186,7 +186,7 @@ const TabContent: FC<TabContentProps> = ({ trip, setTrip, activeTab, setActiveTa
           </motion.div>
         </AnimatePresence>
       </div>
-      <BottomNav activeItem={activeTab} setActiveTab={setActiveTab} />
+      <BottomNav activeItem={activeTab} setActiveTab={setActiveTab} isLightMode={false} />
     </>
   );
 };
@@ -276,9 +276,10 @@ export default function TripDetailsPage({ params }: TripDetailsPageProps) {
   return (
     <main className="bg-muted flex min-h-screen items-center justify-center p-4 font-body">
       <div
-        className="relative mx-auto h-[800px] w-full max-w-sm max-h-[90vh] rounded-[48px] border-8 border-black bg-background shadow-2xl overflow-hidden"
+        className="relative mx-auto h-[800px] w-full max-w-sm max-h-[90vh] rounded-[48px] border-8 border-black bg-cover bg-center shadow-2xl overflow-hidden"
+        style={{ backgroundImage: `url(${trip.imageUrl})` }}
       >
-        <div className="absolute inset-0 bg-background/80 z-0" />
+        <div className="absolute inset-0 bg-black/50 z-0" />
         <div className="relative z-10 h-full flex flex-col">
             <div className="absolute top-0 left-1/2 z-20 h-7 w-1/3 -translate-x-1/2 bg-black rounded-b-2xl">
               <div className="absolute left-6 top-1/2 h-3 w-3 -translate-y-1/2 rounded-full bg-gray-700"></div>
