@@ -134,7 +134,7 @@ export default function TripsPage() {
   }
 
   return (
-    <main className="bg-background font-body flex flex-col h-screen">
+    <main className="flex h-screen flex-col bg-background font-body">
         <header className="mb-4 flex items-center justify-between px-4 pt-4 shrink-0 mt-4">
             <div>
                 <h1 className="text-2xl font-bold font-headline text-foreground">
@@ -312,5 +312,3 @@ export default function TripsPage() {
     </main>
   );
 }
-
-    

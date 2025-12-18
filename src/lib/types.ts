@@ -20,6 +20,7 @@ export type ChecklistItem = {
 };
 
 export type ItineraryItem = {
+  id: string;
   day: number;
   title: string;
   date: string;

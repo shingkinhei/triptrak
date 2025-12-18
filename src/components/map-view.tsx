@@ -16,8 +16,8 @@ export function MapView({ locations }: MapViewProps) {
   if (!apiKey) {
     return (
       <div className="flex h-full flex-col items-center justify-center rounded-lg border-2 border-dashed bg-card/50 p-8 text-center">
-        <h2 className="text-lg font-semibold">Map Unavailable</h2>
-        <p className="mt-2 text-sm text-muted-foreground">
+        <h2 className="text-lg font-semibold text-primary-foreground">Map Unavailable</h2>
+        <p className="mt-2 text-sm text-primary-foreground/80">
           The Google Maps API key is missing. Please add it to your
           environment variables to enable the map feature.
         </p>
@@ -28,11 +28,11 @@ export function MapView({ locations }: MapViewProps) {
   return (
     <div className="space-y-4 h-full flex flex-col">
        <header className="flex items-center gap-2">
-        <Button variant="ghost" size="icon" className="h-8 w-8 text-white hover:bg-white/20 hover:text-white" onClick={() => router.push('/trips')}>
+        <Button variant="ghost" size="icon" className="h-8 w-8 text-primary-foreground hover:bg-white/20 hover:text-primary-foreground" onClick={() => router.push('/trips')}>
             <ArrowLeft className="h-5 w-5" />
         </Button>
         <div>
-            <h1 className="text-2xl font-bold font-headline text-white">
+            <h1 className="text-2xl font-bold font-headline text-primary-foreground">
             Trip Map
             </h1>
         </div>

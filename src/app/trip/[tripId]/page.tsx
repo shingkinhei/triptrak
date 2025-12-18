@@ -1,15 +1,16 @@
 'use client';
 import type { FC } from 'react';
-import { useState, useEffect, use, useRef, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Globe, ArrowLeft, Settings, PlusCircle, Camera } from 'lucide-react';
+import { PlusCircle, Camera } from 'lucide-react';
 
 import { BottomNav, type Tab } from '@/components/bottom-nav';
 import { ExpenseTracker } from '@/components/expense-tracker';
 import { MapView } from '@/components/map-view';
 import { ShoppingList } from '@/components/shopping-list';
 import { TripPlanner } from '@/components/trip-planner';
-import { CurrencyProvider, useCurrency } from '@/context/CurrencyContext';
+import { useCurrency } from '@/context/CurrencyContext';
 import {
   Select,
   SelectContent,
@@ -22,15 +23,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import type { Currency, Transaction, ShoppingCategory, Trip, ShoppingItem, ItineraryItem, Activity, ChecklistItem } from '@/lib/types';
 import { mockTrips } from '@/lib/mock-data';
-import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import Image from 'next/image';
-
-interface TripDetailsPageProps {
-  params: {
-    tripId: string;
-  };
-}
 
 interface NewItemInput {
     name: string;
@@ -139,19 +133,18 @@ const TabContent: FC<TabContentProps> = ({ trip, setTrip, activeTab, setActiveTa
 
   const componentProps = {
     planner: {
+      trip: trip,
       itinerary: trip.itinerary,
-      setItinerary: (updater: any) =>
-        setTrip((currentTrip) =>
-          currentTrip
-            ? {
-                ...currentTrip,
-                itinerary:
-                  typeof updater === 'function'
-                    ? updater(currentTrip.itinerary)
-                    : updater,
-              }
-            : undefined
-        ),
+      setItinerary: (updater: React.SetStateAction<ItineraryItem[]>) => {
+        setTrip((currentTrip) => {
+          if (!currentTrip) return undefined;
+          const newItinerary =
+            typeof updater === 'function'
+              ? updater(currentTrip.itinerary)
+              : updater;
+          return { ...currentTrip, itinerary: newItinerary };
+        });
+      },
       checklist: trip.checklist,
       setChecklist: (updater: React.SetStateAction<ChecklistItem[]>) => {
         setTrip((currentTrip) => {
@@ -195,16 +188,18 @@ const TabContent: FC<TabContentProps> = ({ trip, setTrip, activeTab, setActiveTa
           </motion.div>
         </AnimatePresence>
       </div>
-      <BottomNav activeItem={activeTab} setActiveTab={setActiveTab} isLightMode={false} />
+      <BottomNav activeItem={activeTab} setActiveTab={setActiveTab} />
     </>
   );
 };
 
-export default function TripDetailsPage({ params }: TripDetailsPageProps) {
-  const resolvedParams = use(params);
+export default function TripDetailsPage() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const tripId = pathname.split('/').pop();
+  
   const [trip, setTrip] = useState<Trip | undefined>();
   const [activeTab, setActiveTab] = useState<Tab>('planner');
-  const router = useRouter();
   const { setTripCurrencyFromCountry, tripCurrency } = useCurrency();
 
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -212,12 +207,12 @@ export default function TripDetailsPage({ params }: TripDetailsPageProps) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
-    const foundTrip = mockTrips.find((t) => t.id === resolvedParams.tripId);
+    const foundTrip = mockTrips.find((t) => t.id === tripId);
     setTrip(foundTrip);
     if (foundTrip) {
       setTripCurrencyFromCountry(foundTrip.country);
     }
-  }, [resolvedParams, setTripCurrencyFromCountry]);
+  }, [tripId, setTripCurrencyFromCountry]);
 
   const itineraryLocations = useMemo(() => {
       if (!trip) return [];
@@ -239,7 +234,7 @@ export default function TripDetailsPage({ params }: TripDetailsPageProps) {
 
   if (!trip) {
     return (
-      <main className="bg-muted flex min-h-screen items-center justify-center p-4 font-body">
+      <main className="flex min-h-screen items-center justify-center p-4 font-body bg-background">
         <div>Loading trip...</div>
       </main>
     );
@@ -287,16 +282,27 @@ export default function TripDetailsPage({ params }: TripDetailsPageProps) {
           store: newItem.store,
       };
 
-      setShoppingList(prevList =>
-          prevList.map(category =>
+      const categoryExists = trip.shoppingList.some(category => category.id === newItem.categoryId);
+
+      if(categoryExists) {
+        const updatedList = trip.shoppingList.map(category =>
             category.id === newItem.categoryId
               ? {
                   ...category,
                   items: [...category.items, newItemData],
                 }
               : category
-          )
-      );
+        );
+        setShoppingList(updatedList);
+      } else {
+         // This case should ideally not happen if the UI is correct, but as a fallback:
+         const newCategory: ShoppingCategory = {
+           id: newItem.categoryId,
+           name: newItem.categoryId, // Consider a better way to get category name
+           items: [newItemData]
+         };
+         setShoppingList(prev => [...prev, newCategory]);
+      }
       
       setNewItem({ name: '', price: '', categoryId: '', location: '', store: '', file: null, previewUrl: '' });
       setIsAddDialogOpen(false);
@@ -304,12 +310,12 @@ export default function TripDetailsPage({ params }: TripDetailsPageProps) {
 
 
   return (
-    <main className="font-body">
+    <main className="flex h-screen w-full flex-col bg-background font-body">
       <div
-        className="relative h-screen w-full bg-cover bg-center flex flex-col"
+        className="relative flex-grow bg-cover bg-center"
         style={{ backgroundImage: `url(${trip.imageUrl})` }}
       >
-        <div className="absolute inset-0 bg-black/50 z-0" />
+        <div className="absolute inset-0 bg-black/60 z-0" />
         <div className="relative z-10 h-full flex flex-col">
           <TabContent trip={trip} setTrip={setTrip} activeTab={activeTab} setActiveTab={setActiveTab} />
         </div>

@@ -65,27 +65,28 @@ const getChartData = (transactions: Transaction[], rate: number, homeRate: numbe
     return Object.entries(categoryTotals).map(([name, total]) => ({
         name,
         total,
+        fill: `var(--color-${name.toLowerCase()})`
     }));
 };
 
 const chartConfig = {
-  Food: {
+  food: {
     label: "Food",
     color: "hsl(var(--chart-1))",
   },
-  Transport: {
+  transport: {
     label: "Transport",
     color: "hsl(var(--chart-2))",
   },
-  Shopping: {
+  shopping: {
     label: "Shopping",
     color: "hsl(var(--chart-3))",
   },
-  Accommodation: {
+  accommodation: {
     label: "Accommodation",
     color: "hsl(var(--chart-4))",
   },
-  Other: {
+  other: {
     label: "Other",
     color: "hsl(var(--chart-5))",
   },
@@ -141,22 +142,22 @@ export function ExpenseTracker({ transactions, setTransactions, trip }: ExpenseT
   return (
     <div className="space-y-4">
       <header className="flex items-center gap-2">
-        <Button variant="ghost" size="icon" className="h-8 w-8 text-white hover:bg-white/20 hover:text-white" onClick={() => router.push('/trips')}>
+        <Button variant="ghost" size="icon" className="h-8 w-8 text-primary-foreground hover:bg-white/20 hover:text-primary-foreground" onClick={() => router.push('/trips')}>
             <ArrowLeft className="h-5 w-5" />
         </Button>
         <div>
-            <h1 className="text-2xl font-bold font-headline text-white">
+            <h1 className="text-2xl font-bold font-headline text-primary-foreground">
                 Expense Tracker
             </h1>
         </div>
       </header>
 
-      <Card className="shadow-lg">
+      <Card className="shadow-lg bg-card/80 backdrop-blur-sm border-white/20">
         <CardHeader>
           <div className="flex justify-between items-start">
             <div>
               <CardDescription>Total Expenses ({currentCurrency})</CardDescription>
-              <CardTitle className='text-foreground'>{currentFormatter(totalExpensesInCurrent)}</CardTitle>
+              <CardTitle className='text-card-foreground'>{currentFormatter(totalExpensesInCurrent)}</CardTitle>
             </div>
             <Button variant="outline" size="sm" onClick={toggleCurrency}>
                 <Repeat className="h-4 w-4 mr-2" />
@@ -170,9 +171,10 @@ export function ExpenseTracker({ transactions, setTransactions, trip }: ExpenseT
                     <ChartTooltip
                         cursor={{ fill: 'hsl(var(--muted))', radius: 4 }}
                         content={<ChartTooltipContent formatter={(value, name, props) => {
+                            const categoryKey = name.toLowerCase() as keyof typeof chartConfig;
                             const total = chartData.reduce((acc, curr) => acc + curr.total, 0);
                             const percentage = total > 0 ? (props.payload.total / total * 100).toFixed(0) : 0;
-                            return `${chartConfig[name as keyof typeof chartConfig]?.label}: ${currentFormatter(value as number)} (${percentage}%)`;
+                            return `${chartConfig[categoryKey]?.label}: ${currentFormatter(value as number)} (${percentage}%)`;
                         }} />}
                     />
                      <Pie
@@ -189,17 +191,17 @@ export function ExpenseTracker({ transactions, setTransactions, trip }: ExpenseT
                           const x = cx + radius * Math.cos(-midAngle * RADIAN);
                           const y = cy + radius * Math.sin(-midAngle * RADIAN);
                           return (
-                            <text x={x} y={y} fill="white" textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central" className="text-xs font-bold fill-foreground">
+                            <text x={x} y={y} fill="hsl(var(--card-foreground))" textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central" className="text-xs font-bold">
                               {`${(percent * 100).toFixed(0)}%`}
                             </text>
                           );
                         }}
                     >
-                        {chartData.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={chartConfig[entry.name as keyof typeof chartConfig]?.color} />
+                        {chartData.map((entry) => (
+                            <Cell key={`cell-${entry.name}`} fill={entry.fill} />
                         ))}
                     </Pie>
-                    <ChartLegend content={<ChartLegendContent />} />
+                    <ChartLegend content={<ChartLegendContent nameKey="name" formatter={(value) => chartConfig[value.toLowerCase() as keyof typeof chartConfig]?.label} />} />
                 </PieChart>
             </ChartContainer>
         </CardContent>
@@ -207,7 +209,7 @@ export function ExpenseTracker({ transactions, setTransactions, trip }: ExpenseT
 
       <div className="space-y-2">
         <div className="flex justify-between items-center">
-            <h2 className="font-semibold font-headline text-white">Recent Transactions</h2>
+            <h2 className="font-semibold font-headline text-primary-foreground">Recent Transactions</h2>
             <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
                 <DialogTrigger asChild>
                     <Button size="sm" variant="outline" className="bg-white/10 border-white/20 text-white hover:bg-white/20 hover:text-white">

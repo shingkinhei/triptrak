@@ -20,7 +20,7 @@ export default function Home() {
   }, [router]);
 
   return (
-    <main className="bg-muted flex min-h-screen items-center justify-center p-4 font-body">
+    <main className="flex min-h-screen items-center justify-center p-4 font-body bg-background">
       <div className="text-center">
         <p>Loading your adventure...</p>
       </div>

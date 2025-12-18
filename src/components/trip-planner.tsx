@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import Image from 'next/image';
 import {
   Accordion,
@@ -53,11 +53,6 @@ import { Checkbox } from './ui/checkbox';
 import { cn } from '@/lib/utils';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from './ui/alert-dialog';
 import { ScrollArea, ScrollBar } from './ui/scroll-area';
-import { collection, doc, updateDoc, deleteDoc, addDoc, serverTimestamp, writeBatch } from 'firebase/firestore';
-import { getDownloadURL, ref, uploadBytes, deleteObject } from 'firebase/storage';
-import { useFirestore, useUser, useStorage } from '@/firebase';
-import { updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
-
 
 const iconMap: Record<string, LucideIcon> = {
   Plane,
@@ -84,20 +79,18 @@ const iconOptions = [
 interface TripPlannerProps {
   trip: Trip;
   itinerary: ItineraryItem[];
+  setItinerary: React.Dispatch<React.SetStateAction<ItineraryItem[]>>;
   checklist: ChecklistItem[];
+  setChecklist: React.Dispatch<React.SetStateAction<ChecklistItem[]>>;
 }
 
-const PreTripChecklist = ({ trip, checklist }: { trip: Trip, checklist: ChecklistItem[] }) => {
-    const firestore = useFirestore();
-    const { user } = useUser();
+const PreTripChecklist = ({ checklist, setChecklist }: { checklist: ChecklistItem[], setChecklist: React.Dispatch<React.SetStateAction<ChecklistItem[]>> }) => {
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
     const [editingChecklist, setEditingChecklist] = useState<ChecklistItem[]>([]);
     const [newItemLabel, setNewItemLabel] = useState('');
 
     const handleCheckChange = (id: string, checked: boolean) => {
-        if (!user || !firestore) return;
-        const itemRef = doc(firestore, 'users', user.uid, 'trips', trip.id, 'checklist', id);
-        updateDocumentNonBlocking(itemRef, { checked });
+        setChecklist(prev => prev.map(item => item.id === id ? { ...item, checked } : item));
     };
 
     const handleEditClick = () => {
@@ -105,36 +98,8 @@ const PreTripChecklist = ({ trip, checklist }: { trip: Trip, checklist: Checklis
         setIsEditDialogOpen(true);
     };
 
-    const handleSave = async () => {
-        if (!user || !firestore) return;
-        
-        const batch = writeBatch(firestore);
-        const checklistRef = collection(firestore, 'users', user.uid, 'trips', trip.id, 'checklist');
-
-        // Create a map of original items by ID
-        const originalItemsMap = new Map(checklist.map(item => [item.id, item]));
-
-        editingChecklist.forEach(item => {
-            if (item.id.startsWith('new-')) { // New item
-                const newItemRef = doc(checklistRef);
-                batch.set(newItemRef, { label: item.label, checked: item.checked });
-            } else { // Existing item
-                const originalItem = originalItemsMap.get(item.id);
-                if (originalItem && originalItem.label !== item.label) {
-                    const itemRef = doc(checklistRef, item.id);
-                    batch.update(itemRef, { label: item.label });
-                }
-                originalItemsMap.delete(item.id); // Remove from map to track deletions
-            }
-        });
-
-        // Any items left in the map were deleted
-        for (const id of originalItemsMap.keys()) {
-            const itemRef = doc(checklistRef, id);
-            batch.delete(itemRef);
-        }
-        
-        await batch.commit();
+    const handleSave = () => {
+        setChecklist(editingChecklist);
         setIsEditDialogOpen(false);
     };
 
@@ -250,10 +215,7 @@ const PreTripChecklist = ({ trip, checklist }: { trip: Trip, checklist: Checklis
     )
 }
 
-export function TripPlanner({ trip, itinerary, checklist }: TripPlannerProps) {
-  const firestore = useFirestore();
-  const storage = useStorage();
-  const { user } = useUser();
+export function TripPlanner({ trip, itinerary, setItinerary, checklist, setChecklist }: TripPlannerProps) {
   const [editingItem, setEditingItem] = useState<ItineraryItem | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [activeView, setActiveView] = useState<string>('checklist');
@@ -266,25 +228,16 @@ export function TripPlanner({ trip, itinerary, checklist }: TripPlannerProps) {
     setTimeout(() => {
         setEditingItem({
             ...item,
-            activities: [...item.activities],
-            userPhotos: item.userPhotos ? [...item.userPhotos] : [],
+            activities: item.activities ? [...item.activities.map(a => ({...a}))] : [],
+            userPhotos: item.userPhotos ? [...item.userPhotos.map(p => ({...p}))] : [],
         });
         setIsEditDialogOpen(true);
     }, 150);
   };
 
-  const handleSave = async () => {
-    if (!editingItem || !user || !firestore) return;
-    
-    // Create a copy of the editing item, removing the temporary local-only photo URLs.
-    const { userPhotos, ...itemToSave } = editingItem;
-    const finalItem = {
-      ...itemToSave,
-      userPhotos: userPhotos?.filter(p => !p.url.startsWith('blob:'))
-    };
-
-    const itemRef = doc(firestore, 'users', user.uid, 'trips', trip.id, 'itinerary', editingItem.id);
-    updateDocumentNonBlocking(itemRef, finalItem);
+  const handleSave = () => {
+    if (!editingItem) return;
+    setItinerary(prev => prev.map(item => item.day === editingItem.day ? editingItem : item));
     handleCancelEdit();
   };
 
@@ -327,88 +280,36 @@ export function TripPlanner({ trip, itinerary, checklist }: TripPlannerProps) {
     }
   };
 
-  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files || !editingItem || !user || !storage) return;
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || !editingItem) return;
   
-    const files = Array.from(e.target.files);
-    
-    // Create temporary local URLs for immediate preview
-    const tempPhotos: UserPhoto[] = files.map(file => ({
-      id: `local_${Date.now()}_${Math.random()}`,
-      url: URL.createObjectURL(file)
-    }));
-
-    setEditingItem(prev => prev ? { ...prev, userPhotos: [...(prev.userPhotos || []), ...tempPhotos] } : null);
-
-    // Process uploads in the background
-    for (const file of files) {
-      const photoId = `photo_${Date.now()}`;
-      const storageRef = ref(storage, `users/${user.uid}/trips/${trip.id}/${photoId}`);
-      
-      try {
-        const snapshot = await uploadBytes(storageRef, file);
-        const downloadURL = await getDownloadURL(snapshot.ref);
-        
-        const newPhoto: UserPhoto = { id: photoId, url: downloadURL };
-        
-        // Update the document in Firestore
-        if (editingItem) {
-          const itemRef = doc(firestore, 'users', user.uid, 'trips', trip.id, 'itinerary', editingItem.id);
-          const updatedPhotos = [...(editingItem.userPhotos || []), newPhoto].filter(p => !p.url.startsWith('blob:'));
-          updateDocumentNonBlocking(itemRef, { userPhotos: updatedPhotos });
-        }
-
-        // Replace temporary local URL with the final URL in local state
-        setEditingItem(prev => {
-            if (!prev) return null;
-            const updatedPhotos = prev.userPhotos?.map(p => 
-                p.url.startsWith('blob:') && p.id.startsWith('local_') ? newPhoto : p
-            );
-            // This is a bit tricky, find the right local photo to replace. A simple find might not work if multiple are uploaded.
-            // For now, let's just add the new one and rely on Firestore sync to clear up blobs.
-             return { ...prev, userPhotos: [...(prev.userPhotos?.filter(p => !p.url.startsWith('blob:')) || []), newPhoto] };
-        });
-
-      } catch (error) {
-        console.error("Error uploading photo:", error);
-        // Optionally remove the temporary photo from state on error
-        setEditingItem(prev => prev ? { ...prev, userPhotos: prev.userPhotos?.filter(p => !p.url.startsWith('blob:')) } : null);
-      }
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const newPhoto: UserPhoto = {
+          id: `photo_${new Date().getTime()}`,
+          url: reader.result as string,
+        };
+        setEditingItem(prev => prev ? { ...prev, userPhotos: [...(prev.userPhotos || []), newPhoto] } : null);
+      };
+      reader.readAsDataURL(file);
     }
   };
 
-  const handleDeletePhoto = async (photoId: string) => {
-    if (editingItem && user && firestore && storage) {
-      const photoToDelete = editingItem.userPhotos?.find(p => p.id === photoId);
-      if (!photoToDelete) return;
-
+  const handleDeletePhoto = (photoId: string) => {
+    if (editingItem) {
       const updatedPhotos = editingItem.userPhotos?.filter(p => p.id !== photoId);
-      
-      // Update state immediately for responsive UI
       setEditingItem({
         ...editingItem,
         userPhotos: updatedPhotos,
       });
-
-      // Update firestore document
-      const itemRef = doc(firestore, 'users', user.uid, 'trips', trip.id, 'itinerary', editingItem.id);
-      updateDocumentNonBlocking(itemRef, { userPhotos: updatedPhotos });
-      
-      // Delete from storage
-      const storageRef = ref(storage, `users/${user.uid}/trips/${trip.id}/${photoId}`);
-      try {
-        await deleteObject(storageRef);
-      } catch (error) {
-        console.error("Error deleting photo from storage:", error);
-      }
     }
   };
 
-  const handleAddDay = async () => {
-    if (!user || !firestore) return;
+  const handleAddDay = () => {
     const newDayNumber = itinerary.length > 0 ? Math.max(...itinerary.map(i => i.day)) + 1 : 1;
 
-    // Calculate the date for the new day
     let newDate = new Date();
     if (itinerary.length > 0) {
         const lastDate = new Date(itinerary[itinerary.length - 1].date);
@@ -419,7 +320,8 @@ export function TripPlanner({ trip, itinerary, checklist }: TripPlannerProps) {
     }
     const newDateString = newDate.toISOString().split('T')[0];
 
-    const newDay: Omit<ItineraryItem, 'id'> = {
+    const newDay: ItineraryItem = {
+      id: `day-${newDayNumber}`,
       day: newDayNumber,
       title: 'New Destination',
       date: newDateString,
@@ -432,8 +334,7 @@ export function TripPlanner({ trip, itinerary, checklist }: TripPlannerProps) {
       remarks: '',
     };
     
-    const itineraryRef = collection(firestore, 'users', user.uid, 'trips', trip.id, 'itinerary');
-    await addDoc(itineraryRef, newDay);
+    setItinerary(prev => [...prev, newDay].sort((a,b) => a.day - b.day));
   };
   
   const activeItineraryItem = itinerary.find(item => `day-${item.day}` === activeView);
@@ -442,10 +343,10 @@ export function TripPlanner({ trip, itinerary, checklist }: TripPlannerProps) {
     <div className="space-y-4">
       <header className="flex justify-between items-center">
         <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon" className="h-8 w-8 text-white hover:bg-white/20 hover:text-white" onClick={() => router.push('/trips')}>
+            <Button variant="ghost" size="icon" className="h-8 w-8 text-primary-foreground hover:bg-white/20 hover:text-primary-foreground" onClick={() => router.push('/trips')}>
                 <ArrowLeft className="h-5 w-5" />
             </Button>
-            <h1 className="text-2xl font-bold font-headline text-white">
+            <h1 className="text-2xl font-bold font-headline text-primary-foreground">
                 Trip Itinerary
             </h1>
         </div>
@@ -477,7 +378,7 @@ export function TripPlanner({ trip, itinerary, checklist }: TripPlannerProps) {
         <ScrollBar orientation="horizontal" />
       </ScrollArea>
 
-      {activeView === 'checklist' && <PreTripChecklist trip={trip} checklist={checklist} />}
+      {activeView === 'checklist' && <PreTripChecklist checklist={checklist} setChecklist={setChecklist} />}
 
       {activeItineraryItem && <WeatherCard location={activeItineraryItem.title.replace(/arrival in |exploring |day trip to /i, '')} />}
 
@@ -588,7 +489,6 @@ export function TripPlanner({ trip, itinerary, checklist }: TripPlannerProps) {
                 <Input 
                     type="file" 
                     accept="image/*" 
-                    multiple 
                     ref={photoInputRef}
                     onChange={handlePhotoUpload}
                     className="hidden"
