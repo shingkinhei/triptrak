@@ -8,7 +8,7 @@ import {
   AccordionTrigger,
 } from '@/components/ui/accordion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import type { ItineraryItem, Activity, UserPhoto, ChecklistItem } from '@/lib/types';
+import type { ItineraryItem, Activity, UserPhoto, ChecklistItem, Trip } from '@/lib/types';
 import {
   BedDouble,
   Camera,
@@ -53,6 +53,10 @@ import { Checkbox } from './ui/checkbox';
 import { cn } from '@/lib/utils';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from './ui/alert-dialog';
 import { ScrollArea, ScrollBar } from './ui/scroll-area';
+import { collection, doc, updateDoc, deleteDoc, addDoc, serverTimestamp, writeBatch } from 'firebase/firestore';
+import { getDownloadURL, ref, uploadBytes, deleteObject } from 'firebase/storage';
+import { useFirestore, useUser, useStorage } from '@/firebase';
+import { updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 
 
 const iconMap: Record<string, LucideIcon> = {
@@ -78,19 +82,22 @@ const iconOptions = [
 ];
 
 interface TripPlannerProps {
+  trip: Trip;
   itinerary: ItineraryItem[];
-  setItinerary: React.Dispatch<React.SetStateAction<ItineraryItem[]>>;
   checklist: ChecklistItem[];
-  setChecklist: React.Dispatch<React.SetStateAction<ChecklistItem[]>>;
 }
 
-const PreTripChecklist = ({ checklist, setChecklist }: { checklist: ChecklistItem[], setChecklist: React.Dispatch<React.SetStateAction<ChecklistItem[]>> }) => {
+const PreTripChecklist = ({ trip, checklist }: { trip: Trip, checklist: ChecklistItem[] }) => {
+    const firestore = useFirestore();
+    const { user } = useUser();
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
     const [editingChecklist, setEditingChecklist] = useState<ChecklistItem[]>([]);
     const [newItemLabel, setNewItemLabel] = useState('');
 
     const handleCheckChange = (id: string, checked: boolean) => {
-        setChecklist(prev => prev.map(item => item.id === id ? { ...item, checked } : item));
+        if (!user || !firestore) return;
+        const itemRef = doc(firestore, 'users', user.uid, 'trips', trip.id, 'checklist', id);
+        updateDocumentNonBlocking(itemRef, { checked });
     };
 
     const handleEditClick = () => {
@@ -98,8 +105,36 @@ const PreTripChecklist = ({ checklist, setChecklist }: { checklist: ChecklistIte
         setIsEditDialogOpen(true);
     };
 
-    const handleSave = () => {
-        setChecklist(editingChecklist);
+    const handleSave = async () => {
+        if (!user || !firestore) return;
+        
+        const batch = writeBatch(firestore);
+        const checklistRef = collection(firestore, 'users', user.uid, 'trips', trip.id, 'checklist');
+
+        // Create a map of original items by ID
+        const originalItemsMap = new Map(checklist.map(item => [item.id, item]));
+
+        editingChecklist.forEach(item => {
+            if (item.id.startsWith('new-')) { // New item
+                const newItemRef = doc(checklistRef);
+                batch.set(newItemRef, { label: item.label, checked: item.checked });
+            } else { // Existing item
+                const originalItem = originalItemsMap.get(item.id);
+                if (originalItem && originalItem.label !== item.label) {
+                    const itemRef = doc(checklistRef, item.id);
+                    batch.update(itemRef, { label: item.label });
+                }
+                originalItemsMap.delete(item.id); // Remove from map to track deletions
+            }
+        });
+
+        // Any items left in the map were deleted
+        for (const id of originalItemsMap.keys()) {
+            const itemRef = doc(checklistRef, id);
+            batch.delete(itemRef);
+        }
+        
+        await batch.commit();
         setIsEditDialogOpen(false);
     };
 
@@ -110,7 +145,7 @@ const PreTripChecklist = ({ checklist, setChecklist }: { checklist: ChecklistIte
     const handleAddItem = () => {
         if (newItemLabel.trim()) {
             const newItem: ChecklistItem = {
-                id: `check-${new Date().getTime()}`,
+                id: `new-${new Date().getTime()}`,
                 label: newItemLabel.trim(),
                 checked: false,
             };
@@ -215,7 +250,10 @@ const PreTripChecklist = ({ checklist, setChecklist }: { checklist: ChecklistIte
     )
 }
 
-export function TripPlanner({ itinerary, setItinerary, checklist, setChecklist }: TripPlannerProps) {
+export function TripPlanner({ trip, itinerary, checklist }: TripPlannerProps) {
+  const firestore = useFirestore();
+  const storage = useStorage();
+  const { user } = useUser();
   const [editingItem, setEditingItem] = useState<ItineraryItem | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [activeView, setActiveView] = useState<string>('checklist');
@@ -224,18 +262,29 @@ export function TripPlanner({ itinerary, setItinerary, checklist, setChecklist }
   const router = useRouter();
   
   const handleEditClick = (item: ItineraryItem) => {
-    setEditingItem({
-        ...item,
-        activities: [...item.activities],
-        userPhotos: item.userPhotos ? [...item.userPhotos] : [],
-    });
-    setIsEditDialogOpen(true);
+    // A short delay to allow the dropdown menu to close before opening the dialog
+    setTimeout(() => {
+        setEditingItem({
+            ...item,
+            activities: [...item.activities],
+            userPhotos: item.userPhotos ? [...item.userPhotos] : [],
+        });
+        setIsEditDialogOpen(true);
+    }, 150);
   };
 
-  const handleSave = () => {
-    if (editingItem) {
-      setItinerary(itinerary.map(item => item.day === editingItem.day ? editingItem : item));
-    }
+  const handleSave = async () => {
+    if (!editingItem || !user || !firestore) return;
+    
+    // Create a copy of the editing item, removing the temporary local-only photo URLs.
+    const { userPhotos, ...itemToSave } = editingItem;
+    const finalItem = {
+      ...itemToSave,
+      userPhotos: userPhotos?.filter(p => !p.url.startsWith('blob:'))
+    };
+
+    const itemRef = doc(firestore, 'users', user.uid, 'trips', trip.id, 'itinerary', editingItem.id);
+    updateDocumentNonBlocking(itemRef, finalItem);
     handleCancelEdit();
   };
 
@@ -278,50 +327,113 @@ export function TripPlanner({ itinerary, setItinerary, checklist, setChecklist }
     }
   };
 
-  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && editingItem) {
-      const files = Array.from(e.target.files);
-      const newPhotos: UserPhoto[] = [];
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || !editingItem || !user || !storage) return;
+  
+    const files = Array.from(e.target.files);
+    
+    // Create temporary local URLs for immediate preview
+    const tempPhotos: UserPhoto[] = files.map(file => ({
+      id: `local_${Date.now()}_${Math.random()}`,
+      url: URL.createObjectURL(file)
+    }));
 
-      files.forEach(file => {
-          const reader = new FileReader();
-          reader.onload = (event) => {
-              if (event.target?.result) {
-                  newPhotos.push({ id: `photo_${new Date().getTime()}_${Math.random()}`, url: event.target.result as string });
-                  if (newPhotos.length === files.length) {
-                      setEditingItem({
-                          ...editingItem,
-                          userPhotos: [...(editingItem.userPhotos || []), ...newPhotos],
-                      });
-                  }
-              }
-          };
-          reader.readAsDataURL(file);
-      });
+    setEditingItem(prev => prev ? { ...prev, userPhotos: [...(prev.userPhotos || []), ...tempPhotos] } : null);
+
+    // Process uploads in the background
+    for (const file of files) {
+      const photoId = `photo_${Date.now()}`;
+      const storageRef = ref(storage, `users/${user.uid}/trips/${trip.id}/${photoId}`);
+      
+      try {
+        const snapshot = await uploadBytes(storageRef, file);
+        const downloadURL = await getDownloadURL(snapshot.ref);
+        
+        const newPhoto: UserPhoto = { id: photoId, url: downloadURL };
+        
+        // Update the document in Firestore
+        if (editingItem) {
+          const itemRef = doc(firestore, 'users', user.uid, 'trips', trip.id, 'itinerary', editingItem.id);
+          const updatedPhotos = [...(editingItem.userPhotos || []), newPhoto].filter(p => !p.url.startsWith('blob:'));
+          updateDocumentNonBlocking(itemRef, { userPhotos: updatedPhotos });
+        }
+
+        // Replace temporary local URL with the final URL in local state
+        setEditingItem(prev => {
+            if (!prev) return null;
+            const updatedPhotos = prev.userPhotos?.map(p => 
+                p.url.startsWith('blob:') && p.id.startsWith('local_') ? newPhoto : p
+            );
+            // This is a bit tricky, find the right local photo to replace. A simple find might not work if multiple are uploaded.
+            // For now, let's just add the new one and rely on Firestore sync to clear up blobs.
+             return { ...prev, userPhotos: [...(prev.userPhotos?.filter(p => !p.url.startsWith('blob:')) || []), newPhoto] };
+        });
+
+      } catch (error) {
+        console.error("Error uploading photo:", error);
+        // Optionally remove the temporary photo from state on error
+        setEditingItem(prev => prev ? { ...prev, userPhotos: prev.userPhotos?.filter(p => !p.url.startsWith('blob:')) } : null);
+      }
     }
   };
 
-  const handleDeletePhoto = (photoId: string) => {
-    if (editingItem) {
+  const handleDeletePhoto = async (photoId: string) => {
+    if (editingItem && user && firestore && storage) {
+      const photoToDelete = editingItem.userPhotos?.find(p => p.id === photoId);
+      if (!photoToDelete) return;
+
+      const updatedPhotos = editingItem.userPhotos?.filter(p => p.id !== photoId);
+      
+      // Update state immediately for responsive UI
       setEditingItem({
         ...editingItem,
-        userPhotos: editingItem.userPhotos?.filter(p => p.id !== photoId),
+        userPhotos: updatedPhotos,
       });
+
+      // Update firestore document
+      const itemRef = doc(firestore, 'users', user.uid, 'trips', trip.id, 'itinerary', editingItem.id);
+      updateDocumentNonBlocking(itemRef, { userPhotos: updatedPhotos });
+      
+      // Delete from storage
+      const storageRef = ref(storage, `users/${user.uid}/trips/${trip.id}/${photoId}`);
+      try {
+        await deleteObject(storageRef);
+      } catch (error) {
+        console.error("Error deleting photo from storage:", error);
+      }
     }
   };
 
-  const handleAddDay = () => {
-    const newDay: ItineraryItem = {
-      day: itinerary.length + 1,
+  const handleAddDay = async () => {
+    if (!user || !firestore) return;
+    const newDayNumber = itinerary.length > 0 ? Math.max(...itinerary.map(i => i.day)) + 1 : 1;
+
+    // Calculate the date for the new day
+    let newDate = new Date();
+    if (itinerary.length > 0) {
+        const lastDate = new Date(itinerary[itinerary.length - 1].date);
+        lastDate.setDate(lastDate.getDate() + 1);
+        newDate = lastDate;
+    } else if (trip.startDate) {
+        newDate = new Date(trip.startDate);
+    }
+    const newDateString = newDate.toISOString().split('T')[0];
+
+    const newDay: Omit<ItineraryItem, 'id'> = {
+      day: newDayNumber,
       title: 'New Destination',
-      date: new Date().toISOString().split('T')[0],
+      date: newDateString,
       image: {
         url: 'https://picsum.photos/seed/newday/600/400',
         hint: 'landscape',
       },
       activities: [],
+      userPhotos: [],
+      remarks: '',
     };
-    setItinerary([...itinerary, newDay]);
+    
+    const itineraryRef = collection(firestore, 'users', user.uid, 'trips', trip.id, 'itinerary');
+    await addDoc(itineraryRef, newDay);
   };
   
   const activeItineraryItem = itinerary.find(item => `day-${item.day}` === activeView);
@@ -353,7 +465,7 @@ export function TripPlanner({ itinerary, setItinerary, checklist, setChecklist }
           </Button>
           {itinerary.map((item) => (
             <Button
-              key={item.day}
+              key={item.id}
               variant={activeView === `day-${item.day}` ? 'default' : 'outline'}
               onClick={() => setActiveView(`day-${item.day}`)}
               className={cn("shrink-0", activeView !== `day-${item.day}` && 'bg-white/10 border-white/20 text-white hover:bg-white/20 hover:text-white')}
@@ -365,12 +477,12 @@ export function TripPlanner({ itinerary, setItinerary, checklist, setChecklist }
         <ScrollBar orientation="horizontal" />
       </ScrollArea>
 
-      {activeView === 'checklist' && <PreTripChecklist checklist={checklist} setChecklist={setChecklist} />}
+      {activeView === 'checklist' && <PreTripChecklist trip={trip} checklist={checklist} />}
 
       {activeItineraryItem && <WeatherCard location={activeItineraryItem.title.replace(/arrival in |exploring |day trip to /i, '')} />}
 
-      {itinerary.map((item, index) => (
-          <div key={item.day} className={cn(activeView === `day-${item.day}` ? 'block' : 'hidden')}>
+      {itinerary.map((item) => (
+          <div key={item.id} className={cn(activeView === `day-${item.day}` ? 'block' : 'hidden')}>
             <Card className="overflow-hidden bg-card/80 backdrop-blur-sm border-white/20 shadow-lg">
               <div className="relative">
                 <div className="relative w-full h-32 rounded-t-lg overflow-hidden">
@@ -398,7 +510,8 @@ export function TripPlanner({ itinerary, setItinerary, checklist, setChecklist }
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="shadow-lg">
-                      <DropdownMenuItem onClick={() => handleEditClick(item)}>
+                      <DropdownMenuItem onSelect={() => handleEditClick(item)}>
+                        <Edit className="mr-2 h-4 w-4"/>
                         Edit
                       </DropdownMenuItem>
                     </DropdownMenuContent>
@@ -425,7 +538,7 @@ export function TripPlanner({ itinerary, setItinerary, checklist, setChecklist }
                   {item.activities.map((activity, actIndex) => {
                     const ActivityIcon = iconMap[activity.icon];
                     return (
-                      <li key={actIndex} className="flex items-start gap-4">
+                      <li key={activity.id} className="flex items-start gap-4">
                         <div className="flex flex-col items-center">
                           <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary">
                             {ActivityIcon && <ActivityIcon className="h-4 w-4" />}
