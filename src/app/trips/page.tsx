@@ -42,7 +42,6 @@ export default function TripsPage() {
         .from('trips')
         .select('*')
         .eq('user_id', user.id);
-        // .order('created_at', { ascending: false }); // We will sort on the client
 
       if (error) {
         toast({ title: 'Error fetching trips', description: error.message, variant: 'destructive' });
@@ -54,11 +53,9 @@ export default function TripsPage() {
           if (statusComparison !== 0) {
             return statusComparison;
           }
-          // For 'P' (Past) status, sort by most recent start_date first (descending)
           if (a.status === 'P') {
             return new Date(b.start_date).getTime() - new Date(a.start_date).getTime();
           }
-          // For 'A' and 'U', sort by the soonest start_date first (ascending)
           return new Date(a.start_date).getTime() - new Date(b.start_date).getTime();
         });
 
@@ -125,7 +122,7 @@ export default function TripsPage() {
       country_code: newTrip.country_code,
       start_date: newTrip.start_date,
       end_date: newTrip.end_date,
-      status: 'U', // Upcoming
+      status: 'U' as TripStatus,
       cover_image_url: `https://picsum.photos/seed/${newTrip.destination}/600/400`,
       cover_image_hint: newTrip.destination,
       itinerary: [],
@@ -134,12 +131,12 @@ export default function TripsPage() {
       checklist: [],
     };
     
-    const { data, error } = await supabase.from('trips').insert(newTripData).select().single();
+    const { data, error } = await supabase.from('trips').insert([newTripData]).select().single();
 
     if (error) {
         toast({ title: 'Error creating trip', description: error.message, variant: 'destructive' });
     } else if (data) {
-        fetchTrips(); // Refetch to get the sorted list
+        fetchTrips();
         setNewTrip({ name: '', destination: '', country_code: '', start_date: '', end_date: '' });
         setIsAddDialogOpen(false);
         toast({ title: 'Trip Created!', description: `"${data.name}" has been added.` });
@@ -149,18 +146,31 @@ export default function TripsPage() {
   const handleSetStatus = async (tripId: string, status: TripStatus) => {
     const originalTrips = [...trips];
     const updatedTrips = trips.map(trip => {
-      if (trip.trip_uuid === tripId) return { ...trip, status };
-      if (status === 'A' && trip.status === 'A') return { ...trip, status: 'U' }; // If setting one to active, deactivate others
+      if (trip.trip_uuid === tripId) return { ...trip, status: status as TripStatus };
+      if (status === 'A' && trip.status === 'A') return { ...trip, status: 'U' as TripStatus };
       return trip;
     });
     setTrips(updatedTrips);
+
+    // If we're setting a new trip to active, we need to deactivate the old one.
+    if (status === 'A') {
+        const oldActiveTrip = originalTrips.find(t => t.status === 'A' && t.trip_uuid !== tripId);
+        if (oldActiveTrip) {
+            const { error: deactivateError } = await supabase.from('trips').update({ status: 'U' }).eq('trip_uuid', oldActiveTrip.trip_uuid);
+            if (deactivateError) {
+                toast({ title: 'Error updating old active trip', description: deactivateError.message, variant: 'destructive' });
+                setTrips(originalTrips);
+                return;
+            }
+        }
+    }
 
     const { error } = await supabase.from('trips').update({ status }).eq('trip_uuid', tripId);
     if (error) {
       toast({ title: 'Error updating status', description: error.message, variant: 'destructive' });
       setTrips(originalTrips);
     }
-    await fetchTrips(); // Refetch to apply sorting
+    await fetchTrips();
   };
 
   const handleEditClick = (trip: Trip) => {
@@ -185,7 +195,7 @@ export default function TripsPage() {
     if (error) {
         toast({ title: 'Error updating trip', description: error.message, variant: 'destructive' });
     } else {
-        fetchTrips(); // Refetch to apply sorting
+        fetchTrips();
         setIsEditDialogOpen(false);
         setEditingTrip(null);
         setTripForm({});
@@ -434,7 +444,5 @@ export default function TripsPage() {
     </main>
   );
 }
-
-    
 
     
