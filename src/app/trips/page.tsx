@@ -3,13 +3,12 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { PlusCircle, Star, Edit, Upload } from 'lucide-react';
+import { PlusCircle, Edit, Upload, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { mockTrips } from '@/lib/mock-data';
 import type { Trip, TripStatus } from '@/lib/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { BottomNav } from '@/components/bottom-nav';
@@ -17,10 +16,11 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { createClient } from '@/lib/supabase/client';
+import { useToast } from '@/hooks/use-toast';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 
 type EditableTrip = Partial<Pick<Trip, 'name' | 'destination' | 'country' | 'startDate' | 'endDate' | 'imageUrl' | 'imageHint'>>;
 
-// A small list of countries for the dropdown.
 const countryOptions = [
   { value: 'US', label: 'United States' },
   { value: 'JP', label: 'Japan' },
@@ -31,13 +31,31 @@ const countryOptions = [
 ];
 
 export default function TripsPage() {
-  const [trips, setTrips] = useState<Trip[]>(mockTrips);
+  const [trips, setTrips] = useState<Trip[]>([]);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingTrip, setEditingTrip] = useState<Trip | null>(null);
   const [tripForm, setTripForm] = useState<EditableTrip>({});
   const [userName, setUserName] = useState<string | null>(null);
   const supabase = createClient();
+  const { toast } = useToast();
+
+  const fetchTrips = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      const { data, error } = await supabase
+        .from('trips')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        toast({ title: 'Error fetching trips', description: error.message, variant: 'destructive' });
+      } else {
+        setTrips(data as Trip[]);
+      }
+    }
+  };
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -48,8 +66,8 @@ export default function TripsPage() {
       }
     };
     fetchUser();
-  }, [supabase]);
-
+    fetchTrips();
+  }, [supabase, toast]);
 
   const [newTrip, setNewTrip] = useState({
     name: '',
@@ -59,12 +77,19 @@ export default function TripsPage() {
     endDate: '',
   });
 
-  const handleAddTrip = () => {
+  const handleAddTrip = async () => {
     if (!newTrip.name || !newTrip.destination || !newTrip.country || !newTrip.startDate || !newTrip.endDate) {
+      toast({ title: 'Missing Information', description: 'Please fill out all fields to create a trip.', variant: 'destructive' });
       return;
     }
-    const newTripData: Trip = {
-      id: `trip-${new Date().getTime()}`,
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+        toast({ title: 'Not authenticated', description: 'You must be logged in to create a trip.', variant: 'destructive' });
+        return;
+    }
+
+    const newTripData = {
+      user_id: user.id,
       name: newTrip.name,
       destination: newTrip.destination,
       country: newTrip.country,
@@ -78,24 +103,35 @@ export default function TripsPage() {
       shoppingList: [],
       checklist: [],
     };
-    setTrips(prev => [newTripData, ...prev]);
-    setNewTrip({ name: '', destination: '', country: '', startDate: '', endDate: '' });
-    setIsAddDialogOpen(false);
+    
+    const { data, error } = await supabase.from('trips').insert(newTripData).select().single();
+
+    if (error) {
+        toast({ title: 'Error creating trip', description: error.message, variant: 'destructive' });
+    } else if (data) {
+        setTrips(prev => [data as Trip, ...prev]);
+        setNewTrip({ name: '', destination: '', country: '', startDate: '', endDate: '' });
+        setIsAddDialogOpen(false);
+        toast({ title: 'Trip Created!', description: `"${data.name}" has been added.` });
+    }
   };
   
-  const handleSetStatus = (tripId: string, status: TripStatus) => {
-    setTrips(currentTrips => 
-      currentTrips.map(trip => {
-        if (trip.id === tripId) {
-          return { ...trip, status: status };
-        }
-        // if we are setting a trip to active, deactivate the previous active one.
-        if (status === 'active' && trip.status === 'active') {
-          return { ...trip, status: 'upcoming' };
-        }
-        return trip;
-      })
-    );
+  const handleSetStatus = async (tripId: string, status: TripStatus) => {
+    // Optimistic UI update
+    const originalTrips = [...trips];
+    const updatedTrips = trips.map(trip => {
+      if (trip.id === tripId) return { ...trip, status };
+      if (status === 'active' && trip.status === 'active') return { ...trip, status: 'upcoming' };
+      return trip;
+    });
+    setTrips(updatedTrips);
+
+    // Update DB
+    const { error } = await supabase.from('trips').update({ status }).eq('id', tripId);
+    if (error) {
+      toast({ title: 'Error updating status', description: error.message, variant: 'destructive' });
+      setTrips(originalTrips); // Revert on error
+    }
   };
 
   const handleEditClick = (trip: Trip) => {
@@ -112,20 +148,37 @@ export default function TripsPage() {
     setIsEditDialogOpen(true);
   };
 
-  const handleUpdateTrip = () => {
+  const handleUpdateTrip = async () => {
     if (!editingTrip || !tripForm.name || !tripForm.destination || !tripForm.country || !tripForm.startDate || !tripForm.endDate) return;
 
-    setTrips(prevTrips => 
-      prevTrips.map(trip => 
-        trip.id === editingTrip.id 
-          ? { ...trip, ...tripForm, id: trip.id, status: trip.status, itinerary: trip.itinerary, transactions: trip.transactions, shoppingList: trip.shoppingList, checklist: trip.checklist } as Trip
-          : trip
-      )
-    );
+    const updatedTripData = { ...tripForm };
+    const { error } = await supabase.from('trips').update(updatedTripData).eq('id', editingTrip.id);
+    
+    if (error) {
+        toast({ title: 'Error updating trip', description: error.message, variant: 'destructive' });
+    } else {
+        setTrips(prevTrips => 
+          prevTrips.map(trip => 
+            trip.id === editingTrip.id 
+              ? { ...trip, ...updatedTripData } as Trip
+              : trip
+          )
+        );
+        setIsEditDialogOpen(false);
+        setEditingTrip(null);
+        setTripForm({});
+        toast({ title: 'Trip Updated!', description: 'Your trip details have been saved.' });
+    }
+  };
 
-    setIsEditDialogOpen(false);
-    setEditingTrip(null);
-    setTripForm({});
+  const handleDeleteTrip = async (tripId: string) => {
+    const { error } = await supabase.from('trips').delete().eq('id', tripId);
+    if (error) {
+      toast({ title: 'Error deleting trip', description: error.message, variant: 'destructive' });
+    } else {
+      setTrips(prev => prev.filter(t => t.id !== tripId));
+      toast({ title: 'Trip Deleted', description: 'The trip has been successfully removed.' });
+    }
   };
 
   const handleFormChange = (field: keyof EditableTrip, value: string) => {
@@ -211,6 +264,11 @@ export default function TripsPage() {
 
         <ScrollArea className="flex-grow">
             <div className="space-y-4 px-4 pb-4">
+            {trips.length === 0 && (
+              <div className="text-center text-muted-foreground py-10">
+                <p>No trips yet. Plan your first adventure!</p>
+              </div>
+            )}
             {trips.map(trip => (
                 <Card key={trip.id} className={cn("overflow-hidden transition-all hover:shadow-lg", {'border-primary border-2': trip.status === 'active'})}>
                     <CardContent className="p-0">
@@ -243,10 +301,36 @@ export default function TripsPage() {
                                           <SelectItem value="archived">Archived</SelectItem>
                                       </SelectContent>
                                   </Select>
-                                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEditClick(trip)}>
-                                    <Edit className="h-4 w-4" />
-                                    <span className="sr-only">Edit Trip</span>
-                                  </Button>
+                                  <div className="flex items-center">
+                                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEditClick(trip)}>
+                                      <Edit className="h-4 w-4" />
+                                      <span className="sr-only">Edit Trip</span>
+                                    </Button>
+                                    <AlertDialog>
+                                      <AlertDialogTrigger asChild>
+                                        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive">
+                                          <Trash2 className="h-4 w-4" />
+                                          <span className="sr-only">Delete Trip</span>
+                                        </Button>
+                                      </AlertDialogTrigger>
+                                      <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                          <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                                          <AlertDialogDescription>
+                                            This action cannot be undone. This will permanently delete your trip "{trip.name}" and all of its data.
+                                          </AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                          <AlertDialogAction
+                                            className="bg-destructive hover:bg-destructive/90"
+                                            onClick={() => handleDeleteTrip(trip.id)}>
+                                            Delete
+                                          </AlertDialogAction>
+                                        </AlertDialogFooter>
+                                      </AlertDialogContent>
+                                    </AlertDialog>
+                                  </div>
                                 </div>
                             </div>
                         </div>

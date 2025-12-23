@@ -1,3 +1,4 @@
+
 'use client';
 import type { LucideIcon } from "lucide-react";
 
@@ -70,6 +71,7 @@ export type TripStatus = 'active' | 'upcoming' | 'archived';
 
 export type Trip = {
   id: string;
+  user_id: string;
   name: string;
   destination: string;
   country: string; // e.g., 'JP', 'IT'
