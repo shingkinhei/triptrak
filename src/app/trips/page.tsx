@@ -41,13 +41,28 @@ export default function TripsPage() {
       const { data, error } = await supabase
         .from('trips')
         .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
+        .eq('user_id', user.id);
+        // .order('created_at', { ascending: false }); // We will sort on the client
 
       if (error) {
         toast({ title: 'Error fetching trips', description: error.message, variant: 'destructive' });
-      } else {
-        setTrips(data as Trip[]);
+      } else if (data) {
+        const statusOrder: Record<TripStatus, number> = { 'A': 1, 'U': 2, 'P': 3 };
+        
+        const sortedData = data.sort((a, b) => {
+          const statusComparison = statusOrder[a.status as TripStatus] - statusOrder[b.status as TripStatus];
+          if (statusComparison !== 0) {
+            return statusComparison;
+          }
+          // For 'P' (Past) status, sort by most recent start_date first (descending)
+          if (a.status === 'P') {
+            return new Date(b.start_date).getTime() - new Date(a.start_date).getTime();
+          }
+          // For 'A' and 'U', sort by the soonest start_date first (ascending)
+          return new Date(a.start_date).getTime() - new Date(b.start_date).getTime();
+        });
+
+        setTrips(sortedData as Trip[]);
       }
     }
   };
@@ -124,7 +139,7 @@ export default function TripsPage() {
     if (error) {
         toast({ title: 'Error creating trip', description: error.message, variant: 'destructive' });
     } else if (data) {
-        setTrips(prev => [data as Trip, ...prev]);
+        fetchTrips(); // Refetch to get the sorted list
         setNewTrip({ name: '', destination: '', country_code: '', start_date: '', end_date: '' });
         setIsAddDialogOpen(false);
         toast({ title: 'Trip Created!', description: `"${data.name}" has been added.` });
@@ -145,6 +160,7 @@ export default function TripsPage() {
       toast({ title: 'Error updating status', description: error.message, variant: 'destructive' });
       setTrips(originalTrips);
     }
+    await fetchTrips(); // Refetch to apply sorting
   };
 
   const handleEditClick = (trip: Trip) => {
@@ -169,13 +185,7 @@ export default function TripsPage() {
     if (error) {
         toast({ title: 'Error updating trip', description: error.message, variant: 'destructive' });
     } else {
-        setTrips(prevTrips => 
-          prevTrips.map(trip => 
-            trip.trip_uuid === editingTrip.trip_uuid 
-              ? { ...trip, ...tripForm } as Trip
-              : trip
-          )
-        );
+        fetchTrips(); // Refetch to apply sorting
         setIsEditDialogOpen(false);
         setEditingTrip(null);
         setTripForm({});
@@ -424,5 +434,7 @@ export default function TripsPage() {
     </main>
   );
 }
+
+    
 
     
