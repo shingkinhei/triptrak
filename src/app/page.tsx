@@ -1,28 +1,21 @@
+
 'use client';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
-import { mockTrips } from '@/lib/mock-data';
-import type { Trip } from '@/lib/types';
+import { useEffect } from 'react';
 
 export default function Home() {
   const router = useRouter();
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // In a real app, you'd fetch this from a persistent store (e.g., localStorage or an API)
-    const activeTrip = mockTrips.find(trip => trip.status === 'active');
-    
-    if (activeTrip) {
-      router.replace(`/trip/${activeTrip.id}`);
-    } else {
-      router.replace('/trips');
-    }
+    // In a real app, you would check for an active session.
+    // For this prototype, we'll just redirect to the login page.
+    router.replace('/login');
   }, [router]);
 
   return (
     <main className="flex min-h-screen items-center justify-center p-4 font-body bg-background">
       <div className="text-center">
-        <p>Loading your adventure...</p>
+        <p>Loading...</p>
       </div>
     </main>
   );

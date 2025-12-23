@@ -1,20 +1,29 @@
+
 'use client';
 import { useState, useEffect } from 'react';
-import { Home, Settings } from 'lucide-react';
+import { Home, LogOut, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useCurrency } from '@/context/CurrencyContext';
 import { BottomNav } from '@/components/bottom-nav';
 import type { Currency } from '@/lib/types';
+import { useRouter } from 'next/navigation';
 
 export default function SettingsPage() {
     const { homeCurrency, setHomeCurrency, rates } = useCurrency();
     const [isClient, setIsClient] = useState(false);
+    const router = useRouter();
 
     useEffect(() => {
         setIsClient(true);
     }, []);
+
+    const handleLogout = () => {
+        // Mock logout logic
+        console.log('Logging out...');
+        router.push('/login');
+    }
 
   return (
     <main className="bg-background font-body flex flex-col h-screen">
@@ -47,6 +56,12 @@ export default function SettingsPage() {
                         </SelectContent>
                     </Select>
                 )}
+            </div>
+             <div className="space-y-4">
+                 <Button variant="destructive" className="w-full" onClick={handleLogout}>
+                    <LogOut className="mr-2 h-4 w-4" />
+                    Logout
+                </Button>
             </div>
         </div>
         <BottomNav activeItem="settings" />
