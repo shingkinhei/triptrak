@@ -302,19 +302,17 @@ export default function TripsPage() {
               </div>
             )}
             {trips.map(trip => (
-                <Card key={trip.trip_uuid} className={cn("overflow-hidden transition-all hover:shadow-lg", {'border-primary border-2': trip.status === 'A'})}>
+                <Card key={trip.trip_uuid} className={cn("overflow-hidden transition-all hover:shadow-lg relative", {'border-primary border-2': trip.status === 'A'})}>
                     <CardContent className="p-0">
                         <div className="flex">
                             <div className="relative h-32 w-28 shrink-0">
-                                <Link href={`/trip/${trip.trip_uuid}`} passHref>
-                                    <Image
-                                        src={trip.cover_image_url || ''}
-                                        alt={trip.name || ''}
-                                        fill
-                                        className="object-cover"
-                                        data-ai-hint={trip.cover_image_hint || ''}
-                                    />
-                                </Link>
+                                <Image
+                                    src={trip.cover_image_url || ''}
+                                    alt={trip.name || ''}
+                                    fill
+                                    className="object-cover"
+                                    data-ai-hint={trip.cover_image_hint || ''}
+                                />
                             </div>
                             <div className="flex flex-col justify-between p-3 flex-grow">
                                 <div>
@@ -322,7 +320,7 @@ export default function TripsPage() {
                                   <p className="text-sm text-muted-foreground">{trip.destination}</p>
                                   <p className="text-xs text-muted-foreground mt-1">{new Date(trip.start_date).toLocaleDateString()} - {new Date(trip.end_date).toLocaleDateString()}</p>
                                 </div>
-                                <div className='flex items-center justify-between gap-2 mt-2'>
+                                <div className='flex items-center justify-between gap-2 mt-2 z-10'>
                                   <Select value={trip.status} onValueChange={(value) => handleSetStatus(trip.trip_uuid, value as TripStatus)}>
                                       <SelectTrigger className={cn("h-7 text-xs w-auto capitalize focus:ring-0 border-none", statusMap[trip.status]?.color)}>
                                           <SelectValue placeholder="Set status" />
@@ -334,13 +332,13 @@ export default function TripsPage() {
                                       </SelectContent>
                                   </Select>
                                   <div className="flex items-center">
-                                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEditClick(trip)}>
+                                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.preventDefault(); handleEditClick(trip); }}>
                                       <Edit className="h-4 w-4" />
                                       <span className="sr-only">Edit Trip</span>
                                     </Button>
                                     <AlertDialog>
                                       <AlertDialogTrigger asChild>
-                                        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive">
+                                        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={(e) => e.preventDefault()}>
                                           <Trash2 className="h-4 w-4" />
                                           <span className="sr-only">Delete Trip</span>
                                         </Button>
@@ -367,6 +365,7 @@ export default function TripsPage() {
                             </div>
                         </div>
                     </CardContent>
+                     <Link href={`/trip/${trip.trip_uuid}`} className="absolute inset-0 z-0" aria-label={`View trip: ${trip.name}`}></Link>
                 </Card>
             ))}
             </div>
@@ -444,5 +443,7 @@ export default function TripsPage() {
     </main>
   );
 }
+
+    
 
     
