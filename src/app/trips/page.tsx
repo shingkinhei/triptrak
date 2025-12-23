@@ -1,5 +1,6 @@
+
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { PlusCircle, Star, Edit, Upload } from 'lucide-react';
@@ -15,6 +16,7 @@ import { BottomNav } from '@/components/bottom-nav';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { createClient } from '@/lib/supabase/client';
 
 type EditableTrip = Partial<Pick<Trip, 'name' | 'destination' | 'country' | 'startDate' | 'endDate' | 'imageUrl' | 'imageHint'>>;
 
@@ -34,6 +36,20 @@ export default function TripsPage() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingTrip, setEditingTrip] = useState<Trip | null>(null);
   const [tripForm, setTripForm] = useState<EditableTrip>({});
+  const [userName, setUserName] = useState<string | null>(null);
+  const supabase = createClient();
+
+  useEffect(() => {
+    const fetchUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const fullName = user.user_metadata.full_name;
+        setUserName(fullName ? fullName.split(' ')[0] : 'My');
+      }
+    };
+    fetchUser();
+  }, [supabase]);
+
 
   const [newTrip, setNewTrip] = useState({
     name: '',
@@ -138,7 +154,7 @@ export default function TripsPage() {
         <header className="mb-4 flex items-center justify-between px-4 pt-4 shrink-0 mt-4">
             <div>
                 <h1 className="text-2xl font-bold font-headline text-foreground">
-                My Trips
+                  {userName ? `${userName}'s Trips` : 'My Trips'}
                 </h1>
                 <p className="text-sm text-muted-foreground">
                 All your adventures in one place.
