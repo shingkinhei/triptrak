@@ -20,6 +20,7 @@ import { useToast } from '@/hooks/use-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 
 type EditableTrip = Partial<Pick<Trip, 'name' | 'destination' | 'country_code' | 'start_date' | 'end_date' | 'cover_image_url' | 'cover_image_hint'>>;
+type StatusOption = { status: string; description: string | null };
 
 const countryOptions = [
   { value: 'US', label: 'United States' },
@@ -37,6 +38,7 @@ export default function TripsPage() {
   const [editingTrip, setEditingTrip] = useState<Trip | null>(null);
   const [tripForm, setTripForm] = useState<EditableTrip>({});
   const [userName, setUserName] = useState<string | null>(null);
+  const [statusOptions, setStatusOptions] = useState<StatusOption[]>([]);
   const supabase = createClient();
   const { toast } = useToast();
 
@@ -57,6 +59,15 @@ export default function TripsPage() {
     }
   };
 
+  const fetchStatusOptions = async () => {
+    const { data, error } = await supabase.from('trip_status_setup').select('status, description');
+    if (error) {
+      toast({ title: 'Error fetching statuses', description: error.message, variant: 'destructive'});
+    } else {
+      setStatusOptions(data as StatusOption[]);
+    }
+  };
+
   useEffect(() => {
     const fetchUser = async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -67,6 +78,7 @@ export default function TripsPage() {
     };
     fetchUser();
     fetchTrips();
+    fetchStatusOptions();
   }, []);
 
   const [newTrip, setNewTrip] = useState({
@@ -293,9 +305,9 @@ export default function TripsPage() {
                                           <SelectValue placeholder="Set status" />
                                       </SelectTrigger>
                                       <SelectContent>
-                                          <SelectItem value="A">Active</SelectItem>
-                                          <SelectItem value="U">Upcoming</SelectItem>
-                                          <SelectItem value="P">Past</SelectItem>
+                                          {statusOptions.map((option) => (
+                                            <SelectItem key={option.status} value={option.status}>{option.description || option.status}</SelectItem>
+                                          ))}
                                       </SelectContent>
                                   </Select>
                                   <div className="flex items-center">
