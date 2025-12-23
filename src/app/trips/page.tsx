@@ -1,6 +1,6 @@
 
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { PlusCircle, Edit, Upload, Trash2 } from 'lucide-react';
@@ -19,9 +19,22 @@ import { createClient } from '@/lib/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 
-type EditableTrip = Partial<Pick<Trip, 'name' | 'destination' | 'country_code' | 'start_date' | 'end_date' | 'cover_image_url' | 'cover_image_hint'>>;
+type EditableTrip = Partial<Pick<Trip, 'name' | 'destination' | 'country_code' | 'start_date' | 'end_date' | 'cover_image_url' | 'cover_image_hint'>> & {
+  cover_image_file?: File | null;
+  cover_image_preview?: string | null;
+};
 type StatusOption = { status: string; description: string | null };
 type CountryOption = { country_code: string; name: string };
+
+type NewTripState = {
+  name: string;
+  destination: string;
+  country_code: string;
+  start_date: string;
+  end_date: string;
+  cover_image_file: File | null;
+  cover_image_preview: string | null;
+};
 
 export default function TripsPage() {
   const [trips, setTrips] = useState<Trip[]>([]);
@@ -34,6 +47,8 @@ export default function TripsPage() {
   const [countryOptions, setCountryOptions] = useState<CountryOption[]>([]);
   const supabase = createClient();
   const { toast } = useToast();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const editFileInputRef = useRef<HTMLInputElement>(null);
 
   const fetchTrips = async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -46,14 +61,14 @@ export default function TripsPage() {
       if (error) {
         toast({ title: 'Error fetching trips', description: error.message, variant: 'destructive' });
       } else if (data) {
-        const statusOrder: Record<TripStatus, number> = { 'A': 1, 'U': 2, 'P': 3 };
+        const statusOrder: Record<TripStatus, number> = { 'A': 1, 'U': 2, 'E': 3 };
         
         const sortedData = data.sort((a, b) => {
           const statusComparison = statusOrder[a.status as TripStatus] - statusOrder[b.status as TripStatus];
           if (statusComparison !== 0) {
             return statusComparison;
           }
-          if (a.status === 'P') {
+          if (a.status === 'E') {
             return new Date(b.start_date).getTime() - new Date(a.start_date).getTime();
           }
           return new Date(a.start_date).getTime() - new Date(b.start_date).getTime();
@@ -96,13 +111,26 @@ export default function TripsPage() {
     fetchCountryOptions();
   }, []);
 
-  const [newTrip, setNewTrip] = useState({
+  const [newTrip, setNewTrip] = useState<NewTripState>({
     name: '',
     destination: '',
     country_code: '',
     start_date: '',
     end_date: '',
+    cover_image_file: null,
+    cover_image_preview: null,
   });
+
+  const handleNewTripImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setNewTrip(prev => ({...prev, cover_image_file: file, cover_image_preview: reader.result as string }));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const handleAddTrip = async () => {
     if (!newTrip.name || !newTrip.destination || !newTrip.country_code || !newTrip.start_date || !newTrip.end_date) {
@@ -115,6 +143,22 @@ export default function TripsPage() {
         return;
     }
 
+    let coverImageUrl = `https://picsum.photos/seed/${newTrip.destination}/600/400`;
+
+    if (newTrip.cover_image_file) {
+      const file = newTrip.cover_image_file;
+      const filePath = `${user.id}/${Date.now()}-${file.name}`;
+      const { error: uploadError } = await supabase.storage.from('trip_cover').upload(filePath, file);
+
+      if (uploadError) {
+        toast({ title: 'Error uploading image', description: uploadError.message, variant: 'destructive' });
+        return;
+      }
+
+      const { data: urlData } = supabase.storage.from('trip_cover').getPublicUrl(filePath);
+      coverImageUrl = urlData.publicUrl;
+    }
+
     const newTripData = {
       user_id: user.id,
       name: newTrip.name,
@@ -123,7 +167,7 @@ export default function TripsPage() {
       start_date: newTrip.start_date,
       end_date: newTrip.end_date,
       status: 'U' as TripStatus,
-      cover_image_url: `https://picsum.photos/seed/${newTrip.destination}/600/400`,
+      cover_image_url: coverImageUrl,
       cover_image_hint: newTrip.destination,
       itinerary: [],
       transactions: [],
@@ -137,7 +181,7 @@ export default function TripsPage() {
         toast({ title: 'Error creating trip', description: error.message, variant: 'destructive' });
     } else if (data) {
         fetchTrips();
-        setNewTrip({ name: '', destination: '', country_code: '', start_date: '', end_date: '' });
+        setNewTrip({ name: '', destination: '', country_code: '', start_date: '', end_date: '', cover_image_file: null, cover_image_preview: null });
         setIsAddDialogOpen(false);
         toast({ title: 'Trip Created!', description: `"${data.name}" has been added.` });
     }
@@ -183,14 +227,39 @@ export default function TripsPage() {
       end_date: trip.end_date || '',
       cover_image_url: trip.cover_image_url || '',
       cover_image_hint: trip.cover_image_hint || '',
+      cover_image_preview: trip.cover_image_url || '',
     });
     setIsEditDialogOpen(true);
   };
 
   const handleUpdateTrip = async () => {
     if (!editingTrip || !tripForm.name || !tripForm.destination || !tripForm.country_code || !tripForm.start_date || !tripForm.end_date) return;
+    
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+        toast({ title: 'Not authenticated', description: 'You must be logged in to create a trip.', variant: 'destructive' });
+        return;
+    }
 
-    const { error } = await supabase.from('trips').update(tripForm).eq('trip_uuid', editingTrip.trip_uuid);
+    let finalTripForm: EditableTrip = { ...tripForm };
+    delete finalTripForm.cover_image_file;
+    delete finalTripForm.cover_image_preview;
+
+    if (tripForm.cover_image_file) {
+      const file = tripForm.cover_image_file;
+      const filePath = `${user.id}/${Date.now()}-${file.name}`;
+      const { error: uploadError } = await supabase.storage.from('trip_cover').upload(filePath, file);
+
+      if (uploadError) {
+        toast({ title: 'Error uploading image', description: uploadError.message, variant: 'destructive' });
+        return;
+      }
+
+      const { data: urlData } = supabase.storage.from('trip_cover').getPublicUrl(filePath);
+      finalTripForm.cover_image_url = urlData.publicUrl;
+    }
+
+    const { error } = await supabase.from('trips').update(finalTripForm).eq('trip_uuid', editingTrip.trip_uuid);
     
     if (error) {
         toast({ title: 'Error updating trip', description: error.message, variant: 'destructive' });
@@ -217,12 +286,12 @@ export default function TripsPage() {
     setTripForm(prev => ({...prev, [field]: value}));
   };
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleEditImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
-        handleFormChange('cover_image_url', reader.result as string);
+        setTripForm(prev => ({ ...prev, cover_image_file: file, cover_image_preview: reader.result as string }));
       };
       reader.readAsDataURL(file);
     }
@@ -285,6 +354,18 @@ export default function TripsPage() {
                     <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="end-date" className="text-right">End Date</Label>
                     <Input id="end-date" type="date" value={newTrip.end_date} onChange={(e) => setNewTrip({...newTrip, end_date: e.target.value})} className="col-span-3" />
+                    </div>
+                    <div className="grid grid-cols-4 items-start gap-4">
+                      <Label className="text-right pt-2">Cover Image</Label>
+                      <div className="col-span-3 space-y-2">
+                        {newTrip.cover_image_preview && (
+                          <Image src={newTrip.cover_image_preview} alt="preview" width={200} height={150} className="rounded-md object-cover w-full aspect-[4/3]"/>
+                        )}
+                        <Input id="cover-image-upload" type="file" accept="image/*" ref={fileInputRef} onChange={handleNewTripImageChange} className="hidden" />
+                        <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
+                          <Upload className="mr-2 h-4 w-4" /> Upload
+                        </Button>
+                      </div>
                     </div>
                 </div>
                 <DialogFooter>
@@ -414,21 +495,19 @@ export default function TripsPage() {
               <div className="grid grid-cols-4 items-start gap-4">
                  <Label className="text-right pt-2">Cover Image</Label>
                  <div className="col-span-3 space-y-2">
-                    {tripForm.cover_image_url && (
+                    {tripForm.cover_image_preview && (
                         <Image
-                            src={tripForm.cover_image_url}
+                            src={tripForm.cover_image_preview}
                             alt="Trip cover image preview"
                             width={200}
                             height={150}
                             className="rounded-md object-cover w-full aspect-[4/3]"
                         />
                     )}
-                    <Input id="edit-image-upload" type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
-                    <Button asChild variant="outline">
-                      <Label htmlFor="edit-image-upload" className="cursor-pointer">
+                    <Input id="edit-image-upload" type="file" accept="image/*" ref={editFileInputRef} onChange={handleEditImageChange} className="hidden" />
+                     <Button variant="outline" onClick={() => editFileInputRef.current?.click()}>
                         <Upload className="mr-2 h-4 w-4" />
                         Upload Image
-                      </Label>
                     </Button>
                  </div>
               </div>
@@ -443,7 +522,5 @@ export default function TripsPage() {
     </main>
   );
 }
-
-    
 
     
