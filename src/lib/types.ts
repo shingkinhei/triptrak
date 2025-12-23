@@ -67,21 +67,23 @@ export type ExchangeRates = {
   [key in Currency]: number;
 };
 
-export type TripStatus = 'active' | 'upcoming' | 'archived';
+export type TripStatus = 'A' | 'U' | 'P'; // Active, Upcoming, Past
 
 export type Trip = {
-  id: string;
+  trip_uuid: string;
+  trip_id: number;
   user_id: string;
   name: string;
   destination: string;
-  country: string; // e.g., 'JP', 'IT'
-  startDate: string;
-  endDate: string;
+  country_code: string;
+  start_date: string;
+  end_date: string;
   status: TripStatus;
-  imageUrl: string;
-  imageHint: string;
+  cover_image_url: string;
+  cover_image_hint: string;
+  created_at: string;
   itinerary: ItineraryItem[];
   transactions: Transaction[];
-  shoppingList: ShoppingCategory[];
+  shopping_list: ShoppingCategory[];
   checklist: ChecklistItem[];
 };

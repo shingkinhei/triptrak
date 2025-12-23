@@ -19,7 +19,7 @@ import { createClient } from '@/lib/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 
-type EditableTrip = Partial<Pick<Trip, 'name' | 'destination' | 'country' | 'startDate' | 'endDate' | 'imageUrl' | 'imageHint'>>;
+type EditableTrip = Partial<Pick<Trip, 'name' | 'destination' | 'country_code' | 'start_date' | 'end_date' | 'cover_image_url' | 'cover_image_hint'>>;
 
 const countryOptions = [
   { value: 'US', label: 'United States' },
@@ -67,18 +67,18 @@ export default function TripsPage() {
     };
     fetchUser();
     fetchTrips();
-  }, [supabase, toast]);
+  }, []);
 
   const [newTrip, setNewTrip] = useState({
     name: '',
     destination: '',
-    country: '',
-    startDate: '',
-    endDate: '',
+    country_code: '',
+    start_date: '',
+    end_date: '',
   });
 
   const handleAddTrip = async () => {
-    if (!newTrip.name || !newTrip.destination || !newTrip.country || !newTrip.startDate || !newTrip.endDate) {
+    if (!newTrip.name || !newTrip.destination || !newTrip.country_code || !newTrip.start_date || !newTrip.end_date) {
       toast({ title: 'Missing Information', description: 'Please fill out all fields to create a trip.', variant: 'destructive' });
       return;
     }
@@ -92,15 +92,15 @@ export default function TripsPage() {
       user_id: user.id,
       name: newTrip.name,
       destination: newTrip.destination,
-      country: newTrip.country,
-      startDate: newTrip.startDate,
-      endDate: newTrip.endDate,
-      status: 'upcoming',
-      imageUrl: `https://picsum.photos/seed/${newTrip.destination}/600/400`,
-      imageHint: newTrip.destination,
+      country_code: newTrip.country_code,
+      start_date: newTrip.start_date,
+      end_date: newTrip.end_date,
+      status: 'U', // Upcoming
+      cover_image_url: `https://picsum.photos/seed/${newTrip.destination}/600/400`,
+      cover_image_hint: newTrip.destination,
       itinerary: [],
       transactions: [],
-      shoppingList: [],
+      shopping_list: [],
       checklist: [],
     };
     
@@ -110,27 +110,25 @@ export default function TripsPage() {
         toast({ title: 'Error creating trip', description: error.message, variant: 'destructive' });
     } else if (data) {
         setTrips(prev => [data as Trip, ...prev]);
-        setNewTrip({ name: '', destination: '', country: '', startDate: '', endDate: '' });
+        setNewTrip({ name: '', destination: '', country_code: '', start_date: '', end_date: '' });
         setIsAddDialogOpen(false);
         toast({ title: 'Trip Created!', description: `"${data.name}" has been added.` });
     }
   };
   
   const handleSetStatus = async (tripId: string, status: TripStatus) => {
-    // Optimistic UI update
     const originalTrips = [...trips];
     const updatedTrips = trips.map(trip => {
-      if (trip.id === tripId) return { ...trip, status };
-      if (status === 'active' && trip.status === 'active') return { ...trip, status: 'upcoming' };
+      if (trip.trip_uuid === tripId) return { ...trip, status };
+      if (status === 'A' && trip.status === 'A') return { ...trip, status: 'U' }; // If setting one to active, deactivate others
       return trip;
     });
     setTrips(updatedTrips);
 
-    // Update DB
-    const { error } = await supabase.from('trips').update({ status }).eq('id', tripId);
+    const { error } = await supabase.from('trips').update({ status }).eq('trip_uuid', tripId);
     if (error) {
       toast({ title: 'Error updating status', description: error.message, variant: 'destructive' });
-      setTrips(originalTrips); // Revert on error
+      setTrips(originalTrips);
     }
   };
 
@@ -139,28 +137,27 @@ export default function TripsPage() {
     setTripForm({
       name: trip.name || '',
       destination: trip.destination || '',
-      country: trip.country || '',
-      startDate: trip.startDate || '',
-      endDate: trip.endDate || '',
-      imageUrl: trip.imageUrl || '',
-      imageHint: trip.imageHint || '',
+      country_code: trip.country_code || '',
+      start_date: trip.start_date || '',
+      end_date: trip.end_date || '',
+      cover_image_url: trip.cover_image_url || '',
+      cover_image_hint: trip.cover_image_hint || '',
     });
     setIsEditDialogOpen(true);
   };
 
   const handleUpdateTrip = async () => {
-    if (!editingTrip || !tripForm.name || !tripForm.destination || !tripForm.country || !tripForm.startDate || !tripForm.endDate) return;
+    if (!editingTrip || !tripForm.name || !tripForm.destination || !tripForm.country_code || !tripForm.start_date || !tripForm.end_date) return;
 
-    const updatedTripData = { ...tripForm };
-    const { error } = await supabase.from('trips').update(updatedTripData).eq('id', editingTrip.id);
+    const { error } = await supabase.from('trips').update(tripForm).eq('trip_uuid', editingTrip.trip_uuid);
     
     if (error) {
         toast({ title: 'Error updating trip', description: error.message, variant: 'destructive' });
     } else {
         setTrips(prevTrips => 
           prevTrips.map(trip => 
-            trip.id === editingTrip.id 
-              ? { ...trip, ...updatedTripData } as Trip
+            trip.trip_uuid === editingTrip.trip_uuid 
+              ? { ...trip, ...tripForm } as Trip
               : trip
           )
         );
@@ -172,11 +169,11 @@ export default function TripsPage() {
   };
 
   const handleDeleteTrip = async (tripId: string) => {
-    const { error } = await supabase.from('trips').delete().eq('id', tripId);
+    const { error } = await supabase.from('trips').delete().eq('trip_uuid', tripId);
     if (error) {
       toast({ title: 'Error deleting trip', description: error.message, variant: 'destructive' });
     } else {
-      setTrips(prev => prev.filter(t => t.id !== tripId));
+      setTrips(prev => prev.filter(t => t.trip_uuid !== tripId));
       toast({ title: 'Trip Deleted', description: 'The trip has been successfully removed.' });
     }
   };
@@ -190,17 +187,17 @@ export default function TripsPage() {
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
-        handleFormChange('imageUrl', reader.result as string);
+        handleFormChange('cover_image_url', reader.result as string);
       };
       reader.readAsDataURL(file);
     }
   };
 
-  const statusColors: Record<TripStatus, string> = {
-    active: 'bg-green-500 text-white',
-    upcoming: 'bg-blue-500 text-white',
-    archived: 'bg-gray-500 text-white',
-  }
+  const statusMap: Record<TripStatus, { label: string; color: string }> = {
+    A: { label: 'Active', color: 'bg-green-500 text-white' },
+    U: { label: 'Upcoming', color: 'bg-blue-500 text-white' },
+    P: { label: 'Past', color: 'bg-gray-500 text-white' },
+  };
 
   return (
     <main className="flex h-screen flex-col bg-background font-body">
@@ -235,7 +232,7 @@ export default function TripsPage() {
                     </div>
                      <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="country" className="text-right">Country</Label>
-                        <Select value={newTrip.country} onValueChange={(value) => setNewTrip({...newTrip, country: value})}>
+                        <Select value={newTrip.country_code} onValueChange={(value) => setNewTrip({...newTrip, country_code: value})}>
                             <SelectTrigger className="col-span-3">
                                 <SelectValue placeholder="Select a country" />
                             </SelectTrigger>
@@ -248,11 +245,11 @@ export default function TripsPage() {
                     </div>
                     <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="start-date" className="text-right">Start Date</Label>
-                    <Input id="start-date" type="date" value={newTrip.startDate} onChange={(e) => setNewTrip({...newTrip, startDate: e.target.value})} className="col-span-3" />
+                    <Input id="start-date" type="date" value={newTrip.start_date} onChange={(e) => setNewTrip({...newTrip, start_date: e.target.value})} className="col-span-3" />
                     </div>
                     <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="end-date" className="text-right">End Date</Label>
-                    <Input id="end-date" type="date" value={newTrip.endDate} onChange={(e) => setNewTrip({...newTrip, endDate: e.target.value})} className="col-span-3" />
+                    <Input id="end-date" type="date" value={newTrip.end_date} onChange={(e) => setNewTrip({...newTrip, end_date: e.target.value})} className="col-span-3" />
                     </div>
                 </div>
                 <DialogFooter>
@@ -270,17 +267,17 @@ export default function TripsPage() {
               </div>
             )}
             {trips.map(trip => (
-                <Card key={trip.id} className={cn("overflow-hidden transition-all hover:shadow-lg", {'border-primary border-2': trip.status === 'active'})}>
+                <Card key={trip.trip_uuid} className={cn("overflow-hidden transition-all hover:shadow-lg", {'border-primary border-2': trip.status === 'A'})}>
                     <CardContent className="p-0">
                         <div className="flex">
                             <div className="relative h-32 w-28 shrink-0">
-                                <Link href={`/trip/${trip.id}`} passHref>
+                                <Link href={`/trip/${trip.trip_uuid}`} passHref>
                                     <Image
-                                        src={trip.imageUrl}
-                                        alt={trip.name}
+                                        src={trip.cover_image_url || ''}
+                                        alt={trip.name || ''}
                                         fill
                                         className="object-cover"
-                                        data-ai-hint={trip.imageHint}
+                                        data-ai-hint={trip.cover_image_hint || ''}
                                     />
                                 </Link>
                             </div>
@@ -288,17 +285,17 @@ export default function TripsPage() {
                                 <div>
                                   <h2 className="text-lg font-bold font-headline leading-tight">{trip.name}</h2>
                                   <p className="text-sm text-muted-foreground">{trip.destination}</p>
-                                  <p className="text-xs text-muted-foreground mt-1">{new Date(trip.startDate).toLocaleDateString()} - {new Date(trip.endDate).toLocaleDateString()}</p>
+                                  <p className="text-xs text-muted-foreground mt-1">{new Date(trip.start_date).toLocaleDateString()} - {new Date(trip.end_date).toLocaleDateString()}</p>
                                 </div>
                                 <div className='flex items-center justify-between gap-2 mt-2'>
-                                  <Select value={trip.status} onValueChange={(value) => handleSetStatus(trip.id, value as TripStatus)}>
-                                      <SelectTrigger className={cn("h-7 text-xs w-auto capitalize focus:ring-0 border-none", statusColors[trip.status])}>
+                                  <Select value={trip.status} onValueChange={(value) => handleSetStatus(trip.trip_uuid, value as TripStatus)}>
+                                      <SelectTrigger className={cn("h-7 text-xs w-auto capitalize focus:ring-0 border-none", statusMap[trip.status]?.color)}>
                                           <SelectValue placeholder="Set status" />
                                       </SelectTrigger>
                                       <SelectContent>
-                                          <SelectItem value="active">Active</SelectItem>
-                                          <SelectItem value="upcoming">Upcoming</SelectItem>
-                                          <SelectItem value="archived">Archived</SelectItem>
+                                          <SelectItem value="A">Active</SelectItem>
+                                          <SelectItem value="U">Upcoming</SelectItem>
+                                          <SelectItem value="P">Past</SelectItem>
                                       </SelectContent>
                                   </Select>
                                   <div className="flex items-center">
@@ -324,7 +321,7 @@ export default function TripsPage() {
                                           <AlertDialogCancel>Cancel</AlertDialogCancel>
                                           <AlertDialogAction
                                             className="bg-destructive hover:bg-destructive/90"
-                                            onClick={() => handleDeleteTrip(trip.id)}>
+                                            onClick={() => handleDeleteTrip(trip.trip_uuid)}>
                                             Delete
                                           </AlertDialogAction>
                                         </AlertDialogFooter>
@@ -357,7 +354,7 @@ export default function TripsPage() {
               </div>
                <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="edit-country" className="text-right">Country</Label>
-                <Select value={tripForm.country || ''} onValueChange={(value) => handleFormChange('country', value)}>
+                <Select value={tripForm.country_code || ''} onValueChange={(value) => handleFormChange('country_code', value)}>
                     <SelectTrigger className="col-span-3">
                         <SelectValue placeholder="Select a country" />
                     </SelectTrigger>
@@ -370,22 +367,22 @@ export default function TripsPage() {
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="edit-start-date" className="text-right">Start Date</Label>
-                <Input id="edit-start-date" type="date" value={tripForm.startDate || ''} onChange={(e) => handleFormChange('startDate', e.target.value)} className="col-span-3" />
+                <Input id="edit-start-date" type="date" value={tripForm.start_date || ''} onChange={(e) => handleFormChange('start_date', e.target.value)} className="col-span-3" />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="edit-end-date" className="text-right">End Date</Label>
-                <Input id="edit-end-date" type="date" value={tripForm.endDate || ''} onChange={(e) => handleFormChange('endDate', e.target.value)} className="col-span-3" />
+                <Input id="edit-end-date" type="date" value={tripForm.end_date || ''} onChange={(e) => handleFormChange('end_date', e.target.value)} className="col-span-3" />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="edit-image-hint" className="text-right">Image Hint</Label>
-                <Input id="edit-image-hint" value={tripForm.imageHint || ''} onChange={(e) => handleFormChange('imageHint', e.target.value)} className="col-span-3" />
+                <Input id="edit-image-hint" value={tripForm.cover_image_hint || ''} onChange={(e) => handleFormChange('cover_image_hint', e.target.value)} className="col-span-3" />
               </div>
               <div className="grid grid-cols-4 items-start gap-4">
                  <Label className="text-right pt-2">Cover Image</Label>
                  <div className="col-span-3 space-y-2">
-                    {tripForm.imageUrl && (
+                    {tripForm.cover_image_url && (
                         <Image
-                            src={tripForm.imageUrl}
+                            src={tripForm.cover_image_url}
                             alt="Trip cover image preview"
                             width={200}
                             height={150}

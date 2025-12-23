@@ -23,9 +23,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogT
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import type { Currency, Transaction, ShoppingCategory, Trip, ShoppingItem, ItineraryItem, Activity, ChecklistItem } from '@/lib/types';
-import { mockTrips } from '@/lib/mock-data';
 import { Button } from '@/components/ui/button';
 import Image from 'next/image';
+import { createClient } from '@/lib/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 interface NewItemInput {
     name: string;
@@ -54,7 +55,7 @@ const TabContent: FC<TabContentProps> = ({ trip, setTrip, activeTab }) => {
     let checkedItemName: string | undefined;
     let checkedItemPrice: number | undefined;
 
-    const newList = trip.shoppingList.map((category) => {
+    const newList = trip.shopping_list.map((category) => {
       if (category.id === categoryId) {
         return {
           ...category,
@@ -74,7 +75,7 @@ const TabContent: FC<TabContentProps> = ({ trip, setTrip, activeTab }) => {
     });
 
     setTrip((currentTrip) =>
-      currentTrip ? { ...currentTrip, shoppingList: newList } : undefined
+      currentTrip ? { ...currentTrip, shopping_list: newList } : undefined
     );
 
     if (checkedItemName && checkedItemPrice) {
@@ -125,9 +126,9 @@ const TabContent: FC<TabContentProps> = ({ trip, setTrip, activeTab }) => {
       if (!currentTrip) return undefined;
       const newShoppingList =
         typeof updater === 'function'
-          ? updater(currentTrip.shoppingList)
+          ? updater(currentTrip.shopping_list)
           : updater;
-      return { ...currentTrip, shoppingList: newShoppingList };
+      return { ...currentTrip, shopping_list: newShoppingList };
     });
   };
 
@@ -163,7 +164,7 @@ const TabContent: FC<TabContentProps> = ({ trip, setTrip, activeTab }) => {
     }, // Example, needs real coordinates
     expenses: { transactions: trip.transactions, setTransactions, trip },
     shopping: {
-      list: trip.shoppingList,
+      list: trip.shopping_list,
       setList: setShoppingList,
       onCheckChange: handleShoppingItemCheck,
       trip: trip
@@ -196,18 +197,64 @@ export default function TripDetailsPage() {
   const [trip, setTrip] = useState<Trip | undefined>();
   const [activeTab, setActiveTab] = useState<Tab>('planner');
   const { setTripCurrencyFromCountry, tripCurrency } = useCurrency();
+  const supabase = createClient();
+  const { toast } = useToast();
 
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [newItem, setNewItem] = useState<NewItemInput>({ name: '', price: '', categoryId: '', location: '', store: '', file: null, previewUrl: '' });
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
-    const foundTrip = mockTrips.find((t) => t.id === tripId);
-    setTrip(foundTrip);
-    if (foundTrip) {
-      setTripCurrencyFromCountry(foundTrip.country);
+    const fetchTrip = async () => {
+      if (!tripId) return;
+
+      const { data, error } = await supabase
+        .from('trips')
+        .select('*')
+        .eq('trip_uuid', tripId)
+        .single();
+      
+      if (error) {
+        toast({ title: 'Error fetching trip', description: error.message, variant: 'destructive' });
+        router.push('/trips');
+      } else if (data) {
+        setTrip(data as Trip);
+        if (data.country_code) {
+          setTripCurrencyFromCountry(data.country_code);
+        }
+      }
+    };
+
+    fetchTrip();
+  }, [tripId, setTripCurrencyFromCountry, router, supabase, toast]);
+
+  useEffect(() => {
+    if (trip) {
+      const updateTripData = async () => {
+        const { error } = await supabase
+          .from('trips')
+          .update({
+            itinerary: trip.itinerary,
+            transactions: trip.transactions,
+            shopping_list: trip.shopping_list,
+            checklist: trip.checklist
+          })
+          .eq('trip_uuid', trip.trip_uuid);
+        
+        if (error) {
+          toast({ title: 'Error saving trip data', description: error.message, variant: 'destructive'});
+        }
+      };
+      
+      // Debounce the update to avoid too many writes
+      const handler = setTimeout(() => {
+        updateTripData();
+      }, 1000);
+
+      return () => clearTimeout(handler);
     }
-  }, [tripId, setTripCurrencyFromCountry]);
+  }, [trip, supabase, toast]);
+
 
   const itineraryLocations = useMemo(() => {
       if (!trip) return [];
@@ -242,9 +289,9 @@ export default function TripDetailsPage() {
       if (!currentTrip) return undefined;
       const newShoppingList =
         typeof updater === 'function'
-          ? updater(currentTrip.shoppingList)
+          ? updater(currentTrip.shopping_list)
           : updater;
-      return { ...currentTrip, shoppingList: newShoppingList };
+      return { ...currentTrip, shopping_list: newShoppingList };
     });
   };
 
@@ -277,10 +324,10 @@ export default function TripDetailsPage() {
           store: newItem.store,
       };
 
-      const categoryExists = trip.shoppingList.some(category => category.id === newItem.categoryId);
+      const categoryExists = trip.shopping_list.some(category => category.id === newItem.categoryId);
 
       if(categoryExists) {
-        const updatedList = trip.shoppingList.map(category =>
+        const updatedList = trip.shopping_list.map(category =>
             category.id === newItem.categoryId
               ? {
                   ...category,
@@ -308,7 +355,7 @@ export default function TripDetailsPage() {
     <main className="flex h-screen w-full flex-col bg-background font-body">
       <div
         className="relative flex-grow bg-cover bg-center overflow-hidden"
-        style={{ backgroundImage: `url(${trip.imageUrl})` }}
+        style={{ backgroundImage: `url(${trip.cover_image_url})` }}
       >
         <div className="absolute inset-0 bg-black/60 z-0" />
         <div className="relative z-10 h-full flex flex-col">
@@ -345,7 +392,7 @@ export default function TripDetailsPage() {
                                   <SelectValue placeholder="Select a category" />
                               </SelectTrigger>
                               <SelectContent>
-                                  {trip.shoppingList.map(cat => (
+                                  {trip.shopping_list.map(cat => (
                                       <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
                                   ))}
                               </SelectContent>

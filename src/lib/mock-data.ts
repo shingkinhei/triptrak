@@ -6,17 +6,21 @@ const italyTripId = 'italy-2025';
 
 export const mockTrips: Trip[] = [
   {
-    id: japanTripId,
+    trip_uuid: japanTripId,
+    trip_id: 1,
+    user_id: 'mock-user-id',
     name: "Autumn in Japan",
     destination: "Japan",
-    country: "JP",
-    startDate: "2024-10-26",
-    endDate: "2024-11-05",
-    status: 'active',
-    imageUrl: PlaceHolderImages.find(p=>p.id === 'tokyo')?.imageUrl || '',
-    imageHint: PlaceHolderImages.find(p=>p.id === 'tokyo')?.imageHint || '',
+    country_code: "JP",
+    start_date: "2024-10-26",
+    end_date: "2024-11-05",
+    status: 'A',
+    cover_image_url: PlaceHolderImages.find(p=>p.id === 'tokyo')?.imageUrl || '',
+    cover_image_hint: PlaceHolderImages.find(p=>p.id === 'tokyo')?.imageHint || '',
+    created_at: new Date().toISOString(),
     itinerary: [
       {
+        id: 'day-1',
         day: 1,
         title: 'Arrival in Tokyo',
         date: '2024-10-26',
@@ -52,6 +56,7 @@ export const mockTrips: Trip[] = [
         ],
       },
       {
+        id: 'day-2',
         day: 2,
         title: 'Exploring Kyoto',
         date: '2024-10-27',
@@ -82,6 +87,7 @@ export const mockTrips: Trip[] = [
         ],
       },
       {
+        id: 'day-3',
         day: 3,
         title: 'Day trip to Osaka',
         date: '2024-10-28',
@@ -114,7 +120,7 @@ export const mockTrips: Trip[] = [
         { id: '5', name: 'Kaiseki Dinner', category: 'Food', amount: 120, date: '2024-10-27' },
         { id: '6', name: 'Dotonbori Takoyaki', category: 'Food', amount: 10, date: '2024-10-28' },
     ],
-    shoppingList: [
+    shopping_list: [
       {
         id: 'essentials',
         name: 'Essentials',
@@ -146,18 +152,21 @@ export const mockTrips: Trip[] = [
     ]
   },
   {
-    id: italyTripId,
+    trip_uuid: italyTripId,
+    trip_id: 2,
+    user_id: 'mock-user-id',
     name: "Renaissance Wonders",
     destination: "Italy",
-    country: "IT",
-    startDate: "2025-06-10",
-    endDate: "2025-06-20",
-    status: 'upcoming',
-    imageUrl: "https://picsum.photos/seed/italy/600/400",
-    imageHint: "colosseum rome",
+    country_code: "IT",
+    start_date: "2025-06-10",
+    end_date: "2025-06-20",
+    status: 'U',
+    cover_image_url: "https://picsum.photos/seed/italy/600/400",
+    cover_image_hint: "colosseum rome",
+    created_at: new Date().toISOString(),
     itinerary: [],
     transactions: [],
-    shoppingList: [],
+    shopping_list: [],
     checklist: [
         { id: 'check-flights', label: 'Confirm flights and check-in times', checked: false },
         { id: 'check-passport', label: 'Check passport and visa requirements', checked: false },
