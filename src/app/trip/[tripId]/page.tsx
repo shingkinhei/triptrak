@@ -1,3 +1,4 @@
+
 'use client';
 import type { FC } from 'react';
 import { useState, useEffect, useMemo, useRef } from 'react';
@@ -40,10 +41,9 @@ interface TabContentProps {
   trip: Trip;
   setTrip: React.Dispatch<React.SetStateAction<Trip | undefined>>;
   activeTab: Tab;
-  setActiveTab: React.Dispatch<React.SetStateAction<Tab>>;
 }
 
-const TabContent: FC<TabContentProps> = ({ trip, setTrip, activeTab, setActiveTab }) => {
+const TabContent: FC<TabContentProps> = ({ trip, setTrip, activeTab }) => {
   const { tripCurrency } = useCurrency();
 
   const handleShoppingItemCheck = (
@@ -173,23 +173,18 @@ const TabContent: FC<TabContentProps> = ({ trip, setTrip, activeTab, setActiveTa
   const ActiveComponent = tabComponents[activeTab];
 
   return (
-    <>
-      <div className="flex-grow overflow-hidden pt-8">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={activeTab}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            transition={{ duration: 0.2 }}
-            className="h-full overflow-y-auto px-4 pb-4"
-          >
-            <ActiveComponent {...componentProps[activeTab]} />
-          </motion.div>
-        </AnimatePresence>
-      </div>
-      <BottomNav activeItem={activeTab} setActiveTab={setActiveTab} />
-    </>
+    <AnimatePresence mode="wait">
+      <motion.div
+        key={activeTab}
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -20 }}
+        transition={{ duration: 0.2 }}
+        className="h-full overflow-y-auto px-4 pb-4 pt-8"
+      >
+        <ActiveComponent {...componentProps[activeTab]} />
+      </motion.div>
+    </AnimatePresence>
   );
 };
 
@@ -312,12 +307,15 @@ export default function TripDetailsPage() {
   return (
     <main className="flex h-screen w-full flex-col bg-background font-body">
       <div
-        className="relative flex-grow bg-cover bg-center"
+        className="relative flex-grow bg-cover bg-center overflow-hidden"
         style={{ backgroundImage: `url(${trip.imageUrl})` }}
       >
         <div className="absolute inset-0 bg-black/60 z-0" />
         <div className="relative z-10 h-full flex flex-col">
-          <TabContent trip={trip} setTrip={setTrip} activeTab={activeTab} setActiveTab={setActiveTab} />
+          <div className="flex-grow overflow-hidden">
+            <TabContent trip={trip} setTrip={setTrip} activeTab={activeTab} />
+          </div>
+          <BottomNav activeItem={activeTab} setActiveTab={setActiveTab} />
         </div>
 
         {activeTab === 'shopping' && (
