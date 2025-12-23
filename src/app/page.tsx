@@ -1,16 +1,25 @@
 
 'use client';
+import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 
 export default function Home() {
   const router = useRouter();
+  const supabase = createClient();
 
   useEffect(() => {
-    // In a real app, you would check for an active session.
-    // For this prototype, we'll just redirect to the login page.
-    router.replace('/login');
-  }, [router]);
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        router.replace('/trips');
+      } else {
+        router.replace('/login');
+      }
+    };
+
+    checkSession();
+  }, [router, supabase]);
 
   return (
     <main className="flex min-h-screen items-center justify-center p-4 font-body bg-background">

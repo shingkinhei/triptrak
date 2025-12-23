@@ -7,14 +7,33 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useRouter } from 'next/navigation';
+import { useState } from 'react';
+import { createClient } from '@/lib/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 export default function LoginPage() {
     const router = useRouter();
+    const supabase = createClient();
+    const { toast } = useToast();
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
 
-    const handleLogin = () => {
-        // Mock login logic
-        console.log('Logging in...');
-        router.push('/trips');
+    const handleLogin = async () => {
+        const { error } = await supabase.auth.signInWithPassword({
+            email,
+            password,
+        });
+
+        if (error) {
+            toast({
+                title: 'Error logging in',
+                description: error.message,
+                variant: 'destructive',
+            });
+        } else {
+            router.push('/trips');
+            router.refresh();
+        }
     }
 
   return (
@@ -35,6 +54,8 @@ export default function LoginPage() {
                 type="email"
                 placeholder="m@example.com"
                 required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 />
             </div>
             <div className="grid gap-2">
@@ -47,12 +68,18 @@ export default function LoginPage() {
                     Forgot your password?
                 </Link>
                 </div>
-                <Input id="password" type="password" required />
+                <Input 
+                    id="password" 
+                    type="password" 
+                    required 
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                />
             </div>
             <Button type="submit" className="w-full" onClick={handleLogin}>
                 Login
             </Button>
-            <Button variant="outline" className="w-full">
+            <Button variant="outline" className="w-full" disabled>
                 Login with Google
             </Button>
             </div>

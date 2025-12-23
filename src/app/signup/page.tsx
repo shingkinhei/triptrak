@@ -13,14 +13,51 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useRouter } from 'next/navigation';
+import { useState } from 'react';
+import { createClient } from '@/lib/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 export default function SignupPage() {
     const router = useRouter();
+    const supabase = createClient();
+    const { toast } = useToast();
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [fullName, setFullName] = useState('');
 
-    const handleSignup = () => {
-        // Mock signup logic
-        console.log('Signing up...');
-        router.push('/trips');
+
+    const handleSignup = async () => {
+        const { data, error } = await supabase.auth.signUp({
+            email,
+            password,
+            options: {
+                data: {
+                    full_name: fullName,
+                }
+            }
+        });
+
+        if (error) {
+            toast({
+                title: 'Error signing up',
+                description: error.message,
+                variant: 'destructive',
+            });
+        } else if (data.user && data.user.identities && data.user.identities.length === 0) {
+             toast({
+                title: 'Confirmation required',
+                description: 'Please check your email to confirm your account. The user already exists.',
+                variant: 'default',
+            });
+        }
+        else {
+             toast({
+                title: 'Confirmation required',
+                description: 'Please check your email to confirm your account.',
+                variant: 'default',
+            });
+            router.push('/login');
+        }
     }
 
   return (
@@ -36,7 +73,7 @@ export default function SignupPage() {
             <div className="grid gap-4">
             <div className="grid gap-2">
                 <Label htmlFor="full-name">Full name</Label>
-                <Input id="full-name" placeholder="John Doe" required />
+                <Input id="full-name" placeholder="John Doe" required value={fullName} onChange={(e) => setFullName(e.target.value)} />
             </div>
             <div className="grid gap-2">
                 <Label htmlFor="email">Email</Label>
@@ -45,16 +82,18 @@ export default function SignupPage() {
                 type="email"
                 placeholder="m@example.com"
                 required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 />
             </div>
             <div className="grid gap-2">
                 <Label htmlFor="password">Password</Label>
-                <Input id="password" type="password" />
+                <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
             </div>
             <Button type="submit" className="w-full" onClick={handleSignup}>
                 Create an account
             </Button>
-            <Button variant="outline" className="w-full">
+            <Button variant="outline" className="w-full" disabled>
                 Sign up with Google
             </Button>
             </div>

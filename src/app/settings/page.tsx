@@ -1,7 +1,7 @@
 
 'use client';
 import { useState, useEffect } from 'react';
-import { Home, LogOut, Settings } from 'lucide-react';
+import { LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -9,20 +9,32 @@ import { useCurrency } from '@/context/CurrencyContext';
 import { BottomNav } from '@/components/bottom-nav';
 import type { Currency } from '@/lib/types';
 import { useRouter } from 'next/navigation';
+import { createClient } from '@/lib/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 export default function SettingsPage() {
     const { homeCurrency, setHomeCurrency, rates } = useCurrency();
     const [isClient, setIsClient] = useState(false);
     const router = useRouter();
+    const supabase = createClient();
+    const { toast } = useToast();
 
     useEffect(() => {
         setIsClient(true);
     }, []);
 
-    const handleLogout = () => {
-        // Mock logout logic
-        console.log('Logging out...');
-        router.push('/login');
+    const handleLogout = async () => {
+        const { error } = await supabase.auth.signOut();
+        if (error) {
+            toast({
+                title: 'Error logging out',
+                description: error.message,
+                variant: 'destructive',
+            });
+        } else {
+            router.push('/login');
+            router.refresh();
+        }
     }
 
   return (
