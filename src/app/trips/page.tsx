@@ -21,15 +21,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 
 type EditableTrip = Partial<Pick<Trip, 'name' | 'destination' | 'country_code' | 'start_date' | 'end_date' | 'cover_image_url' | 'cover_image_hint'>>;
 type StatusOption = { status: string; description: string | null };
-
-const countryOptions = [
-  { value: 'US', label: 'United States' },
-  { value: 'JP', label: 'Japan' },
-  { value: 'IT', label: 'Italy' },
-  { value: 'FR', label: 'France' },
-  { value: 'ES', label: 'Spain' },
-  { value: 'GB', label: 'United Kingdom' },
-];
+type CountryOption = { country_code: string; name: string };
 
 export default function TripsPage() {
   const [trips, setTrips] = useState<Trip[]>([]);
@@ -39,6 +31,7 @@ export default function TripsPage() {
   const [tripForm, setTripForm] = useState<EditableTrip>({});
   const [userName, setUserName] = useState<string | null>(null);
   const [statusOptions, setStatusOptions] = useState<StatusOption[]>([]);
+  const [countryOptions, setCountryOptions] = useState<CountryOption[]>([]);
   const supabase = createClient();
   const { toast } = useToast();
 
@@ -68,6 +61,15 @@ export default function TripsPage() {
     }
   };
 
+  const fetchCountryOptions = async () => {
+    const { data, error } = await supabase.from('countries_setup').select('country_code, name');
+    if (error) {
+      toast({ title: 'Error fetching countries', description: error.message, variant: 'destructive'});
+    } else {
+      setCountryOptions(data as CountryOption[]);
+    }
+  };
+
   useEffect(() => {
     const fetchUser = async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -79,6 +81,7 @@ export default function TripsPage() {
     fetchUser();
     fetchTrips();
     fetchStatusOptions();
+    fetchCountryOptions();
   }, []);
 
   const [newTrip, setNewTrip] = useState({
@@ -240,7 +243,7 @@ export default function TripsPage() {
                     </div>
                     <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="destination" className="text-right">Destination</Label>
-                    <Input id="destination" value={newTrip.destination} onChange={(e) => setNewTrip({...newTrip, destination: e.target.value})} className="col-span-3" placeholder="e.g. Italy" />
+                    <Input id="destination" value={newTrip.destination} onChange={(e) => setNewTrip({...newTrip, destination: e.target.value})} className="col-span-3" placeholder="e.g. Rome, Florence, Venice" />
                     </div>
                      <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="country" className="text-right">Country</Label>
@@ -250,7 +253,7 @@ export default function TripsPage() {
                             </SelectTrigger>
                             <SelectContent>
                                 {countryOptions.map(option => (
-                                    <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                                    <SelectItem key={option.country_code} value={option.country_code}>{option.name}</SelectItem>
                                 ))}
                             </SelectContent>
                         </Select>
@@ -372,7 +375,7 @@ export default function TripsPage() {
                     </SelectTrigger>
                     <SelectContent>
                         {countryOptions.map(option => (
-                            <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                            <SelectItem key={option.country_code} value={option.country_code}>{option.name}</SelectItem>
                         ))}
                     </SelectContent>
                 </Select>
@@ -421,3 +424,5 @@ export default function TripsPage() {
     </main>
   );
 }
+
+    
