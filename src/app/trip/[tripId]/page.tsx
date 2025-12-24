@@ -205,7 +205,7 @@ export default function TripDetailsPage() {
       
       const { data: daysData, error: daysError } = await supabase
         .from('trip_days')
-        .select(`*, trip_day_activities (*)`)
+        .select(`*, activities:trip_day_activities (*)`)
         .eq('trip_uuid', tripId)
         .order('day_number', { ascending: true });
 
@@ -224,7 +224,7 @@ export default function TripDetailsPage() {
 
       const enrichedTrip: Trip = {
         ...tripData,
-        itinerary: (daysData || []).map(d => ({...d, activities: d.trip_day_activities})),
+        itinerary: (daysData || []).map(d => ({...d, activities: d.activities})),
         checklist: checklistData || [],
       };
       
