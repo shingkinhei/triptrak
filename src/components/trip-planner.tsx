@@ -83,6 +83,11 @@ interface TripPlannerProps {
   trip: Trip;
 }
 
+type EditableItineraryItem = ItineraryItem & {
+    cover_image_file?: File | null;
+    cover_image_preview?: string | null;
+}
+
 const PreTripChecklist = ({ checklist: initialChecklist, tripId }: { checklist: ChecklistItem[], tripId: string }) => {
     const [checklist, setChecklist] = useState(initialChecklist);
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -264,11 +269,12 @@ const PreTripChecklist = ({ checklist: initialChecklist, tripId }: { checklist: 
 export function TripPlanner({ trip }: TripPlannerProps) {
   const [itinerary, setItinerary] = useState<ItineraryItem[]>(trip.itinerary);
   const [checklist, setChecklist] = useState<ChecklistItem[]>(trip.checklist);
-  const [editingItem, setEditingItem] = useState<ItineraryItem | null>(null);
+  const [editingItem, setEditingItem] = useState<EditableItineraryItem | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [activeView, setActiveView] = useState<string>('checklist');
   const [viewingPhoto, setViewingPhoto] = useState<UserPhoto | null>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
+  const dayCoverInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
   const supabase = createClient();
   const { toast } = useToast();
@@ -283,6 +289,7 @@ export function TripPlanner({ trip }: TripPlannerProps) {
         setEditingItem({
             ...item,
             activities: item.activities ? [...item.activities.map(a => ({...a}))] : [],
+            cover_image_preview: item.cover_image_url
         });
         setIsEditDialogOpen(true);
     }, 150);
@@ -291,16 +298,52 @@ export function TripPlanner({ trip }: TripPlannerProps) {
   const handleSave = async () => {
     if (!editingItem) return;
 
-    // Optimistic update
     const originalItinerary = [...itinerary];
-    setItinerary(prev => prev.map(item => item.day_uuid === editingItem.day_uuid ? editingItem : item));
+    const itemToSave = { ...editingItem };
+    
+    // Set optimistic UI state
+    setItinerary(prev => prev.map(item => item.day_uuid === itemToSave.day_uuid ? itemToSave : item));
     handleCancelEdit();
+
+    const oldImageUrl = originalItinerary.find(i => i.day_uuid === itemToSave.day_uuid)?.cover_image_url;
+
+    // Handle image upload
+    if (itemToSave.cover_image_file) {
+        const file = itemToSave.cover_image_file;
+        const filePath = `${trip.user_id}/${trip.trip_uuid}/${itemToSave.day_uuid}-${file.name}`;
+        
+        const { error: uploadError } = await supabase.storage.from('trip_cover').upload(filePath, file, { upsert: true });
+
+        if (uploadError) {
+            toast({ title: 'Error uploading day cover', description: uploadError.message, variant: 'destructive' });
+            setItinerary(originalItinerary); // Revert
+            return;
+        }
+
+        const { data: urlData } = supabase.storage.from('trip_cover').getPublicUrl(filePath);
+        itemToSave.cover_image_url = urlData.publicUrl;
+
+        // If there was an old image and it's different from the new one, delete it
+        if (oldImageUrl && oldImageUrl !== itemToSave.cover_image_url) {
+            const oldImageKey = oldImageUrl.split('/trip_cover/').pop();
+            if (oldImageKey) await supabase.storage.from('trip_cover').remove([oldImageKey]);
+        }
+    } else if (itemToSave.cover_image_url === null && oldImageUrl) {
+        // Handle image removal
+        const oldImageKey = oldImageUrl.split('/trip_cover/').pop();
+        if (oldImageKey) {
+            const { error: deleteError } = await supabase.storage.from('trip_cover').remove([oldImageKey]);
+            if (deleteError) toast({ title: 'Could not delete old day cover', description: deleteError.message, variant: 'destructive' });
+        }
+    }
     
     const { error: dayError } = await supabase.from('trip_days').update({
-        title: editingItem.title,
-        date: editingItem.date,
-        feedback: editingItem.feedback,
-    }).eq('day_uuid', editingItem.day_uuid);
+        title: itemToSave.title,
+        date: itemToSave.date,
+        feedback: itemToSave.feedback,
+        cover_image_url: itemToSave.cover_image_url,
+        cover_image_hint: itemToSave.cover_image_hint,
+    }).eq('day_uuid', itemToSave.day_uuid);
 
     if (dayError) {
         toast({ title: 'Error saving day', description: dayError.message, variant: 'destructive'});
@@ -308,11 +351,11 @@ export function TripPlanner({ trip }: TripPlannerProps) {
         return;
     }
 
-    const originalActivities = originalItinerary.find(i => i.day_uuid === editingItem.day_uuid)?.activities || [];
+    const originalActivities = originalItinerary.find(i => i.day_uuid === itemToSave.day_uuid)?.activities || [];
     
-    const newActivities = editingItem.activities.filter(act => act.activity_uuid.startsWith('act_'));
-    const updatedActivities = editingItem.activities.filter(act => !act.activity_uuid.startsWith('act_') && JSON.stringify(act) !== JSON.stringify(originalActivities.find(oa => oa.activity_uuid === act.activity_uuid)));
-    const deletedActivities = originalActivities.filter(oa => !editingItem.activities.some(ea => ea.activity_uuid === oa.activity_uuid));
+    const newActivities = itemToSave.activities.filter(act => act.activity_uuid.startsWith('act_'));
+    const updatedActivities = itemToSave.activities.filter(act => !act.activity_uuid.startsWith('act_') && JSON.stringify(act) !== JSON.stringify(originalActivities.find(oa => oa.activity_uuid === act.activity_uuid)));
+    const deletedActivities = originalActivities.filter(oa => !itemToSave.activities.some(ea => ea.activity_uuid === oa.activity_uuid));
     
     if (deletedActivities.length > 0) {
         const { error } = await supabase.from('trip_day_activities').delete().in('activity_uuid', deletedActivities.map(a => a.activity_uuid));
@@ -320,35 +363,35 @@ export function TripPlanner({ trip }: TripPlannerProps) {
     }
 
     if (updatedActivities.length > 0) {
-        const { error } = await supabase.from('trip_day_activities').upsert(updatedActivities.map(({day_uuid, ...rest}) => ({...rest, day_uuid: editingItem.day_uuid})));
+        const { error } = await supabase.from('trip_day_activities').upsert(updatedActivities.map(({day_uuid, ...rest}) => ({...rest, day_uuid: itemToSave.day_uuid})));
         if (error) toast({ title: 'Error Updating Activities', description: error.message, variant: 'destructive' });
     }
 
     if (newActivities.length > 0) {
-        const { error } = await supabase.from('trip_day_activities').insert(newActivities.map(act => ({ day_uuid: editingItem.day_uuid, time: act.time, description: act.description, icon: act.icon })));
+        const { error } = await supabase.from('trip_day_activities').insert(newActivities.map(act => ({ day_uuid: itemToSave.day_uuid, time: act.time, description: act.description, icon: act.icon })));
         if (error) toast({ title: 'Error Adding New Activities', description: error.message, variant: 'destructive' });
     }
 
-    toast({ title: 'Day Saved!', description: `Changes to Day ${editingItem.day_number} have been saved.`});
+    toast({ title: 'Day Saved!', description: `Changes to Day ${itemToSave.day_number} have been saved.`});
 
-    // Re-fetch to get new UUIDs for added activities
     const { data: refreshedDay, error: refreshError } = await supabase
         .from('trip_days')
-        .select(`*, trip_day_activities (*)`)
-        .eq('day_uuid', editingItem.day_uuid)
+        .select(`*, activities:trip_day_activities(*)`)
+        .eq('day_uuid', itemToSave.day_uuid)
         .single();
     
     if (!refreshError && refreshedDay) {
-        setItinerary(prev => prev.map(item => item.day_uuid === refreshedDay.day_uuid ? ({...refreshedDay, activities: refreshedDay.trip_day_activities } as ItineraryItem) : item));
+        setItinerary(prev => prev.map(item => item.day_uuid === refreshedDay.day_uuid ? ({...refreshedDay, activities: refreshedDay.activities } as ItineraryItem) : item));
     }
   };
+
 
   const handleCancelEdit = () => {
     setIsEditDialogOpen(false);
     setEditingItem(null);
   }
 
-  const handleFieldChange = (field: keyof Omit<ItineraryItem, 'activities' | 'userPhotos' | 'checklist'>, value: string) => {
+  const handleFieldChange = (field: keyof Omit<EditableItineraryItem, 'activities' | 'userPhotos' | 'checklist'>, value: string | null) => {
     if (editingItem) {
       setEditingItem({ ...editingItem, [field]: value });
     }
@@ -383,6 +426,24 @@ export function TripPlanner({ trip }: TripPlannerProps) {
     }
   };
 
+  const handleDayCoverImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || !editingItem) return;
+    const file = e.target.files[0];
+    if (file) {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            setEditingItem(prev => prev ? {...prev, cover_image_file: file, cover_image_preview: reader.result as string, cover_image_url: reader.result as string} : null);
+        };
+        reader.readAsDataURL(file);
+    }
+  };
+
+  const handleRemoveDayCoverImage = () => {
+      if (editingItem) {
+          setEditingItem(prev => prev ? {...prev, cover_image_file: null, cover_image_preview: null, cover_image_url: null} : null);
+      }
+  }
+
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || !editingItem) return;
     toast({ title: 'Feature not implemented', description: 'Uploading user photos is not yet supported in this version.', variant: 'default'});
@@ -412,7 +473,7 @@ export function TripPlanner({ trip }: TripPlannerProps) {
       day_number: newDayNumber,
       title: 'New Destination',
       date: newDateString,
-      cover_image_url: 'https://picsum.photos/seed/newday/600/400',
+      cover_image_url: `https://picsum.photos/seed/${new Date().getTime()}/600/400`,
       cover_image_hint: 'landscape',
     };
 
@@ -571,6 +632,30 @@ export function TripPlanner({ trip }: TripPlannerProps) {
                 <Input id="date" type="date" value={editingItem.date} onChange={(e) => handleFieldChange('date', e.target.value)} />
               </div>
 
+                <div className="space-y-2">
+                    <Label>Day Cover Image</Label>
+                    {editingItem.cover_image_preview && (
+                        <div className="relative w-full aspect-[4/3] rounded-md overflow-hidden">
+                            <Image src={editingItem.cover_image_preview} alt="Day cover preview" fill className="object-cover"/>
+                        </div>
+                    )}
+                    <div className="flex gap-2">
+                         <Input 
+                            type="file" 
+                            accept="image/*" 
+                            ref={dayCoverInputRef}
+                            onChange={handleDayCoverImageChange}
+                            className="hidden"
+                        />
+                        <Button variant="outline" size="sm" onClick={() => dayCoverInputRef.current?.click()}>
+                            <Upload className="mr-2 h-4 w-4" /> Upload
+                        </Button>
+                        <Button variant="destructive" size="sm" onClick={handleRemoveDayCoverImage} disabled={!editingItem.cover_image_preview}>
+                            <Trash2 className="mr-2 h-4 w-4" /> Remove
+                        </Button>
+                    </div>
+                </div>
+
               <div className="space-y-2">
                 <Label htmlFor="remarks">Feedback</Label>
                 <Textarea id="remarks" value={editingItem.feedback || ''} onChange={(e) => handleFieldChange('feedback', e.target.value)} placeholder="Write your feelings or reflections..."/>
@@ -684,5 +769,3 @@ export function TripPlanner({ trip }: TripPlannerProps) {
     </div>
   );
 }
-
-    
