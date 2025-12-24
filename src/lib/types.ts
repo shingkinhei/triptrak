@@ -7,7 +7,7 @@ export type Activity = {
   day_uuid: string;
   time: string;
   description: string;
-  icon: string; // Now a string to match icon map keys
+  icon: string;
 };
 
 export type UserPhoto = {
@@ -16,7 +16,8 @@ export type UserPhoto = {
 };
 
 export type ChecklistItem = {
-    id: string;
+    checklist_uuid: string;
+    trip_uuid: string;
     label: string;
     checked: boolean;
 };
@@ -82,6 +83,7 @@ export type Trip = {
   cover_image_url: string;
   cover_image_hint: string;
   created_at: string;
+  // These are now handled separately
   itinerary: ItineraryItem[];
   transactions: Transaction[];
   shopping_list: ShoppingCategory[];

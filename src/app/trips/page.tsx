@@ -172,7 +172,6 @@ export default function TripsPage() {
       cover_image_hint: coverImageHint,
       transactions: [],
       shopping_list: [],
-      checklist: [],
     };
     
     const { data, error } = await supabase.from('trips').insert([newTripData]).select().single();

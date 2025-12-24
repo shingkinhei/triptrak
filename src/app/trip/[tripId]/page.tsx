@@ -133,28 +133,10 @@ const TabContent: FC<TabContentProps> = ({ trip, setTrip, activeTab }) => {
       return { ...currentTrip, shopping_list: newShoppingList };
     });
   };
-
-  const setItinerary = (updater: React.SetStateAction<ItineraryItem[]>) => {
-      setTrip((currentTrip) => {
-        if (!currentTrip) return undefined;
-        const newItinerary = typeof updater === 'function' ? updater(currentTrip.itinerary) : updater;
-        return { ...currentTrip, itinerary: newItinerary };
-      });
-    };
-
+  
   const componentProps = {
     planner: {
       trip: trip,
-      itinerary: trip.itinerary,
-      setItinerary: setItinerary,
-      checklist: trip.checklist,
-      setChecklist: (updater: React.SetStateAction<ChecklistItem[]>) => {
-        setTrip((currentTrip) => {
-            if (!currentTrip) return undefined;
-            const newChecklist = typeof updater === 'function' ? updater(currentTrip.checklist) : updater;
-            return { ...currentTrip, checklist: newChecklist };
-        });
-      },
     },
     map: {
       locations: trip.itinerary.map((i) => ({
@@ -205,44 +187,6 @@ export default function TripDetailsPage() {
   const [newItem, setNewItem] = useState<NewItemInput>({ name: '', price: '', categoryId: '', location: '', store: '', file: null, previewUrl: '' });
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  const debouncedUpdateTripDay = useCallback(
-    debounce(async (day: ItineraryItem) => {
-      const { activities, ...dayData } = day;
-      const { error } = await supabase
-        .from('trip_days')
-        .update({
-          title: dayData.title,
-          date: dayData.date,
-          feedback: dayData.feedback,
-          cover_image_url: dayData.cover_image_url,
-          cover_image_hint: dayData.cover_image_hint,
-        })
-        .eq('day_uuid', day.day_uuid);
-      if (error) {
-        toast({ title: 'Error saving day details', description: error.message, variant: 'destructive' });
-      }
-    }, 1000),
-    []
-  );
-
-  const debouncedUpdateActivity = useCallback(
-    debounce(async (activity: Activity) => {
-      const { error } = await supabase
-        .from('trip_day_activities')
-        .update({
-          time: activity.time,
-          description: activity.description,
-          icon: activity.icon,
-        })
-        .eq('activity_uuid', activity.activity_uuid);
-
-      if (error) {
-        toast({ title: 'Error saving activity', description: error.message, variant: 'destructive' });
-      }
-    }, 1000),
-    []
-  );
-
   useEffect(() => {
     const fetchTripData = async () => {
       if (!tripId) return;
@@ -258,7 +202,7 @@ export default function TripDetailsPage() {
         router.push('/trips');
         return;
       }
-
+      
       const { data: daysData, error: daysError } = await supabase
         .from('trip_days')
         .select(`*, trip_day_activities (*)`)
@@ -268,12 +212,22 @@ export default function TripDetailsPage() {
       if (daysError) {
         toast({ title: 'Error fetching trip days', description: daysError.message, variant: 'destructive' });
       }
-      
-      const enrichedTrip = {
-        ...tripData,
-        itinerary: daysData || [],
-      } as Trip;
 
+      const { data: checklistData, error: checklistError } = await supabase
+        .from('pre_trip_checklist')
+        .select(`*`)
+        .eq('trip_uuid', tripId);
+
+      if(checklistError) {
+          toast({ title: 'Error fetching checklist', description: checklistError.message, variant: 'destructive' });
+      }
+
+      const enrichedTrip: Trip = {
+        ...tripData,
+        itinerary: (daysData || []).map(d => ({...d, activities: d.trip_day_activities})),
+        checklist: checklistData || [],
+      };
+      
       setTrip(enrichedTrip);
       if (tripData.country_code) {
         setTripCurrencyFromCountry(tripData.country_code);
@@ -291,28 +245,18 @@ export default function TripDetailsPage() {
           .update({
             transactions: trip.transactions,
             shopping_list: trip.shopping_list,
-            checklist: trip.checklist
           })
           .eq('trip_uuid', trip.trip_uuid);
         
         if (error) {
           toast({ title: 'Error saving trip data', description: error.message, variant: 'destructive'});
         }
-
-        // We also need to update days and activities if they've changed
-        trip.itinerary.forEach(day => {
-          debouncedUpdateTripDay(day);
-          day.activities.forEach(activity => {
-            debouncedUpdateActivity(activity);
-          });
-        });
-
       }, 1500);
 
       debouncedUpdater();
       return () => debouncedUpdater.cancel();
     }
-  }, [trip, supabase, toast, debouncedUpdateTripDay, debouncedUpdateActivity]);
+  }, [trip, supabase, toast]);
 
 
   const itineraryLocations = useMemo(() => {

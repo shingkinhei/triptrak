@@ -81,19 +81,29 @@ const iconOptions = [
 
 interface TripPlannerProps {
   trip: Trip;
-  itinerary: ItineraryItem[];
-  setItinerary: React.Dispatch<React.SetStateAction<ItineraryItem[]>>;
-  checklist: ChecklistItem[];
-  setChecklist: React.Dispatch<React.SetStateAction<ChecklistItem[]>>;
 }
 
-const PreTripChecklist = ({ checklist, setChecklist }: { checklist: ChecklistItem[], setChecklist: React.Dispatch<React.SetStateAction<ChecklistItem[]>> }) => {
+const PreTripChecklist = ({ checklist: initialChecklist, tripId }: { checklist: ChecklistItem[], tripId: string }) => {
+    const [checklist, setChecklist] = useState(initialChecklist);
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
     const [editingChecklist, setEditingChecklist] = useState<ChecklistItem[]>([]);
     const [newItemLabel, setNewItemLabel] = useState('');
+    const supabase = createClient();
+    const { toast } = useToast();
 
-    const handleCheckChange = (id: string, checked: boolean) => {
-        setChecklist(prev => prev.map(item => item.id === id ? { ...item, checked } : item));
+    useEffect(() => {
+        setChecklist(initialChecklist);
+    }, [initialChecklist]);
+
+    const handleCheckChange = async (item: ChecklistItem, checked: boolean) => {
+        const originalState = [...checklist];
+        setChecklist(prev => prev.map(i => i.checklist_uuid === item.checklist_uuid ? { ...i, checked } : i));
+
+        const { error } = await supabase.from('pre_trip_checklist').update({ checked }).eq('checklist_uuid', item.checklist_uuid);
+        if (error) {
+            toast({ title: "Error", description: "Failed to update checklist item.", variant: "destructive" });
+            setChecklist(originalState);
+        }
     };
 
     const handleEditClick = () => {
@@ -101,19 +111,52 @@ const PreTripChecklist = ({ checklist, setChecklist }: { checklist: ChecklistIte
         setIsEditDialogOpen(true);
     };
 
-    const handleSave = () => {
+    const handleSave = async () => {
+        // Optimistic update
+        const originalChecklist = [...checklist];
         setChecklist(editingChecklist);
         setIsEditDialogOpen(false);
+
+        const newItems = editingChecklist.filter(item => item.checklist_uuid.startsWith('new-'));
+        const updatedItems = editingChecklist.filter(item => !item.checklist_uuid.startsWith('new-') && JSON.stringify(item) !== JSON.stringify(originalChecklist.find(i => i.checklist_uuid === item.checklist_uuid)));
+        const deletedItems = originalChecklist.filter(item => !editingChecklist.some(i => i.checklist_uuid === item.checklist_uuid));
+        
+        // Handle deletions
+        if (deletedItems.length > 0) {
+            const { error } = await supabase.from('pre_trip_checklist').delete().in('checklist_uuid', deletedItems.map(i => i.checklist_uuid));
+            if (error) toast({ title: "Error Deleting Items", description: error.message, variant: "destructive" });
+        }
+
+        // Handle updates
+        if (updatedItems.length > 0) {
+            const { error } = await supabase.from('pre_trip_checklist').upsert(updatedItems.map(({trip_uuid, ...rest}) => rest));
+            if (error) toast({ title: "Error Updating Items", description: error.message, variant: "destructive" });
+        }
+        
+        // Handle insertions
+        if (newItems.length > 0) {
+            const { error } = await supabase.from('pre_trip_checklist').insert(newItems.map(item => ({ trip_uuid: tripId, label: item.label, checked: item.checked })));
+            if (error) toast({ title: "Error Adding New Items", description: error.message, variant: "destructive" });
+        }
+
+        // Refetch to sync state
+        const { data, error } = await supabase.from('pre_trip_checklist').select('*').eq('trip_uuid', tripId);
+        if (!error && data) {
+            setChecklist(data as ChecklistItem[]);
+        } else {
+            setChecklist(originalChecklist); // Revert on failure
+        }
     };
 
     const handleItemLabelChange = (id: string, label: string) => {
-        setEditingChecklist(prev => prev.map(item => item.id === id ? { ...item, label } : item));
+        setEditingChecklist(prev => prev.map(item => item.checklist_uuid === id ? { ...item, label } : item));
     };
 
     const handleAddItem = () => {
         if (newItemLabel.trim()) {
             const newItem: ChecklistItem = {
-                id: `new-${new Date().getTime()}`,
+                checklist_uuid: `new-${new Date().getTime()}`,
+                trip_uuid: tripId,
                 label: newItemLabel.trim(),
                 checked: false,
             };
@@ -123,7 +166,7 @@ const PreTripChecklist = ({ checklist, setChecklist }: { checklist: ChecklistIte
     };
 
     const handleDeleteItem = (id: string) => {
-        setEditingChecklist(prev => prev.filter(item => item.id !== id));
+        setEditingChecklist(prev => prev.filter(item => item.checklist_uuid !== id));
     };
 
     return (
@@ -143,14 +186,14 @@ const PreTripChecklist = ({ checklist, setChecklist }: { checklist: ChecklistIte
             <CardContent>
                 <div className="space-y-3">
                     {checklist.map(item => (
-                        <div key={item.id} className="flex items-center gap-3">
+                        <div key={item.checklist_uuid} className="flex items-center gap-3">
                             <Checkbox
-                                id={item.id}
-                                onCheckedChange={(checked) => handleCheckChange(item.id, !!checked)}
+                                id={item.checklist_uuid}
+                                onCheckedChange={(checked) => handleCheckChange(item, !!checked)}
                                 checked={item.checked}
                             />
                             <Label
-                                htmlFor={item.id}
+                                htmlFor={item.checklist_uuid}
                                 className={cn(
                                     "text-sm font-normal text-card-foreground transition-colors",
                                     item.checked && "text-muted-foreground line-through"
@@ -170,10 +213,10 @@ const PreTripChecklist = ({ checklist, setChecklist }: { checklist: ChecklistIte
                     </DialogHeader>
                     <div className="space-y-4 max-h-[60vh] overflow-y-auto py-4 pr-2">
                         {editingChecklist.map(item => (
-                            <div key={item.id} className="flex items-center gap-2">
+                            <div key={item.checklist_uuid} className="flex items-center gap-2">
                                 <Input
                                     value={item.label}
-                                    onChange={(e) => handleItemLabelChange(item.id, e.target.value)}
+                                    onChange={(e) => handleItemLabelChange(item.checklist_uuid, e.target.value)}
                                     className="flex-grow"
                                 />
                                 <AlertDialog>
@@ -189,7 +232,7 @@ const PreTripChecklist = ({ checklist, setChecklist }: { checklist: ChecklistIte
                                         </AlertDialogHeader>
                                         <AlertDialogFooter>
                                             <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                            <AlertDialogAction onClick={() => handleDeleteItem(item.id)} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
+                                            <AlertDialogAction onClick={() => handleDeleteItem(item.checklist_uuid)} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
                                         </AlertDialogFooter>
                                     </AlertDialogContent>
                                 </AlertDialog>
@@ -218,7 +261,9 @@ const PreTripChecklist = ({ checklist, setChecklist }: { checklist: ChecklistIte
     )
 }
 
-export function TripPlanner({ trip, itinerary, setItinerary, checklist, setChecklist }: TripPlannerProps) {
+export function TripPlanner({ trip }: TripPlannerProps) {
+  const [itinerary, setItinerary] = useState<ItineraryItem[]>(trip.itinerary);
+  const [checklist, setChecklist] = useState<ChecklistItem[]>(trip.checklist);
   const [editingItem, setEditingItem] = useState<ItineraryItem | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [activeView, setActiveView] = useState<string>('checklist');
@@ -228,6 +273,11 @@ export function TripPlanner({ trip, itinerary, setItinerary, checklist, setCheck
   const supabase = createClient();
   const { toast } = useToast();
   
+  useEffect(() => {
+    setItinerary(trip.itinerary);
+    setChecklist(trip.checklist);
+  }, [trip]);
+
   const handleEditClick = (item: ItineraryItem) => {
     setTimeout(() => {
         setEditingItem({
@@ -241,12 +291,11 @@ export function TripPlanner({ trip, itinerary, setItinerary, checklist, setCheck
   const handleSave = async () => {
     if (!editingItem) return;
 
-    // Update local state immediately for responsiveness
+    // Optimistic update
     const originalItinerary = [...itinerary];
     setItinerary(prev => prev.map(item => item.day_uuid === editingItem.day_uuid ? editingItem : item));
     handleCancelEdit();
     
-    // Persist day changes
     const { error: dayError } = await supabase.from('trip_days').update({
         title: editingItem.title,
         date: editingItem.date,
@@ -259,36 +308,28 @@ export function TripPlanner({ trip, itinerary, setItinerary, checklist, setCheck
         return;
     }
 
-    // Persist activities changes
     const originalActivities = originalItinerary.find(i => i.day_uuid === editingItem.day_uuid)?.activities || [];
     
-    // 1. Delete activities that are no longer in the list
+    const newActivities = editingItem.activities.filter(act => act.activity_uuid.startsWith('act_'));
+    const updatedActivities = editingItem.activities.filter(act => !act.activity_uuid.startsWith('act_') && JSON.stringify(act) !== JSON.stringify(originalActivities.find(oa => oa.activity_uuid === act.activity_uuid)));
     const deletedActivities = originalActivities.filter(oa => !editingItem.activities.some(ea => ea.activity_uuid === oa.activity_uuid));
-    if (deletedActivities.length > 0) {
-        const { error: deleteError } = await supabase.from('trip_day_activities').delete().in('activity_uuid', deletedActivities.map(a => a.activity_uuid));
-        if (deleteError) {
-             toast({ title: 'Error deleting activities', description: deleteError.message, variant: 'destructive'});
-             // Partial failure, might need more robust error handling
-        }
-    }
-
-    // 2. Upsert activities (update existing, insert new)
-    const upsertData = editingItem.activities.map(({ day_uuid, ...act }) => ({
-        activity_uuid: act.activity_uuid.startsWith('act_') ? undefined : act.activity_uuid, // Let DB generate for new ones
-        day_uuid: editingItem.day_uuid,
-        time: act.time,
-        description: act.description,
-        icon: act.icon
-    }));
     
-    const { error: upsertError } = await supabase.from('trip_day_activities').upsert(upsertData, { onConflict: 'activity_uuid' });
-
-    if (upsertError) {
-        toast({ title: 'Error saving activities', description: upsertError.message, variant: 'destructive'});
-        // Partial failure, might need more robust error handling
-    } else {
-        toast({ title: 'Day Saved!', description: `Changes to Day ${editingItem.day_number} have been saved.`});
+    if (deletedActivities.length > 0) {
+        const { error } = await supabase.from('trip_day_activities').delete().in('activity_uuid', deletedActivities.map(a => a.activity_uuid));
+        if (error) toast({ title: 'Error Deleting Activities', description: error.message, variant: 'destructive' });
     }
+
+    if (updatedActivities.length > 0) {
+        const { error } = await supabase.from('trip_day_activities').upsert(updatedActivities.map(({day_uuid, ...rest}) => ({...rest, day_uuid: editingItem.day_uuid})));
+        if (error) toast({ title: 'Error Updating Activities', description: error.message, variant: 'destructive' });
+    }
+
+    if (newActivities.length > 0) {
+        const { error } = await supabase.from('trip_day_activities').insert(newActivities.map(act => ({ day_uuid: editingItem.day_uuid, time: act.time, description: act.description, icon: act.icon })));
+        if (error) toast({ title: 'Error Adding New Activities', description: error.message, variant: 'destructive' });
+    }
+
+    toast({ title: 'Day Saved!', description: `Changes to Day ${editingItem.day_number} have been saved.`});
 
     // Re-fetch to get new UUIDs for added activities
     const { data: refreshedDay, error: refreshError } = await supabase
@@ -298,7 +339,7 @@ export function TripPlanner({ trip, itinerary, setItinerary, checklist, setCheck
         .single();
     
     if (!refreshError && refreshedDay) {
-        setItinerary(prev => prev.map(item => item.day_uuid === refreshedDay.day_uuid ? (refreshedDay as ItineraryItem) : item));
+        setItinerary(prev => prev.map(item => item.day_uuid === refreshedDay.day_uuid ? ({...refreshedDay, activities: refreshedDay.trip_day_activities } as ItineraryItem) : item));
     }
   };
 
@@ -325,7 +366,7 @@ export function TripPlanner({ trip, itinerary, setItinerary, checklist, setCheck
   const handleAddActivity = () => {
     if (editingItem) {
       const newActivity: Activity = {
-        activity_uuid: `act_${new Date().getTime()}`, // Temporary ID
+        activity_uuid: `act_${new Date().getTime()}`,
         day_uuid: editingItem.day_uuid,
         time: '00:00',
         description: 'New Activity',
@@ -427,7 +468,7 @@ export function TripPlanner({ trip, itinerary, setItinerary, checklist, setCheck
         <ScrollBar orientation="horizontal" />
       </ScrollArea>
 
-      {activeView === 'checklist' && <PreTripChecklist checklist={checklist} setChecklist={setChecklist} />}
+      {activeView === 'checklist' && <PreTripChecklist checklist={checklist} tripId={trip.trip_uuid} />}
 
       {activeItineraryItem && <WeatherCard location={activeItineraryItem.title.replace(/arrival in |exploring |day trip to /i, '')} />}
 
