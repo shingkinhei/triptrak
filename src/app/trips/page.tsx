@@ -61,14 +61,14 @@ export default function TripsPage() {
       if (error) {
         toast({ title: 'Error fetching trips', description: error.message, variant: 'destructive' });
       } else if (data) {
-        const statusOrder: Record<TripStatus, number> = { 'A': 1, 'U': 2, 'E': 3 };
+        const statusOrder: Record<TripStatus, number> = { 'A': 1, 'U': 2, 'P': 3 };
         
         const sortedData = data.sort((a, b) => {
           const statusComparison = statusOrder[a.status as TripStatus] - statusOrder[b.status as TripStatus];
           if (statusComparison !== 0) {
             return statusComparison;
           }
-          if (a.status === 'E') {
+          if (a.status === 'P') { // Corrected from 'E' to 'P' for Past
             return new Date(b.start_date).getTime() - new Date(a.start_date).getTime();
           }
           return new Date(a.start_date).getTime() - new Date(b.start_date).getTime();
@@ -241,9 +241,7 @@ export default function TripsPage() {
         return;
     }
 
-    let finalTripForm: EditableTrip = { ...tripForm };
-    delete finalTripForm.cover_image_file;
-    delete finalTripForm.cover_image_preview;
+    let updatedTripData: Omit<EditableTrip, 'cover_image_file' | 'cover_image_preview'> = { ...tripForm };
 
     if (tripForm.cover_image_file) {
       const file = tripForm.cover_image_file;
@@ -256,10 +254,13 @@ export default function TripsPage() {
       }
 
       const { data: urlData } = supabase.storage.from('trip_cover').getPublicUrl(filePath);
-      finalTripForm.cover_image_url = urlData.publicUrl;
+      updatedTripData.cover_image_url = urlData.publicUrl;
     }
+    
+    delete updatedTripData.cover_image_file;
+    delete updatedTripData.cover_image_preview;
 
-    const { error } = await supabase.from('trips').update(finalTripForm).eq('trip_uuid', editingTrip.trip_uuid);
+    const { error } = await supabase.from('trips').update(updatedTripData).eq('trip_uuid', editingTrip.trip_uuid);
     
     if (error) {
         toast({ title: 'Error updating trip', description: error.message, variant: 'destructive' });
@@ -522,5 +523,7 @@ export default function TripsPage() {
     </main>
   );
 }
+
+    
 
     

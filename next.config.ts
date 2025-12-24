@@ -30,7 +30,7 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: 'https',
-        hostname: 'rodtfkraukblqbshlazo.supabase.co',
+        hostname: process.env.NEXT_PUBLIC_SUPABASE_URL?.split('//')[1],
         port: '',
         pathname: '/storage/v1/object/public/**',
       },
@@ -39,3 +39,5 @@ const nextConfig: NextConfig = {
 };
 
 export default nextConfig;
+
+    
