@@ -68,9 +68,10 @@ export default function TripsPage() {
           if (statusComparison !== 0) {
             return statusComparison;
           }
-          if (a.status === 'P') { // Corrected from 'E' to 'P' for Past
+          if (a.status === 'P') { // For Past trips, sort descending by start date
             return new Date(b.start_date).getTime() - new Date(a.start_date).getTime();
           }
+          // For Active and Upcoming, sort ascending by start date
           return new Date(a.start_date).getTime() - new Date(b.start_date).getTime();
         });
 
@@ -144,6 +145,7 @@ export default function TripsPage() {
     }
 
     let coverImageUrl = `https://picsum.photos/seed/${newTrip.destination}/600/400`;
+    let coverImageHint = newTrip.destination;
 
     if (newTrip.cover_image_file) {
       const file = newTrip.cover_image_file;
@@ -168,7 +170,7 @@ export default function TripsPage() {
       end_date: newTrip.end_date,
       status: 'U' as TripStatus,
       cover_image_url: coverImageUrl,
-      cover_image_hint: newTrip.destination,
+      cover_image_hint: coverImageHint,
       itinerary: [],
       transactions: [],
       shopping_list: [],
@@ -196,7 +198,6 @@ export default function TripsPage() {
     });
     setTrips(updatedTrips);
 
-    // If we're setting a new trip to active, we need to deactivate the old one.
     if (status === 'A') {
         const oldActiveTrip = originalTrips.find(t => t.status === 'A' && t.trip_uuid !== tripId);
         if (oldActiveTrip) {
@@ -241,7 +242,16 @@ export default function TripsPage() {
         return;
     }
 
-    let updatedTripData: Omit<EditableTrip, 'cover_image_file' | 'cover_image_preview'> = { ...tripForm };
+    let updatedTripData: Omit<EditableTrip, 'cover_image_file' | 'cover_image_preview'> = {
+      name: tripForm.name,
+      destination: tripForm.destination,
+      country_code: tripForm.country_code,
+      start_date: tripForm.start_date,
+      end_date: tripForm.end_date,
+      cover_image_hint: tripForm.cover_image_hint,
+      cover_image_url: tripForm.cover_image_url,
+    };
+    const oldImageUrl = editingTrip.cover_image_url;
 
     if (tripForm.cover_image_file) {
       const file = tripForm.cover_image_file;
@@ -256,15 +266,23 @@ export default function TripsPage() {
       const { data: urlData } = supabase.storage.from('trip_cover').getPublicUrl(filePath);
       updatedTripData.cover_image_url = urlData.publicUrl;
     }
-    
-    delete updatedTripData.cover_image_file;
-    delete updatedTripData.cover_image_preview;
 
-    const { error } = await supabase.from('trips').update(updatedTripData).eq('trip_uuid', editingTrip.trip_uuid);
+    const { error: updateDbError } = await supabase.from('trips').update(updatedTripData).eq('trip_uuid', editingTrip.trip_uuid);
     
-    if (error) {
-        toast({ title: 'Error updating trip', description: error.message, variant: 'destructive' });
+    if (updateDbError) {
+        toast({ title: 'Error updating trip', description: updateDbError.message, variant: 'destructive' });
     } else {
+        // If a new image was uploaded and DB was updated, delete the old image
+        if (tripForm.cover_image_file && oldImageUrl) {
+            const oldImageKey = oldImageUrl.split('/trip_cover/').pop();
+            if (oldImageKey) {
+                const { error: deleteError } = await supabase.storage.from('trip_cover').remove([oldImageKey]);
+                if (deleteError) {
+                    toast({ title: 'Could not delete old image', description: deleteError.message, variant: 'destructive' });
+                }
+            }
+        }
+        
         fetchTrips();
         setIsEditDialogOpen(false);
         setEditingTrip(null);
@@ -273,12 +291,22 @@ export default function TripsPage() {
     }
   };
 
-  const handleDeleteTrip = async (tripId: string) => {
-    const { error } = await supabase.from('trips').delete().eq('trip_uuid', tripId);
+  const handleDeleteTrip = async (trip: Trip) => {
+    const { error } = await supabase.from('trips').delete().eq('trip_uuid', trip.trip_uuid);
     if (error) {
       toast({ title: 'Error deleting trip', description: error.message, variant: 'destructive' });
     } else {
-      setTrips(prev => prev.filter(t => t.trip_uuid !== tripId));
+      // After successfully deleting from DB, delete the image from storage
+      if (trip.cover_image_url) {
+        const imageKey = trip.cover_image_url.split('/trip_cover/').pop();
+        if (imageKey) {
+          const { error: deleteImageError } = await supabase.storage.from('trip_cover').remove([imageKey]);
+          if (deleteImageError) {
+            toast({ title: 'Trip deleted, but failed to remove image.', description: deleteImageError.message, variant: 'destructive' });
+          }
+        }
+      }
+      setTrips(prev => prev.filter(t => t.trip_uuid !== trip.trip_uuid));
       toast({ title: 'Trip Deleted', description: 'The trip has been successfully removed.' });
     }
   };
@@ -436,7 +464,7 @@ export default function TripsPage() {
                                           <AlertDialogCancel>Cancel</AlertDialogCancel>
                                           <AlertDialogAction
                                             className="bg-destructive hover:bg-destructive/90"
-                                            onClick={() => handleDeleteTrip(trip.trip_uuid)}>
+                                            onClick={() => handleDeleteTrip(trip)}>
                                             Delete
                                           </AlertDialogAction>
                                         </AlertDialogFooter>
@@ -523,7 +551,3 @@ export default function TripsPage() {
     </main>
   );
 }
-
-    
-
-    
