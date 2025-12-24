@@ -1,3 +1,4 @@
+
 'use client';
 import React, { useState, useRef, useEffect } from 'react';
 import Image from 'next/image';
@@ -53,6 +54,8 @@ import { Checkbox } from './ui/checkbox';
 import { cn } from '@/lib/utils';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from './ui/alert-dialog';
 import { ScrollArea, ScrollBar } from './ui/scroll-area';
+import { createClient } from '@/lib/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 const iconMap: Record<string, LucideIcon> = {
   Plane,
@@ -222,23 +225,81 @@ export function TripPlanner({ trip, itinerary, setItinerary, checklist, setCheck
   const [viewingPhoto, setViewingPhoto] = useState<UserPhoto | null>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
+  const supabase = createClient();
+  const { toast } = useToast();
   
   const handleEditClick = (item: ItineraryItem) => {
-    // A short delay to allow the dropdown menu to close before opening the dialog
     setTimeout(() => {
         setEditingItem({
             ...item,
             activities: item.activities ? [...item.activities.map(a => ({...a}))] : [],
-            userPhotos: item.userPhotos ? [...item.userPhotos.map(p => ({...p}))] : [],
         });
         setIsEditDialogOpen(true);
     }, 150);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!editingItem) return;
-    setItinerary(prev => prev.map(item => item.day === editingItem.day ? editingItem : item));
+
+    // Update local state immediately for responsiveness
+    const originalItinerary = [...itinerary];
+    setItinerary(prev => prev.map(item => item.day_uuid === editingItem.day_uuid ? editingItem : item));
     handleCancelEdit();
+    
+    // Persist day changes
+    const { error: dayError } = await supabase.from('trip_days').update({
+        title: editingItem.title,
+        date: editingItem.date,
+        feedback: editingItem.feedback,
+    }).eq('day_uuid', editingItem.day_uuid);
+
+    if (dayError) {
+        toast({ title: 'Error saving day', description: dayError.message, variant: 'destructive'});
+        setItinerary(originalItinerary); // Revert on error
+        return;
+    }
+
+    // Persist activities changes
+    const originalActivities = originalItinerary.find(i => i.day_uuid === editingItem.day_uuid)?.activities || [];
+    
+    // 1. Delete activities that are no longer in the list
+    const deletedActivities = originalActivities.filter(oa => !editingItem.activities.some(ea => ea.activity_uuid === oa.activity_uuid));
+    if (deletedActivities.length > 0) {
+        const { error: deleteError } = await supabase.from('trip_day_activities').delete().in('activity_uuid', deletedActivities.map(a => a.activity_uuid));
+        if (deleteError) {
+             toast({ title: 'Error deleting activities', description: deleteError.message, variant: 'destructive'});
+             // Partial failure, might need more robust error handling
+        }
+    }
+
+    // 2. Upsert activities (update existing, insert new)
+    const upsertData = editingItem.activities.map(({ day_uuid, ...act }) => ({
+        activity_uuid: act.activity_uuid.startsWith('act_') ? undefined : act.activity_uuid, // Let DB generate for new ones
+        day_uuid: editingItem.day_uuid,
+        time: act.time,
+        description: act.description,
+        icon: act.icon
+    }));
+    
+    const { error: upsertError } = await supabase.from('trip_day_activities').upsert(upsertData, { onConflict: 'activity_uuid' });
+
+    if (upsertError) {
+        toast({ title: 'Error saving activities', description: upsertError.message, variant: 'destructive'});
+        // Partial failure, might need more robust error handling
+    } else {
+        toast({ title: 'Day Saved!', description: `Changes to Day ${editingItem.day_number} have been saved.`});
+    }
+
+    // Re-fetch to get new UUIDs for added activities
+    const { data: refreshedDay, error: refreshError } = await supabase
+        .from('trip_days')
+        .select(`*, trip_day_activities (*)`)
+        .eq('day_uuid', editingItem.day_uuid)
+        .single();
+    
+    if (!refreshError && refreshedDay) {
+        setItinerary(prev => prev.map(item => item.day_uuid === refreshedDay.day_uuid ? (refreshedDay as ItineraryItem) : item));
+    }
   };
 
   const handleCancelEdit = () => {
@@ -255,7 +316,7 @@ export function TripPlanner({ trip, itinerary, setItinerary, checklist, setCheck
   const handleActivityChange = (actId: string, field: keyof Activity, value: string) => {
     if (editingItem) {
       const updatedActivities = editingItem.activities.map(act =>
-        act.id === actId ? { ...act, [field]: value } : act
+        act.activity_uuid === actId ? { ...act, [field]: value } : act
       );
       setEditingItem({ ...editingItem, activities: updatedActivities });
     }
@@ -264,7 +325,8 @@ export function TripPlanner({ trip, itinerary, setItinerary, checklist, setCheck
   const handleAddActivity = () => {
     if (editingItem) {
       const newActivity: Activity = {
-        id: `act_${new Date().getTime()}`,
+        activity_uuid: `act_${new Date().getTime()}`, // Temporary ID
+        day_uuid: editingItem.day_uuid,
         time: '00:00',
         description: 'New Activity',
         icon: 'Camera',
@@ -275,69 +337,56 @@ export function TripPlanner({ trip, itinerary, setItinerary, checklist, setCheck
   
   const handleDeleteActivity = (actId: string) => {
     if (editingItem) {
-      const updatedActivities = editingItem.activities.filter(act => act.id !== actId);
+      const updatedActivities = editingItem.activities.filter(act => act.activity_uuid !== actId);
       setEditingItem({ ...editingItem, activities: updatedActivities });
     }
   };
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || !editingItem) return;
-  
-    const file = e.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const newPhoto: UserPhoto = {
-          id: `photo_${new Date().getTime()}`,
-          url: reader.result as string,
-        };
-        setEditingItem(prev => prev ? { ...prev, userPhotos: [...(prev.userPhotos || []), newPhoto] } : null);
-      };
-      reader.readAsDataURL(file);
-    }
+    toast({ title: 'Feature not implemented', description: 'Uploading user photos is not yet supported in this version.', variant: 'default'});
   };
 
   const handleDeletePhoto = (photoId: string) => {
-    if (editingItem) {
-      const updatedPhotos = editingItem.userPhotos?.filter(p => p.id !== photoId);
-      setEditingItem({
-        ...editingItem,
-        userPhotos: updatedPhotos,
-      });
+     if (editingItem) {
+      toast({ title: 'Feature not implemented', description: 'Deleting user photos is not yet supported in this version.', variant: 'default'});
     }
   };
 
-  const handleAddDay = () => {
-    const newDayNumber = itinerary.length > 0 ? Math.max(...itinerary.map(i => i.day)) + 1 : 1;
+  const handleAddDay = async () => {
+    const newDayNumber = itinerary.length > 0 ? Math.max(...itinerary.map(i => i.day_number)) + 1 : 1;
 
     let newDate = new Date();
     if (itinerary.length > 0) {
         const lastDate = new Date(itinerary[itinerary.length - 1].date);
         lastDate.setDate(lastDate.getDate() + 1);
         newDate = lastDate;
-    } else if (trip.startDate) {
-        newDate = new Date(trip.startDate);
+    } else if (trip.start_date) {
+        newDate = new Date(trip.start_date);
     }
     const newDateString = newDate.toISOString().split('T')[0];
 
-    const newDay: ItineraryItem = {
-      id: `day-${newDayNumber}`,
-      day: newDayNumber,
+    const newDayData = {
+      trip_uuid: trip.trip_uuid,
+      day_number: newDayNumber,
       title: 'New Destination',
       date: newDateString,
-      image: {
-        url: 'https://picsum.photos/seed/newday/600/400',
-        hint: 'landscape',
-      },
-      activities: [],
-      userPhotos: [],
-      remarks: '',
+      cover_image_url: 'https://picsum.photos/seed/newday/600/400',
+      cover_image_hint: 'landscape',
     };
+
+    const { data, error } = await supabase.from('trip_days').insert(newDayData).select().single();
     
-    setItinerary(prev => [...prev, newDay].sort((a,b) => a.day - b.day));
+    if (error) {
+        toast({ title: 'Error adding day', description: error.message, variant: 'destructive'});
+    } else if (data) {
+        const newDay: ItineraryItem = { ...data, activities: [], userPhotos: [] };
+        setItinerary(prev => [...prev, newDay].sort((a,b) => a.day_number - b.day_number));
+        toast({ title: 'Day Added!', description: `Day ${newDayNumber} has been successfully added.`});
+    }
   };
   
-  const activeItineraryItem = itinerary.find(item => `day-${item.day}` === activeView);
+  const activeItineraryItem = itinerary.find(item => `day-${item.day_number}` === activeView);
 
   return (
     <div className="space-y-4">
@@ -366,12 +415,12 @@ export function TripPlanner({ trip, itinerary, setItinerary, checklist, setCheck
           </Button>
           {itinerary.map((item) => (
             <Button
-              key={item.id}
-              variant={activeView === `day-${item.day}` ? 'default' : 'outline'}
-              onClick={() => setActiveView(`day-${item.day}`)}
-              className={cn("shrink-0", activeView !== `day-${item.day}` && 'bg-white/10 border-white/20 text-white hover:bg-white/20 hover:text-white')}
+              key={item.day_uuid}
+              variant={activeView === `day-${item.day_number}` ? 'default' : 'outline'}
+              onClick={() => setActiveView(`day-${item.day_number}`)}
+              className={cn("shrink-0", activeView !== `day-${item.day_number}` && 'bg-white/10 border-white/20 text-white hover:bg-white/20 hover:text-white')}
             >
-              Day {item.day}
+              Day {item.day_number}
             </Button>
           ))}
         </div>
@@ -383,21 +432,23 @@ export function TripPlanner({ trip, itinerary, setItinerary, checklist, setCheck
       {activeItineraryItem && <WeatherCard location={activeItineraryItem.title.replace(/arrival in |exploring |day trip to /i, '')} />}
 
       {itinerary.map((item) => (
-          <div key={item.id} className={cn(activeView === `day-${item.day}` ? 'block' : 'hidden')}>
+          <div key={item.day_uuid} className={cn(activeView === `day-${item.day_number}` ? 'block' : 'hidden')}>
             <Card className="overflow-hidden bg-card/80 backdrop-blur-sm border-white/20 shadow-lg">
               <div className="relative">
                 <div className="relative w-full h-32 rounded-t-lg overflow-hidden">
-                  <Image
-                    src={item.image.url}
-                    alt={item.title}
-                    fill
-                    className="object-cover"
-                    data-ai-hint={item.image.hint}
-                  />
+                  {item.cover_image_url && 
+                    <Image
+                      src={item.cover_image_url}
+                      alt={item.title}
+                      fill
+                      className="object-cover"
+                      data-ai-hint={item.cover_image_hint || ''}
+                    />
+                  }
                   <div className="absolute inset-0 bg-black/40 flex items-end p-4">
                     <div className="text-white flex-grow text-left">
                       <h2 className="font-bold text-lg font-headline">
-                        Day {item.day}: {item.title}
+                        Day {item.day_number}: {item.title}
                       </h2>
                       <p className="text-sm">{item.date}</p>
                     </div>
@@ -420,9 +471,9 @@ export function TripPlanner({ trip, itinerary, setItinerary, checklist, setCheck
                 </div>
               </div>
               <div className="p-4 space-y-4">
-                 {item.remarks && (
+                 {item.feedback && (
                   <div className="prose prose-sm max-w-none text-card-foreground">
-                      <p>{item.remarks}</p>
+                      <p>{item.feedback}</p>
                   </div>
                 )}
 
@@ -439,7 +490,7 @@ export function TripPlanner({ trip, itinerary, setItinerary, checklist, setCheck
                   {item.activities.map((activity, actIndex) => {
                     const ActivityIcon = iconMap[activity.icon];
                     return (
-                      <li key={activity.id} className="flex items-start gap-4">
+                      <li key={activity.activity_uuid} className="flex items-start gap-4">
                         <div className="flex flex-col items-center">
                           <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary">
                             {ActivityIcon && <ActivityIcon className="h-4 w-4" />}
@@ -467,7 +518,7 @@ export function TripPlanner({ trip, itinerary, setItinerary, checklist, setCheck
         <Dialog open={isEditDialogOpen} onOpenChange={(isOpen) => { if (!isOpen) handleCancelEdit(); }}>
           <DialogContent className="max-h-[90vh] flex flex-col shadow-lg">
             <DialogHeader>
-              <DialogTitle>Edit Day {editingItem.day}</DialogTitle>
+              <DialogTitle>Edit Day {editingItem.day_number}</DialogTitle>
             </DialogHeader>
             <div className="flex-grow overflow-y-auto pr-6 -mr-6 space-y-4">
               <div className="space-y-2">
@@ -480,8 +531,8 @@ export function TripPlanner({ trip, itinerary, setItinerary, checklist, setCheck
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="remarks">Remarks</Label>
-                <Textarea id="remarks" value={editingItem.remarks || ''} onChange={(e) => handleFieldChange('remarks', e.target.value)} placeholder="Write your feelings or reflections..."/>
+                <Label htmlFor="remarks">Feedback</Label>
+                <Textarea id="remarks" value={editingItem.feedback || ''} onChange={(e) => handleFieldChange('feedback', e.target.value)} placeholder="Write your feelings or reflections..."/>
               </div>
 
               <div className="space-y-2">
@@ -521,10 +572,10 @@ export function TripPlanner({ trip, itinerary, setItinerary, checklist, setCheck
                 </div>
                 <div className="space-y-4">
                   {editingItem.activities.map((act) => (
-                    <div key={act.id} className="flex items-center gap-2 p-2 border rounded-lg">
+                    <div key={act.activity_uuid} className="flex items-center gap-2 p-2 border rounded-lg">
                       <div className="grid gap-2 flex-grow">
                         <div className="flex items-center gap-2">
-                            <Select value={act.icon} onValueChange={(val) => handleActivityChange(act.id, 'icon', val)}>
+                            <Select value={act.icon} onValueChange={(val) => handleActivityChange(act.activity_uuid, 'icon', val)}>
                                 <SelectTrigger className="w-16 h-8">
                                     <SelectValue>
                                         {iconMap[act.icon] && React.createElement(iconMap[act.icon], {className: "h-4 w-4"})}
@@ -544,18 +595,18 @@ export function TripPlanner({ trip, itinerary, setItinerary, checklist, setCheck
                           <Input
                             type="time"
                             value={act.time}
-                            onChange={(e) => handleActivityChange(act.id, 'time', e.target.value)}
+                            onChange={(e) => handleActivityChange(act.activity_uuid, 'time', e.target.value)}
                             className="w-24 h-8"
                           />
                         </div>
                         <Input
                           value={act.description}
-                          onChange={(e) => handleActivityChange(act.id, 'description', e.target.value)}
+                          onChange={(e) => handleActivityChange(act.activity_uuid, 'description', e.target.value)}
                           placeholder="Activity description"
                           className="h-8"
                         />
                       </div>
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDeleteActivity(act.id)}>
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDeleteActivity(act.activity_uuid)}>
                         <Trash2 className="h-4 w-4 text-destructive"/>
                       </Button>
                     </div>

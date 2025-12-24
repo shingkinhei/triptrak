@@ -3,7 +3,8 @@
 import type { LucideIcon } from "lucide-react";
 
 export type Activity = {
-  id: string;
+  activity_uuid: string;
+  day_uuid: string;
   time: string;
   description: string;
   icon: string; // Now a string to match icon map keys
@@ -21,16 +22,15 @@ export type ChecklistItem = {
 };
 
 export type ItineraryItem = {
-  id: string;
-  day: number;
+  day_uuid: string;
+  trip_uuid: string;
+  day_number: number;
   title: string;
   date: string;
-  image: {
-    url: string;
-    hint: string;
-  }
+  feedback: string | null;
+  cover_image_url: string | null;
+  cover_image_hint: string | null;
   activities: Activity[];
-  remarks?: string;
   userPhotos?: UserPhoto[];
 };
 

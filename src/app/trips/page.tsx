@@ -68,10 +68,9 @@ export default function TripsPage() {
           if (statusComparison !== 0) {
             return statusComparison;
           }
-          if (a.status === 'E') { // For Past trips, sort descending by start date
+          if (a.status === 'E') {
             return new Date(b.start_date).getTime() - new Date(a.start_date).getTime();
           }
-          // For Active and Upcoming, sort ascending by start date
           return new Date(a.start_date).getTime() - new Date(b.start_date).getTime();
         });
 
@@ -171,7 +170,6 @@ export default function TripsPage() {
       status: 'U' as TripStatus,
       cover_image_url: coverImageUrl,
       cover_image_hint: coverImageHint,
-      itinerary: [],
       transactions: [],
       shopping_list: [],
       checklist: [],
@@ -192,7 +190,7 @@ export default function TripsPage() {
   const handleSetStatus = async (tripId: string, status: TripStatus) => {
     const originalTrips = [...trips];
     const updatedTrips = trips.map(trip => {
-      if (trip.trip_uuid === tripId) return { ...trip, status: status as TripStatus };
+      if (trip.trip_uuid === tripId) return { ...trip, status: status };
       if (status === 'A' && trip.status === 'A') return { ...trip, status: 'U' as TripStatus };
       return trip;
     });
@@ -242,7 +240,7 @@ export default function TripsPage() {
         return;
     }
 
-    let updatedTripData: Omit<EditableTrip, 'cover_image_file' | 'cover_image_preview'> = {
+    let updatedTripData: Partial<Trip> = {
       name: tripForm.name,
       destination: tripForm.destination,
       country_code: tripForm.country_code,
@@ -272,7 +270,6 @@ export default function TripsPage() {
     if (updateDbError) {
         toast({ title: 'Error updating trip', description: updateDbError.message, variant: 'destructive' });
     } else {
-        // If a new image was uploaded and DB was updated, delete the old image
         if (tripForm.cover_image_file && oldImageUrl) {
             const oldImageKey = oldImageUrl.split('/trip_cover/').pop();
             if (oldImageKey) {
@@ -296,7 +293,6 @@ export default function TripsPage() {
     if (error) {
       toast({ title: 'Error deleting trip', description: error.message, variant: 'destructive' });
     } else {
-      // After successfully deleting from DB, delete the image from storage
       if (trip.cover_image_url) {
         const imageKey = trip.cover_image_url.split('/trip_cover/').pop();
         if (imageKey) {

@@ -1,7 +1,7 @@
 
 'use client';
 import type { FC } from 'react';
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
 import { PlusCircle, Camera } from 'lucide-react';
@@ -27,6 +27,7 @@ import { Button } from '@/components/ui/button';
 import Image from 'next/image';
 import { createClient } from '@/lib/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { debounce } from 'lodash';
 
 interface NewItemInput {
     name: string;
@@ -46,6 +47,8 @@ interface TabContentProps {
 
 const TabContent: FC<TabContentProps> = ({ trip, setTrip, activeTab }) => {
   const { tripCurrency } = useCurrency();
+  const supabase = createClient();
+  const { toast } = useToast();
 
   const handleShoppingItemCheck = (
     categoryId: string,
@@ -87,7 +90,6 @@ const TabContent: FC<TabContentProps> = ({ trip, setTrip, activeTab }) => {
         date: new Date().toISOString().split('T')[0],
       };
 
-      // Avoid adding duplicates
       if (!trip.transactions.some((t) => t.id === newTransaction.id)) {
         setTrip((currentTrip) =>
           currentTrip
@@ -132,20 +134,19 @@ const TabContent: FC<TabContentProps> = ({ trip, setTrip, activeTab }) => {
     });
   };
 
+  const setItinerary = (updater: React.SetStateAction<ItineraryItem[]>) => {
+      setTrip((currentTrip) => {
+        if (!currentTrip) return undefined;
+        const newItinerary = typeof updater === 'function' ? updater(currentTrip.itinerary) : updater;
+        return { ...currentTrip, itinerary: newItinerary };
+      });
+    };
+
   const componentProps = {
     planner: {
       trip: trip,
       itinerary: trip.itinerary,
-      setItinerary: (updater: React.SetStateAction<ItineraryItem[]>) => {
-        setTrip((currentTrip) => {
-          if (!currentTrip) return undefined;
-          const newItinerary =
-            typeof updater === 'function'
-              ? updater(currentTrip.itinerary)
-              : updater;
-          return { ...currentTrip, itinerary: newItinerary };
-        });
-      },
+      setItinerary: setItinerary,
       checklist: trip.checklist,
       setChecklist: (updater: React.SetStateAction<ChecklistItem[]>) => {
         setTrip((currentTrip) => {
@@ -161,7 +162,7 @@ const TabContent: FC<TabContentProps> = ({ trip, setTrip, activeTab }) => {
         lng: 139.6917,
         name: i.title,
       })),
-    }, // Example, needs real coordinates
+    },
     expenses: { transactions: trip.transactions, setTransactions, trip },
     shopping: {
       list: trip.shopping_list,
@@ -204,37 +205,90 @@ export default function TripDetailsPage() {
   const [newItem, setNewItem] = useState<NewItemInput>({ name: '', price: '', categoryId: '', location: '', store: '', file: null, previewUrl: '' });
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
+  const debouncedUpdateTripDay = useCallback(
+    debounce(async (day: ItineraryItem) => {
+      const { activities, ...dayData } = day;
+      const { error } = await supabase
+        .from('trip_days')
+        .update({
+          title: dayData.title,
+          date: dayData.date,
+          feedback: dayData.feedback,
+          cover_image_url: dayData.cover_image_url,
+          cover_image_hint: dayData.cover_image_hint,
+        })
+        .eq('day_uuid', day.day_uuid);
+      if (error) {
+        toast({ title: 'Error saving day details', description: error.message, variant: 'destructive' });
+      }
+    }, 1000),
+    []
+  );
+
+  const debouncedUpdateActivity = useCallback(
+    debounce(async (activity: Activity) => {
+      const { error } = await supabase
+        .from('trip_day_activities')
+        .update({
+          time: activity.time,
+          description: activity.description,
+          icon: activity.icon,
+        })
+        .eq('activity_uuid', activity.activity_uuid);
+
+      if (error) {
+        toast({ title: 'Error saving activity', description: error.message, variant: 'destructive' });
+      }
+    }, 1000),
+    []
+  );
+
   useEffect(() => {
-    const fetchTrip = async () => {
+    const fetchTripData = async () => {
       if (!tripId) return;
 
-      const { data, error } = await supabase
+      const { data: tripData, error: tripError } = await supabase
         .from('trips')
         .select('*')
         .eq('trip_uuid', tripId)
         .single();
       
-      if (error) {
-        toast({ title: 'Error fetching trip', description: error.message, variant: 'destructive' });
+      if (tripError) {
+        toast({ title: 'Error fetching trip', description: tripError.message, variant: 'destructive' });
         router.push('/trips');
-      } else if (data) {
-        setTrip(data as Trip);
-        if (data.country_code) {
-          setTripCurrencyFromCountry(data.country_code);
-        }
+        return;
+      }
+
+      const { data: daysData, error: daysError } = await supabase
+        .from('trip_days')
+        .select(`*, trip_day_activities (*)`)
+        .eq('trip_uuid', tripId)
+        .order('day_number', { ascending: true });
+
+      if (daysError) {
+        toast({ title: 'Error fetching trip days', description: daysError.message, variant: 'destructive' });
+      }
+      
+      const enrichedTrip = {
+        ...tripData,
+        itinerary: daysData || [],
+      } as Trip;
+
+      setTrip(enrichedTrip);
+      if (tripData.country_code) {
+        setTripCurrencyFromCountry(tripData.country_code);
       }
     };
 
-    fetchTrip();
+    fetchTripData();
   }, [tripId, setTripCurrencyFromCountry, router, supabase, toast]);
 
   useEffect(() => {
     if (trip) {
-      const updateTripData = async () => {
-        const { error } = await supabase
+      const debouncedUpdater = debounce(async () => {
+         const { error } = await supabase
           .from('trips')
           .update({
-            itinerary: trip.itinerary,
             transactions: trip.transactions,
             shopping_list: trip.shopping_list,
             checklist: trip.checklist
@@ -244,16 +298,21 @@ export default function TripDetailsPage() {
         if (error) {
           toast({ title: 'Error saving trip data', description: error.message, variant: 'destructive'});
         }
-      };
-      
-      // Debounce the update to avoid too many writes
-      const handler = setTimeout(() => {
-        updateTripData();
-      }, 1000);
 
-      return () => clearTimeout(handler);
+        // We also need to update days and activities if they've changed
+        trip.itinerary.forEach(day => {
+          debouncedUpdateTripDay(day);
+          day.activities.forEach(activity => {
+            debouncedUpdateActivity(activity);
+          });
+        });
+
+      }, 1500);
+
+      debouncedUpdater();
+      return () => debouncedUpdater.cancel();
     }
-  }, [trip, supabase, toast]);
+  }, [trip, supabase, toast, debouncedUpdateTripDay, debouncedUpdateActivity]);
 
 
   const itineraryLocations = useMemo(() => {
@@ -262,7 +321,7 @@ export default function TripDetailsPage() {
   }, [trip]);
 
   const pointsOfInterest = useMemo(() => {
-      if (!trip) return [];
+      if (!trip || !trip.itinerary) return [];
       const allPois = trip.itinerary.flatMap(day => 
           day.activities.map(activity => ({
               name: activity.description,
@@ -337,10 +396,9 @@ export default function TripDetailsPage() {
         );
         setShoppingList(updatedList);
       } else {
-         // This case should ideally not happen if the UI is correct, but as a fallback:
          const newCategory: ShoppingCategory = {
            id: newItem.categoryId,
-           name: newItem.categoryId, // Consider a better way to get category name
+           name: newItem.categoryId,
            items: [newItemData]
          };
          setShoppingList(prev => [...prev, newCategory]);
