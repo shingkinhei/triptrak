@@ -356,10 +356,10 @@ export default function TripDetailsPage() {
   return (
     <main className="flex h-screen w-full flex-col bg-background font-body">
       <div
-        className="relative flex-grow bg-cover bg-center overflow-hidden blur-xs"
+        className="relative flex-grow bg-cover bg-center overflow-hidden"
         style={{ backgroundImage: `url(${trip.cover_image_url})` }}
       >
-        <div className="absolute inset-0 bg-black/60 z-0" />
+        <div className="absolute inset-0 bg-black/60 z-0 backdrop-blur-sm" />
         <div className="relative z-10 h-full flex flex-col">
           <div className="flex-grow overflow-hidden">
             <TabContent trip={trip} setTrip={setTrip} activeTab={activeTab} />

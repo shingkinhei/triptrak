@@ -100,11 +100,13 @@ const PreTripChecklist = ({ checklist: initialChecklist, tripId }: { checklist: 
         setChecklist(initialChecklist);
     }, [initialChecklist]);
 
+
     const handleCheckChange = async (item: ChecklistItem, checked: boolean) => {
         const originalState = [...checklist];
         setChecklist(prev => prev.map(i => i.checklist_uuid === item.checklist_uuid ? { ...i, checked } : i));
 
-        const { error } = await supabase.from('pre_trip_checklist').update({ checked }).eq('checklist_uuid', item.checklist_uuid);
+        const { error } = await supabase.from('pre_trip_checklist').update({ checked: checked }).eq('checklist_uuid', item.checklist_uuid);
+
         if (error) {
             toast({ title: "Error", description: "Failed to update checklist item.", variant: "destructive" });
             setChecklist(originalState);
@@ -304,7 +306,6 @@ export function TripPlanner({ trip }: TripPlannerProps) {
     const originalDay = originalItinerary.find(d => d.day_uuid === itemToSave.day_uuid);
     const oldImageUrl = originalDay?.cover_image_url;
 
-    // This object will be used for the final DB update.
     const dayUpdatePayload: Partial<ItineraryItem> = {
         title: itemToSave.title,
         date: itemToSave.date,
@@ -312,10 +313,8 @@ export function TripPlanner({ trip }: TripPlannerProps) {
         cover_image_hint: itemToSave.cover_image_hint,
     };
     
-    // --- Handle Image Changes ---
     let newImageUrl: string | null = itemToSave.cover_image_url;
 
-    // 1. If a new file is uploaded
     if (itemToSave.cover_image_file) {
         const file = itemToSave.cover_image_file;
         const filePath = `${user.id}/${trip.trip_uuid}/${itemToSave.day_uuid}-${Date.now()}-${file.name}`;
@@ -324,19 +323,17 @@ export function TripPlanner({ trip }: TripPlannerProps) {
 
         if (uploadError) {
             toast({ title: 'Error uploading day cover', description: uploadError.message, variant: 'destructive' });
-            return; // Abort save if upload fails
+            return;
         }
         
         const { data: urlData } = supabase.storage.from('day_cover').getPublicUrl(filePath);
         newImageUrl = urlData.publicUrl;
 
-        // If there was an old image, and it's different from the new one, delete it.
         if (oldImageUrl && oldImageUrl !== newImageUrl) {
             const oldImageKey = oldImageUrl.split('/day_cover/').pop();
             if (oldImageKey) await supabase.storage.from('day_cover').remove([oldImageKey]);
         }
     } 
-    // 2. If the image was removed (preview is null, but there was an old URL)
     else if (!itemToSave.cover_image_preview && oldImageUrl) {
         const oldImageKey = oldImageUrl.split('/day_cover/').pop();
         if (oldImageKey) {
@@ -346,7 +343,6 @@ export function TripPlanner({ trip }: TripPlannerProps) {
         newImageUrl = null;
     }
 
-    // --- Update the DB ---
     dayUpdatePayload.cover_image_url = newImageUrl;
 
     const { error: dayError } = await supabase
@@ -356,11 +352,9 @@ export function TripPlanner({ trip }: TripPlannerProps) {
 
     if (dayError) {
         toast({ title: 'Error saving day', description: dayError.message, variant: 'destructive'});
-        // Optionally revert UI changes here
         return;
     }
 
-    // --- Handle Activity Changes ---
     const originalActivities = originalDay?.activities || [];
     
     const newActivities = itemToSave.activities.filter(act => act.activity_uuid.startsWith('act_'));
@@ -384,7 +378,6 @@ export function TripPlanner({ trip }: TripPlannerProps) {
 
     toast({ title: 'Day Saved!', description: `Changes to Day ${itemToSave.day_number} have been saved.`});
 
-    // Close dialog and refresh state from DB to ensure consistency
     handleCancelEdit();
     const { data: refreshedDay, error: refreshError } = await supabase
         .from('trip_days')
