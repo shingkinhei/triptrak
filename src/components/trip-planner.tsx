@@ -117,7 +117,6 @@ const PreTripChecklist = ({ checklist: initialChecklist, tripId }: { checklist: 
     };
 
     const handleSave = async () => {
-        // Optimistic update
         const originalChecklist = [...checklist];
         setChecklist(editingChecklist);
         setIsEditDialogOpen(false);
@@ -126,30 +125,26 @@ const PreTripChecklist = ({ checklist: initialChecklist, tripId }: { checklist: 
         const updatedItems = editingChecklist.filter(item => !item.checklist_uuid.startsWith('new-') && JSON.stringify(item) !== JSON.stringify(originalChecklist.find(i => i.checklist_uuid === item.checklist_uuid)));
         const deletedItems = originalChecklist.filter(item => !editingChecklist.some(i => i.checklist_uuid === item.checklist_uuid));
         
-        // Handle deletions
         if (deletedItems.length > 0) {
             const { error } = await supabase.from('pre_trip_checklist').delete().in('checklist_uuid', deletedItems.map(i => i.checklist_uuid));
             if (error) toast({ title: "Error Deleting Items", description: error.message, variant: "destructive" });
         }
 
-        // Handle updates
         if (updatedItems.length > 0) {
             const { error } = await supabase.from('pre_trip_checklist').upsert(updatedItems.map(({trip_uuid, ...rest}) => rest));
             if (error) toast({ title: "Error Updating Items", description: error.message, variant: "destructive" });
         }
         
-        // Handle insertions
         if (newItems.length > 0) {
             const { error } = await supabase.from('pre_trip_checklist').insert(newItems.map(item => ({ trip_uuid: tripId, label: item.label, checked: item.checked })));
             if (error) toast({ title: "Error Adding New Items", description: error.message, variant: "destructive" });
         }
 
-        // Refetch to sync state
         const { data, error } = await supabase.from('pre_trip_checklist').select('*').eq('trip_uuid', tripId);
         if (!error && data) {
             setChecklist(data as ChecklistItem[]);
         } else {
-            setChecklist(originalChecklist); // Revert on failure
+            setChecklist(originalChecklist);
         }
     };
 
@@ -301,38 +296,37 @@ export function TripPlanner({ trip }: TripPlannerProps) {
     const originalItinerary = [...itinerary];
     const itemToSave = { ...editingItem };
     
-    // Set optimistic UI state
     setItinerary(prev => prev.map(item => item.day_uuid === itemToSave.day_uuid ? itemToSave : item));
     handleCancelEdit();
 
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    
     const oldImageUrl = originalItinerary.find(i => i.day_uuid === itemToSave.day_uuid)?.cover_image_url;
 
-    // Handle image upload
     if (itemToSave.cover_image_file) {
         const file = itemToSave.cover_image_file;
-        const filePath = `${trip.user_id}/${trip.trip_uuid}/${itemToSave.day_uuid}-${file.name}`;
+        const filePath = `${user.id}/${trip.trip_uuid}/${itemToSave.day_uuid}-${Date.now()}-${file.name}`;
         
-        const { error: uploadError } = await supabase.storage.from('trip_cover').upload(filePath, file, { upsert: true });
+        const { error: uploadError } = await supabase.storage.from('day_cover').upload(filePath, file, { upsert: true });
 
         if (uploadError) {
             toast({ title: 'Error uploading day cover', description: uploadError.message, variant: 'destructive' });
-            setItinerary(originalItinerary); // Revert
+            setItinerary(originalItinerary);
             return;
         }
 
-        const { data: urlData } = supabase.storage.from('trip_cover').getPublicUrl(filePath);
+        const { data: urlData } = supabase.storage.from('day_cover').getPublicUrl(filePath);
         itemToSave.cover_image_url = urlData.publicUrl;
 
-        // If there was an old image and it's different from the new one, delete it
         if (oldImageUrl && oldImageUrl !== itemToSave.cover_image_url) {
-            const oldImageKey = oldImageUrl.split('/trip_cover/').pop();
-            if (oldImageKey) await supabase.storage.from('trip_cover').remove([oldImageKey]);
+            const oldImageKey = oldImageUrl.split('/day_cover/').pop();
+            if (oldImageKey) await supabase.storage.from('day_cover').remove([oldImageKey]);
         }
     } else if (itemToSave.cover_image_url === null && oldImageUrl) {
-        // Handle image removal
-        const oldImageKey = oldImageUrl.split('/trip_cover/').pop();
+        const oldImageKey = oldImageUrl.split('/day_cover/').pop();
         if (oldImageKey) {
-            const { error: deleteError } = await supabase.storage.from('trip_cover').remove([oldImageKey]);
+            const { error: deleteError } = await supabase.storage.from('day_cover').remove([oldImageKey]);
             if (deleteError) toast({ title: 'Could not delete old day cover', description: deleteError.message, variant: 'destructive' });
         }
     }
@@ -347,7 +341,7 @@ export function TripPlanner({ trip }: TripPlannerProps) {
 
     if (dayError) {
         toast({ title: 'Error saving day', description: dayError.message, variant: 'destructive'});
-        setItinerary(originalItinerary); // Revert on error
+        setItinerary(originalItinerary);
         return;
     }
 
@@ -358,17 +352,17 @@ export function TripPlanner({ trip }: TripPlannerProps) {
     const deletedActivities = originalActivities.filter(oa => !itemToSave.activities.some(ea => ea.activity_uuid === oa.activity_uuid));
     
     if (deletedActivities.length > 0) {
-        const { error } = await supabase.from('trip_day_activities').delete().in('activity_uuid', deletedActivities.map(a => a.activity_uuid));
+        const { error } = await supabase.from('activities').delete().in('activity_uuid', deletedActivities.map(a => a.activity_uuid));
         if (error) toast({ title: 'Error Deleting Activities', description: error.message, variant: 'destructive' });
     }
 
     if (updatedActivities.length > 0) {
-        const { error } = await supabase.from('trip_day_activities').upsert(updatedActivities.map(({day_uuid, ...rest}) => ({...rest, day_uuid: itemToSave.day_uuid})));
+        const { error } = await supabase.from('activities').upsert(updatedActivities.map(({day_uuid, ...rest}) => ({...rest, day_uuid: itemToSave.day_uuid})));
         if (error) toast({ title: 'Error Updating Activities', description: error.message, variant: 'destructive' });
     }
 
     if (newActivities.length > 0) {
-        const { error } = await supabase.from('trip_day_activities').insert(newActivities.map(act => ({ day_uuid: itemToSave.day_uuid, time: act.time, description: act.description, icon: act.icon })));
+        const { error } = await supabase.from('activities').insert(newActivities.map(act => ({ day_uuid: itemToSave.day_uuid, time: act.time, description: act.description, icon: act.icon })));
         if (error) toast({ title: 'Error Adding New Activities', description: error.message, variant: 'destructive' });
     }
 
@@ -376,7 +370,7 @@ export function TripPlanner({ trip }: TripPlannerProps) {
 
     const { data: refreshedDay, error: refreshError } = await supabase
         .from('trip_days')
-        .select(`*, activities:trip_day_activities(*)`)
+        .select(`*, activities:activities(*)`)
         .eq('day_uuid', itemToSave.day_uuid)
         .single();
     
@@ -769,3 +763,5 @@ export function TripPlanner({ trip }: TripPlannerProps) {
     </div>
   );
 }
+
+    
