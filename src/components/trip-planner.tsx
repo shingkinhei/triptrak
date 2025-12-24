@@ -436,11 +436,11 @@ export function TripPlanner({ trip }: TripPlannerProps) {
             <Button variant="ghost" size="icon" className="h-8 w-8 text-primary-foreground hover:bg-white/20 hover:text-primary-foreground" onClick={() => router.push('/trips')}>
                 <ArrowLeft className="h-5 w-5" />
             </Button>
-            <h1 className="text-2xl font-bold font-headline text-primary-foreground">
-                Trip Itinerary
+            <h1 className="text-2xl font-bold font-headline text-primary-foreground truncate">
+                {trip.name}
             </h1>
         </div>
-        <Button onClick={handleAddDay} variant="outline" className="bg-white/10 border-white/20 text-white hover:bg-white/20 hover:text-white">
+        <Button onClick={handleAddDay} variant="outline" className="bg-white/10 border-white/20 text-white hover:bg-white/20 hover:text-white shrink-0">
           <PlusCircle className="mr-2 h-4 w-4" /> Add Day
         </Button>
       </header>
@@ -684,3 +684,5 @@ export function TripPlanner({ trip }: TripPlannerProps) {
     </div>
   );
 }
+
+    
