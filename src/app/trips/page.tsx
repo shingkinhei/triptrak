@@ -61,14 +61,14 @@ export default function TripsPage() {
       if (error) {
         toast({ title: 'Error fetching trips', description: error.message, variant: 'destructive' });
       } else if (data) {
-        const statusOrder: Record<TripStatus, number> = { 'A': 1, 'U': 2, 'P': 3 };
+        const statusOrder: Record<TripStatus, number> = { 'A': 1, 'U': 2, 'E': 3 };
         
         const sortedData = data.sort((a, b) => {
           const statusComparison = statusOrder[a.status as TripStatus] - statusOrder[b.status as TripStatus];
           if (statusComparison !== 0) {
             return statusComparison;
           }
-          if (a.status === 'P') { // For Past trips, sort descending by start date
+          if (a.status === 'E') { // For Past trips, sort descending by start date
             return new Date(b.start_date).getTime() - new Date(a.start_date).getTime();
           }
           // For Active and Upcoming, sort ascending by start date
@@ -329,7 +329,7 @@ export default function TripsPage() {
   const statusMap: Record<TripStatus, { label: string; color: string }> = {
     A: { label: 'Active', color: 'bg-green-500 text-white' },
     U: { label: 'Upcoming', color: 'bg-blue-500 text-white' },
-    P: { label: 'Past', color: 'bg-gray-500 text-white' },
+    E: { label: 'Expired', color: 'bg-gray-500 text-white' },
   };
 
   return (

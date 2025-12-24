@@ -67,7 +67,7 @@ export type ExchangeRates = {
   [key in Currency]: number;
 };
 
-export type TripStatus = 'A' | 'U' | 'P'; // Active, Upcoming, Past
+export type TripStatus = 'A' | 'U' | 'E'; // Active, Upcoming, Expried
 
 export type Trip = {
   trip_uuid: string;
