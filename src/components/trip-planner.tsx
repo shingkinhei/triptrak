@@ -303,19 +303,10 @@ export function TripPlanner({ trip }: TripPlannerProps) {
     }
 
     const itemToSave = { ...editingItem };
-    const originalItinerary = [...itinerary];
-    const originalDay = originalItinerary.find(d => d.day_uuid === itemToSave.day_uuid);
+    const originalDay = itinerary.find(d => d.day_uuid === itemToSave.day_uuid);
     const oldImageUrl = originalDay?.cover_image_url;
 
-    const dayUpdatePayload: Partial<ItineraryItem> & { cover_image_url: string | null } = {
-        title: itemToSave.title,
-        date: itemToSave.date,
-        feedback: itemToSave.feedback,
-        cover_image_hint: itemToSave.cover_image_hint,
-        cover_image_url: itemToSave.cover_image_url,
-    };
-    
-    let newImageUrl: string | null = itemToSave.cover_image_url;
+    let newImageUrl: string | null = itemToSave.cover_image_preview;
 
     if (itemToSave.cover_image_file) {
         const file = itemToSave.cover_image_file;
@@ -330,22 +321,15 @@ export function TripPlanner({ trip }: TripPlannerProps) {
         
         const { data: urlData } = supabase.storage.from('day_cover').getPublicUrl(filePath);
         newImageUrl = urlData.publicUrl;
-
-        if (oldImageUrl && oldImageUrl !== newImageUrl) {
-            const oldImageKey = oldImageUrl.split('/day_cover/').pop();
-            if (oldImageKey) await supabase.storage.from('day_cover').remove([oldImageKey]);
-        }
-    } 
-    else if (!itemToSave.cover_image_preview && oldImageUrl) {
-        const oldImageKey = oldImageUrl.split('/day_cover/').pop();
-        if (oldImageKey) {
-            const { error: deleteError } = await supabase.storage.from('day_cover').remove([oldImageKey]);
-            if (deleteError) toast({ title: 'Could not delete old day cover', description: deleteError.message, variant: 'destructive' });
-        }
-        newImageUrl = null;
     }
 
-    dayUpdatePayload.cover_image_url = newImageUrl;
+    const dayUpdatePayload: Partial<ItineraryItem> & { cover_image_url?: string | null } = {
+        title: itemToSave.title,
+        date: itemToSave.date,
+        feedback: itemToSave.feedback,
+        cover_image_hint: itemToSave.cover_image_hint,
+        cover_image_url: newImageUrl,
+    };
 
     const { error: dayError } = await supabase
         .from('trip_days')
@@ -355,6 +339,21 @@ export function TripPlanner({ trip }: TripPlannerProps) {
     if (dayError) {
         toast({ title: 'Error saving day', description: dayError.message, variant: 'destructive'});
         return;
+    }
+
+    // Clean up old image if a new one was uploaded
+    if (itemToSave.cover_image_file && oldImageUrl && oldImageUrl !== newImageUrl) {
+        const oldImageKey = oldImageUrl.split('/day_cover/').pop();
+        if (oldImageKey) {
+            await supabase.storage.from('day_cover').remove([oldImageKey]);
+        }
+    } 
+    // Clean up old image if it was removed
+    else if (!itemToSave.cover_image_preview && oldImageUrl) {
+        const oldImageKey = oldImageUrl.split('/day_cover/').pop();
+        if (oldImageKey) {
+            await supabase.storage.from('day_cover').remove([oldImageKey]);
+        }
     }
 
     const originalActivities = originalDay?.activities || [];
