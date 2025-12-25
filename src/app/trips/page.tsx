@@ -329,7 +329,7 @@ export default function TripsPage() {
     const file = e.target.files?.[0];
     if (file) {
       new Compressor(file, {
-        quality: 0.6,
+        maxWidth: 1200,
         success: (compressedResult) => {
           const reader = new FileReader();
           reader.onloadend = () => {
@@ -575,5 +575,7 @@ export default function TripsPage() {
     </main>
   );
 }
+
+    
 
     
