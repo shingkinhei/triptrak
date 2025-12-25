@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useCurrency } from '@/context/CurrencyContext';
 import { BottomNav } from '@/components/bottom-nav';
-import type { Currency } from '@/lib/types';
+import type { Currency, CurrencySetup } from '@/lib/types';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -15,7 +15,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 
 export default function SettingsPage() {
-    const { homeCurrency, setHomeCurrency, rates } = useCurrency();
+    const { homeCurrency, setHomeCurrency, currencies } = useCurrency();
     const [isClient, setIsClient] = useState(false);
     const router = useRouter();
     const supabase = createClient();
@@ -204,8 +204,10 @@ export default function SettingsPage() {
                                     <SelectValue placeholder="Select your home currency" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {Object.keys(rates).map(c => (
-                                        <SelectItem key={c} value={c}>{c}</SelectItem>
+                                    {currencies.map(c => (
+                                        <SelectItem key={c.currency_code} value={c.currency_code}>
+                                            {c.name} ({c.currency_code})
+                                        </SelectItem>
                                     ))}
                                 </SelectContent>
                             </Select>

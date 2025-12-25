@@ -62,10 +62,18 @@ export type ShoppingCategory = {
   items: ShoppingItem[];
 };
 
-export type Currency = 'USD' | 'JPY' | 'EUR' | 'HKD';
+export type Currency = string;
+
+export type CurrencySetup = {
+  currency_code: Currency;
+  rate: number;
+  name: string;
+  symbol: string;
+  country_code: string;
+}
 
 export type ExchangeRates = {
-  [key in Currency]: number;
+  [key: string]: number;
 };
 
 export type TripStatus = 'A' | 'U' | 'E'; // Active, Upcoming, Expried

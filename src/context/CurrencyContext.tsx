@@ -1,23 +1,8 @@
 
 'use client';
-import { createContext, useContext, useState, useMemo, type ReactNode, useCallback } from 'react';
-import type { Currency, ExchangeRates } from '@/lib/types';
-
-const MOCK_RATES: ExchangeRates = {
-  USD: 1,
-  JPY: 157,
-  EUR: 0.92,
-  HKD: 7.8,
-};
-
-const countryCurrencyMap: Record<string, Currency> = {
-    JP: 'JPY',
-    IT: 'EUR',
-    US: 'USD',
-    FR: 'EUR',
-    ES: 'EUR',
-    GB: 'USD', // Should be GBP, but using USD as it's in MOCK_RATES
-};
+import { createContext, useContext, useState, useMemo, type ReactNode, useCallback, useEffect } from 'react';
+import type { Currency, CurrencySetup, ExchangeRates } from '@/lib/types';
+import { createClient } from '@/lib/supabase/client';
 
 interface CurrencyContextType {
   tripCurrency: Currency;
@@ -26,6 +11,7 @@ interface CurrencyContextType {
   setHomeCurrency: (currency: Currency) => void;
   tripRate: number;
   rates: ExchangeRates;
+  currencies: CurrencySetup[];
   formatCurrency: (amount: number, minimumFractionDigits?: number) => string;
   formatHomeCurrency: (amount: number, minimumFractionDigits?: number) => string;
   setTripCurrencyFromCountry: (countryCode: string) => void;
@@ -41,31 +27,73 @@ interface CurrencyProviderProps {
 export const CurrencyProvider = ({ children }: CurrencyProviderProps) => {
   const [tripCurrency, setTripCurrency] = useState<Currency>('USD');
   const [homeCurrency, setHomeCurrency] = useState<Currency>('USD');
+  const [currencies, setCurrencies] = useState<CurrencySetup[]>([]);
+  const [rates, setRates] = useState<ExchangeRates>({});
+  const [countryCurrencyMap, setCountryCurrencyMap] = useState<Record<string, Currency>>({});
+  
+  const supabase = createClient();
+
+  useEffect(() => {
+    const fetchCurrencies = async () => {
+        const { data, error } = await supabase.from('currencies_setup').select('*');
+        if (error) {
+            console.error('Error fetching currencies:', error);
+        } else if (data) {
+            const fetchedCurrencies = data as CurrencySetup[];
+            setCurrencies(fetchedCurrencies);
+
+            const newRates = fetchedCurrencies.reduce((acc, curr) => {
+                acc[curr.currency_code] = curr.rate;
+                return acc;
+            }, {} as ExchangeRates);
+            setRates(newRates);
+            
+            const newCountryMap = fetchedCurrencies.reduce((acc, curr) => {
+                if (curr.country_code) {
+                    acc[curr.country_code] = curr.currency_code;
+                }
+                return acc;
+            }, {} as Record<string, Currency>);
+            setCountryCurrencyMap(newCountryMap);
+        }
+    };
+    fetchCurrencies();
+  }, [supabase]);
 
   const setTripCurrencyFromCountry = useCallback((countryCode: string) => {
-    const newDefaultCurrency = (countryCode && countryCurrencyMap[countryCode.toUpperCase()]) || 'USD';
-    setTripCurrency(newDefaultCurrency);
-  }, []);
+    if (Object.keys(countryCurrencyMap).length > 0) {
+      const newDefaultCurrency = (countryCode && countryCurrencyMap[countryCode.toUpperCase()]) || 'USD';
+      setTripCurrency(newDefaultCurrency);
+    }
+  }, [countryCurrencyMap]);
 
-  const tripRate = useMemo(() => MOCK_RATES[tripCurrency], [tripCurrency]);
-  const homeRate = useMemo(() => MOCK_RATES[homeCurrency], [homeCurrency]);
+  const tripRate = useMemo(() => rates[tripCurrency] || 1, [rates, tripCurrency]);
+  const homeRate = useMemo(() => rates[homeCurrency] || 1, [rates, homeCurrency]);
 
   const formatCurrency = (amount: number, minimumFractionDigits: number = 2) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: tripCurrency,
-      minimumFractionDigits: minimumFractionDigits,
-      maximumFractionDigits: 2,
-    }).format(amount);
+    try {
+      return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: tripCurrency,
+        minimumFractionDigits: minimumFractionDigits,
+        maximumFractionDigits: 2,
+      }).format(amount);
+    } catch (e) {
+      return `${tripCurrency} ${amount.toFixed(2)}`;
+    }
   };
   
   const formatHomeCurrency = (amount: number, minimumFractionDigits: number = 2) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: homeCurrency,
-      minimumFractionDigits: minimumFractionDigits,
-      maximumFractionDigits: 2,
-    }).format(amount);
+    try {
+      return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: homeCurrency,
+        minimumFractionDigits: minimumFractionDigits,
+        maximumFractionDigits: 2,
+      }).format(amount);
+    } catch(e) {
+        return `${homeCurrency} ${amount.toFixed(2)}`;
+    }
   };
 
   const convertToHomeCurrency = (amountInTripCurrency: number) => {
@@ -79,7 +107,8 @@ export const CurrencyProvider = ({ children }: CurrencyProviderProps) => {
     homeCurrency,
     setHomeCurrency,
     tripRate,
-    rates: MOCK_RATES,
+    rates,
+    currencies,
     formatCurrency,
     formatHomeCurrency,
     setTripCurrencyFromCountry,
