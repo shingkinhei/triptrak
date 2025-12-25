@@ -26,23 +26,48 @@ export default function SettingsPage() {
 
     useEffect(() => {
         setIsClient(true);
-        const fetchUser = async () => {
+        const fetchUserData = async () => {
             const { data: { user } } = await supabase.auth.getUser();
             if (user) {
-                setFullName(user.user_metadata.full_name || '');
+                const { data: userInfo, error } = await supabase
+                    .from('users_info')
+                    .select('display_name, home_currency')
+                    .eq('user_id', user.id)
+                    .single();
+
+                if (userInfo) {
+                    setFullName(userInfo.display_name || user.user_metadata.full_name || '');
+                    if (userInfo.home_currency) {
+                        setHomeCurrency(userInfo.home_currency as Currency);
+                    }
+                } else if (error) {
+                    // Fallback to user_metadata if users_info is not available yet
+                     setFullName(user.user_metadata.full_name || '');
+                }
             }
         };
-        fetchUser();
-    }, [supabase]);
+        fetchUserData();
+    }, [supabase, setHomeCurrency]);
 
     const handleUpdateProfile = async () => {
-        const { error } = await supabase.auth.updateUser({
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        // First update auth.users metadata
+        const { error: authError } = await supabase.auth.updateUser({
             data: { full_name: fullName }
         });
-        if (error) {
+
+        // Then update users_info table
+        const { error: dbError } = await supabase
+            .from('users_info')
+            .update({ display_name: fullName })
+            .eq('user_id', user.id);
+
+        if (authError || dbError) {
             toast({
                 title: 'Error updating profile',
-                description: error.message,
+                description: authError?.message || dbError?.message,
                 variant: 'destructive',
             });
         } else {
@@ -79,6 +104,32 @@ export default function SettingsPage() {
             });
         }
     };
+    
+    const handleCurrencyChange = async (newCurrency: Currency) => {
+        setHomeCurrency(newCurrency); // Optimistic UI update
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+        
+        const { error } = await supabase
+            .from('users_info')
+            .update({ home_currency: newCurrency })
+            .eq('user_id', user.id);
+
+        if (error) {
+            toast({
+                title: 'Error updating currency',
+                description: error.message,
+                variant: 'destructive',
+            });
+            // Revert on error if needed, though useCurrency context is not easily reverted from here
+        } else {
+            toast({
+                title: 'Home Currency Updated',
+                description: `Your home currency is now ${newCurrency}.`,
+            });
+        }
+    };
+
 
     const handleLogout = async () => {
         const { error } = await supabase.auth.signOut();
@@ -148,7 +199,7 @@ export default function SettingsPage() {
                             This is your primary currency for reference.
                         </p>
                         {isClient && (
-                            <Select value={homeCurrency} onValueChange={(value) => setHomeCurrency(value as Currency)}>
+                            <Select value={homeCurrency} onValueChange={(value) => handleCurrencyChange(value as Currency)}>
                                 <SelectTrigger id="home-currency">
                                     <SelectValue placeholder="Select your home currency" />
                                 </SelectTrigger>

@@ -43,20 +43,37 @@ export default function SignupPage() {
                 description: error.message,
                 variant: 'destructive',
             });
-        } else if (data.user && data.user.identities && data.user.identities.length === 0) {
-             toast({
-                title: 'Confirmation required',
-                description: 'Please check your email to confirm your account. The user already exists.',
-                variant: 'default',
-            });
-        }
-        else {
-             toast({
-                title: 'Confirmation required',
-                description: 'Please check your email to confirm your account.',
-                variant: 'default',
-            });
-            router.push('/login');
+        } else if (data.user) {
+            if (data.user.identities && data.user.identities.length === 0) {
+                 toast({
+                    title: 'Confirmation required',
+                    description: 'Please check your email to confirm your account. The user already exists.',
+                    variant: 'default',
+                });
+            } else {
+                 // Insert into users_info table
+                const { error: insertError } = await supabase.from('users_info').insert({
+                    user_id: data.user.id,
+                    email: data.user.email,
+                    display_name: fullName,
+                    home_currency: 'USD' // Default home currency
+                });
+
+                if (insertError) {
+                     toast({
+                        title: 'Error creating user profile',
+                        description: insertError.message,
+                        variant: 'destructive',
+                    });
+                } else {
+                     toast({
+                        title: 'Confirmation required',
+                        description: 'Please check your email to confirm your account.',
+                        variant: 'default',
+                    });
+                    router.push('/login');
+                }
+            }
         }
     }
 

@@ -1,5 +1,6 @@
+
 'use client';
-import { createContext, useContext, useState, useMemo, type ReactNode, useEffect, useCallback } from 'react';
+import { createContext, useContext, useState, useMemo, type ReactNode, useCallback } from 'react';
 import type { Currency, ExchangeRates } from '@/lib/types';
 
 const MOCK_RATES: ExchangeRates = {
@@ -17,17 +18,6 @@ const countryCurrencyMap: Record<string, Currency> = {
     ES: 'EUR',
     GB: 'USD', // Should be GBP, but using USD as it's in MOCK_RATES
 };
-
-const getInitialHomeCurrency = (): Currency => {
-    if (typeof window !== 'undefined') {
-        const storedCurrency = localStorage.getItem('homeCurrency');
-        if (storedCurrency && MOCK_RATES[storedCurrency as Currency]) {
-            return storedCurrency as Currency;
-        }
-    }
-    return 'USD';
-};
-
 
 interface CurrencyContextType {
   tripCurrency: Currency;
@@ -50,12 +40,7 @@ interface CurrencyProviderProps {
 
 export const CurrencyProvider = ({ children }: CurrencyProviderProps) => {
   const [tripCurrency, setTripCurrency] = useState<Currency>('USD');
-  const [homeCurrency, setHomeCurrencyState] = useState<Currency>(getInitialHomeCurrency());
-
-  const setHomeCurrency = (currency: Currency) => {
-      setHomeCurrencyState(currency);
-      localStorage.setItem('homeCurrency', currency);
-  }
+  const [homeCurrency, setHomeCurrency] = useState<Currency>('USD');
 
   const setTripCurrencyFromCountry = useCallback((countryCode: string) => {
     const newDefaultCurrency = (countryCode && countryCurrencyMap[countryCode.toUpperCase()]) || 'USD';
