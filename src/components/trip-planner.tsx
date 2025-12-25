@@ -306,7 +306,7 @@ export function TripPlanner({ trip }: TripPlannerProps) {
     const originalDay = itinerary.find(d => d.day_uuid === itemToSave.day_uuid);
     const oldImageUrl = originalDay?.cover_image_url;
 
-    let newImageUrl: string | null = itemToSave.cover_image_preview;
+    let newImageUrl: string | null = itemToSave.cover_image_url;
 
     if (itemToSave.cover_image_file) {
         const file = itemToSave.cover_image_file;
@@ -323,7 +323,7 @@ export function TripPlanner({ trip }: TripPlannerProps) {
         newImageUrl = urlData.publicUrl;
     }
 
-    const dayUpdatePayload: Partial<ItineraryItem> & { cover_image_url?: string | null } = {
+    const dayUpdatePayload = {
         title: itemToSave.title,
         date: itemToSave.date,
         feedback: itemToSave.feedback,
@@ -341,15 +341,12 @@ export function TripPlanner({ trip }: TripPlannerProps) {
         return;
     }
 
-    // Clean up old image if a new one was uploaded
     if (itemToSave.cover_image_file && oldImageUrl && oldImageUrl !== newImageUrl) {
         const oldImageKey = oldImageUrl.split('/day_cover/').pop();
         if (oldImageKey) {
             await supabase.storage.from('day_cover').remove([oldImageKey]);
         }
-    } 
-    // Clean up old image if it was removed
-    else if (!itemToSave.cover_image_preview && oldImageUrl) {
+    } else if (!itemToSave.cover_image_preview && oldImageUrl) {
         const oldImageKey = oldImageUrl.split('/day_cover/').pop();
         if (oldImageKey) {
             await supabase.storage.from('day_cover').remove([oldImageKey]);
@@ -455,7 +452,7 @@ export function TripPlanner({ trip }: TripPlannerProps) {
 
   const handleRemoveDayCoverImage = () => {
       if (editingItem) {
-          setEditingItem(prev => prev ? {...prev, cover_image_file: null, cover_image_preview: null} : null);
+          setEditingItem(prev => prev ? {...prev, cover_image_file: null, cover_image_preview: null, cover_image_url: null} : null);
       }
   }
 
