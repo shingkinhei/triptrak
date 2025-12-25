@@ -56,6 +56,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { ScrollArea, ScrollBar } from './ui/scroll-area';
 import { createClient } from '@/lib/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import Compressor from 'compressorjs';
 
 const iconMap: Record<string, LucideIcon> = {
   Plane,
@@ -306,11 +307,12 @@ export function TripPlanner({ trip }: TripPlannerProps) {
     const originalDay = originalItinerary.find(d => d.day_uuid === itemToSave.day_uuid);
     const oldImageUrl = originalDay?.cover_image_url;
 
-    const dayUpdatePayload: Partial<ItineraryItem> = {
+    const dayUpdatePayload: Partial<ItineraryItem> & { cover_image_url: string | null } = {
         title: itemToSave.title,
         date: itemToSave.date,
         feedback: itemToSave.feedback,
         cover_image_hint: itemToSave.cover_image_hint,
+        cover_image_url: itemToSave.cover_image_url,
     };
     
     let newImageUrl: string | null = itemToSave.cover_image_url;
@@ -381,7 +383,7 @@ export function TripPlanner({ trip }: TripPlannerProps) {
     handleCancelEdit();
     const { data: refreshedDay, error: refreshError } = await supabase
         .from('trip_days')
-        .select(`*, activities:activities(*)`)
+        .select(`*, activities:activities (*)`)
         .eq('day_uuid', itemToSave.day_uuid)
         .single();
     
@@ -435,11 +437,20 @@ export function TripPlanner({ trip }: TripPlannerProps) {
     if (!e.target.files || !editingItem) return;
     const file = e.target.files[0];
     if (file) {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-            setEditingItem(prev => prev ? {...prev, cover_image_file: file, cover_image_preview: reader.result as string} : null);
-        };
-        reader.readAsDataURL(file);
+      new Compressor(file, {
+        quality: 0.6,
+        maxWidth: 1200,
+        success: (compressedResult) => {
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            setEditingItem(prev => prev ? {...prev, cover_image_file: compressedResult as File, cover_image_preview: reader.result as string} : null);
+          };
+          reader.readAsDataURL(compressedResult);
+        },
+        error: (err) => {
+          toast({ title: 'Image compression failed', description: err.message, variant: 'destructive' });
+        },
+      });
     }
   };
 
