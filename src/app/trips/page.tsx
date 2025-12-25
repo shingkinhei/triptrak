@@ -18,6 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { createClient } from '@/lib/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import Compressor from 'compressorjs';
 
 type EditableTrip = Partial<Pick<Trip, 'name' | 'destination' | 'country_code' | 'start_date' | 'end_date' | 'cover_image_url' | 'cover_image_hint'>> & {
   cover_image_file?: File | null;
@@ -124,11 +125,25 @@ export default function TripsPage() {
   const handleNewTripImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setNewTrip(prev => ({...prev, cover_image_file: file, cover_image_preview: reader.result as string }));
-      };
-      reader.readAsDataURL(file);
+      new Compressor(file, {
+        quality: 0.6,
+        success: (compressedResult) => {
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            setNewTrip(prev => ({...prev, cover_image_file: compressedResult as File, cover_image_preview: reader.result as string }));
+          };
+          reader.readAsDataURL(compressedResult);
+        },
+        error: (err) => {
+          toast({ title: 'Image compression failed', description: err.message, variant: 'destructive' });
+          // Fallback to original file if compression fails
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            setNewTrip(prev => ({...prev, cover_image_file: file, cover_image_preview: reader.result as string }));
+          };
+          reader.readAsDataURL(file);
+        },
+      });
     }
   };
 
@@ -313,11 +328,25 @@ export default function TripsPage() {
   const handleEditImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setTripForm(prev => ({ ...prev, cover_image_file: file, cover_image_preview: reader.result as string }));
-      };
-      reader.readAsDataURL(file);
+      new Compressor(file, {
+        quality: 0.6,
+        success: (compressedResult) => {
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            setTripForm(prev => ({ ...prev, cover_image_file: compressedResult as File, cover_image_preview: reader.result as string }));
+          };
+          reader.readAsDataURL(compressedResult);
+        },
+        error: (err) => {
+          toast({ title: 'Image compression failed', description: err.message, variant: 'destructive' });
+          // Fallback to original file
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            setTripForm(prev => ({ ...prev, cover_image_file: file, cover_image_preview: reader.result as string }));
+          };
+          reader.readAsDataURL(file);
+        },
+      });
     }
   };
 
@@ -546,3 +575,5 @@ export default function TripsPage() {
     </main>
   );
 }
+
+    
