@@ -17,6 +17,7 @@ export type UserPhoto = {
 
 export type ChecklistItem = {
     checklist_uuid: string;
+    checklist_id: number;
     trip_uuid: string;
     label: string;
     checked: boolean;

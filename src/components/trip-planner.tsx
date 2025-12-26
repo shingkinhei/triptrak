@@ -99,7 +99,8 @@ const PreTripChecklist = ({ checklist: initialChecklist, tripId }: { checklist: 
     const [newItemLabel, setNewItemLabel] = useState('');
     const supabase = createClient();
     const { toast } = useToast();
-    
+    const [checkListIdCount, setCheckListIdCount] = useState<number | null>(null);
+
     useEffect(() => {
         setChecklist(initialChecklist.sort((a, b) => (a.seq ?? 0) - (b.seq ?? 0)));
     }, [initialChecklist]);
@@ -159,8 +160,28 @@ const PreTripChecklist = ({ checklist: initialChecklist, tripId }: { checklist: 
     const handleItemLabelChange = (id: string, label: string) => {
         setEditingChecklist(prev => prev.map(item => item.checklist_uuid === id ? { ...item, label } : item));
     };
+
+
+    useEffect(() => {
+      async function fetchCount() {
+        const { count, error } = await supabase
+          .from("pre_trip_checklist")
+          .select("max_id", { head: false }) // we want the actual value
+          .limit(1)
+          .single();
+  
+        if (error) {
+          console.error("Error counting checklist items:", error.message);
+        } else {
+          setCheckListIdCount(count);
+        }
+      }
+      fetchCount();
+    }, [tripId]);
+
     const handleAddItem = async () => {
       if (newItemLabel.trim()) {
+        const maxId = (checkListIdCount ?? 0)+1;
         const maxSeq = editingChecklist.reduce(
           (max, item) => Math.max(item.seq ?? 0, max),
           0
@@ -173,6 +194,7 @@ const PreTripChecklist = ({ checklist: initialChecklist, tripId }: { checklist: 
     
         const newItem: ChecklistItem = {
           checklist_uuid: uuidv4(),
+          checklist_id: maxId + 1,
           trip_uuid: tripId,
           label: newItemLabel.trim(),
           checked: false,
@@ -244,7 +266,7 @@ const PreTripChecklist = ({ checklist: initialChecklist, tripId }: { checklist: 
                         </div>
                     ))}
                 </div>
-            </CardContent>
+            </CardContent> 
 
             <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
                 <DialogContent className="shadow-lg">

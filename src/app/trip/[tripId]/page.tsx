@@ -27,7 +27,7 @@ import { Button } from '@/components/ui/button';
 import Image from 'next/image';
 import { createClient } from '@/lib/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { debounce } from 'lodash';
+import { debounce } from 'lodash'; 
 
 interface NewItemInput {
     name: string;
