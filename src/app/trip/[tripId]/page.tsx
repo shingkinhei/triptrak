@@ -216,7 +216,8 @@ export default function TripDetailsPage() {
       const { data: checklistData, error: checklistError } = await supabase
         .from('pre_trip_checklist')
         .select(`*`)
-        .eq('trip_uuid', tripId);
+        .eq('trip_uuid', tripId)
+        .order('seq', { ascending: true});
 
       if(checklistError) {
           toast({ title: 'Error fetching checklist', description: checklistError.message, variant: 'destructive' });

@@ -59,7 +59,7 @@ import { createClient } from '@/lib/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import Compressor from 'compressorjs';
 import { DragDropContext, Droppable, Draggable, type DropResult } from '@hello-pangea/dnd';
-
+import { v4 as uuidv4 } from 'uuid'; 
 
 const iconMap: Record<string, LucideIcon> = {
   Plane,
@@ -99,7 +99,7 @@ const PreTripChecklist = ({ checklist: initialChecklist, tripId }: { checklist: 
     const [newItemLabel, setNewItemLabel] = useState('');
     const supabase = createClient();
     const { toast } = useToast();
-
+    
     useEffect(() => {
         setChecklist(initialChecklist.sort((a, b) => (a.seq ?? 0) - (b.seq ?? 0)));
     }, [initialChecklist]);
@@ -159,20 +159,41 @@ const PreTripChecklist = ({ checklist: initialChecklist, tripId }: { checklist: 
     const handleItemLabelChange = (id: string, label: string) => {
         setEditingChecklist(prev => prev.map(item => item.checklist_uuid === id ? { ...item, label } : item));
     };
-
-    const handleAddItem = () => {
-        if (newItemLabel.trim()) {
-            const maxSeq = editingChecklist.reduce((max, item) => Math.max(item.seq ?? 0, max), 0);
-            const newItem: ChecklistItem = {
-                checklist_uuid: `new-${new Date().getTime()}`,
-                trip_uuid: tripId,
-                label: newItemLabel.trim(),
-                checked: false,
-                seq: maxSeq + 1
-            };
-            setEditingChecklist(prev => [...prev, newItem]);
-            setNewItemLabel('');
+    const handleAddItem = async () => {
+      if (newItemLabel.trim()) {
+        const maxSeq = editingChecklist.reduce(
+          (max, item) => Math.max(item.seq ?? 0, max),
+          0
+        );
+    
+        // Get current user from Supabase auth
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+    
+        const newItem: ChecklistItem = {
+          checklist_uuid: uuidv4(),
+          trip_uuid: tripId,
+          label: newItemLabel.trim(),
+          checked: false,
+          seq: maxSeq + 1,
+          created_at: new Date().toISOString(), // explicitly set timestamp
+          user_id: user?.id ?? null,            // set to current user
+        };
+    
+        // Update local state
+        setEditingChecklist((prev) => [...prev, newItem]);
+        setNewItemLabel("");
+    
+        // Insert into Supabase
+        const { error } = await supabase
+          .from("pre_trip_checklist")
+          .insert(newItem);
+    
+        if (error) {
+          console.error("Error inserting checklist item:", error.message);
         }
+      }
     };
 
     const handleDeleteItem = (id: string) => {
@@ -185,7 +206,7 @@ const PreTripChecklist = ({ checklist: initialChecklist, tripId }: { checklist: 
         const [reorderedItem] = items.splice(result.source.index, 1);
         items.splice(result.destination.index, 0, reorderedItem);
         setEditingChecklist(items);
-    };
+    }; 
 
 
     return (

@@ -21,6 +21,8 @@ export type ChecklistItem = {
     label: string;
     checked: boolean;
     seq:number | null;
+    created_at: string;
+    user_id: string |null;
 };
 
 export type ItineraryItem = {
