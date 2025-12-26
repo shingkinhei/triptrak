@@ -29,6 +29,7 @@ import {
   ArrowLeft,
   CheckCircle2,
   Edit,
+  GripVertical,
 } from 'lucide-react';
 import { Button } from './ui/button';
 import {
@@ -57,6 +58,8 @@ import { ScrollArea, ScrollBar } from './ui/scroll-area';
 import { createClient } from '@/lib/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import Compressor from 'compressorjs';
+import { DragDropContext, Droppable, Draggable, type DropResult } from '@hello-pangea/dnd';
+
 
 const iconMap: Record<string, LucideIcon> = {
   Plane,
@@ -81,7 +84,7 @@ const iconOptions = [
 ];
 
 interface TripPlannerProps {
-  trip: Trip;
+  trip: Trip; 
 }
 
 type EditableItineraryItem = ItineraryItem & {
@@ -98,9 +101,8 @@ const PreTripChecklist = ({ checklist: initialChecklist, tripId }: { checklist: 
     const { toast } = useToast();
 
     useEffect(() => {
-        setChecklist(initialChecklist);
+        setChecklist(initialChecklist.sort((a, b) => (a.seq ?? 0) - (b.seq ?? 0)));
     }, [initialChecklist]);
-
 
     const handleCheckChange = async (item: ChecklistItem, checked: boolean) => {
         const originalState = [...checklist];
@@ -115,7 +117,7 @@ const PreTripChecklist = ({ checklist: initialChecklist, tripId }: { checklist: 
     };
 
     const handleEditClick = () => {
-        setEditingChecklist([...checklist]);
+        setEditingChecklist([...checklist].sort((a, b) => (a.seq ?? 0) - (b.seq ?? 0)));
         setIsEditDialogOpen(true);
     };
 
@@ -124,32 +126,35 @@ const PreTripChecklist = ({ checklist: initialChecklist, tripId }: { checklist: 
         setChecklist(editingChecklist);
         setIsEditDialogOpen(false);
 
-        const newItems = editingChecklist.filter(item => item.checklist_uuid.startsWith('new-'));
-        const updatedItems = editingChecklist.filter(item => !item.checklist_uuid.startsWith('new-') && JSON.stringify(item) !== JSON.stringify(originalChecklist.find(i => i.checklist_uuid === item.checklist_uuid)));
+        const itemsToUpsert = editingChecklist.map((item, index) => ({
+            ...item,
+            seq: index
+        }));
+
+        const { error } = await supabase.from('pre_trip_checklist').upsert(
+            itemsToUpsert.map(({ trip_uuid, ...rest }) => ({ ...rest, trip_uuid: tripId }))
+        );
+
+        if (error) {
+            toast({ title: "Error Saving Checklist", description: error.message, variant: "destructive" });
+            setChecklist(originalChecklist);
+            return;
+        }
+
         const deletedItems = originalChecklist.filter(item => !editingChecklist.some(i => i.checklist_uuid === item.checklist_uuid));
-        
         if (deletedItems.length > 0) {
-            const { error } = await supabase.from('pre_trip_checklist').delete().in('checklist_uuid', deletedItems.map(i => i.checklist_uuid));
-            if (error) toast({ title: "Error Deleting Items", description: error.message, variant: "destructive" });
+            const { error: deleteError } = await supabase.from('pre_trip_checklist').delete().in('checklist_uuid', deletedItems.map(i => i.checklist_uuid));
+            if (deleteError) toast({ title: "Error Deleting Items", description: deleteError.message, variant: "destructive" });
         }
 
-        if (updatedItems.length > 0) {
-            const { error } = await supabase.from('pre_trip_checklist').upsert(updatedItems.map(({trip_uuid, ...rest}) => rest));
-            if (error) toast({ title: "Error Updating Items", description: error.message, variant: "destructive" });
-        }
-        
-        if (newItems.length > 0) {
-            const { error } = await supabase.from('pre_trip_checklist').insert(newItems.map(item => ({ trip_uuid: tripId, label: item.label, checked: item.checked })));
-            if (error) toast({ title: "Error Adding New Items", description: error.message, variant: "destructive" });
-        }
-
-        const { data, error } = await supabase.from('pre_trip_checklist').select('*').eq('trip_uuid', tripId);
-        if (!error && data) {
+        const { data, error: fetchError } = await supabase.from('pre_trip_checklist').select('*').eq('trip_uuid', tripId).order('seq', { ascending: true });
+        if (!fetchError && data) {
             setChecklist(data as ChecklistItem[]);
         } else {
-            setChecklist(originalChecklist);
+            toast({ title: "Error", description: "Failed to refresh checklist.", variant: "destructive" });
         }
     };
+
 
     const handleItemLabelChange = (id: string, label: string) => {
         setEditingChecklist(prev => prev.map(item => item.checklist_uuid === id ? { ...item, label } : item));
@@ -157,11 +162,13 @@ const PreTripChecklist = ({ checklist: initialChecklist, tripId }: { checklist: 
 
     const handleAddItem = () => {
         if (newItemLabel.trim()) {
+            const maxSeq = editingChecklist.reduce((max, item) => Math.max(item.seq ?? 0, max), 0);
             const newItem: ChecklistItem = {
                 checklist_uuid: `new-${new Date().getTime()}`,
                 trip_uuid: tripId,
                 label: newItemLabel.trim(),
                 checked: false,
+                seq: maxSeq + 1
             };
             setEditingChecklist(prev => [...prev, newItem]);
             setNewItemLabel('');
@@ -171,6 +178,15 @@ const PreTripChecklist = ({ checklist: initialChecklist, tripId }: { checklist: 
     const handleDeleteItem = (id: string) => {
         setEditingChecklist(prev => prev.filter(item => item.checklist_uuid !== id));
     };
+
+    const onDragEnd = (result: DropResult) => {
+        if (!result.destination) return;
+        const items = Array.from(editingChecklist);
+        const [reorderedItem] = items.splice(result.source.index, 1);
+        items.splice(result.destination.index, 0, reorderedItem);
+        setEditingChecklist(items);
+    };
+
 
     return (
         <Card className="bg-card/80 backdrop-blur-sm border-white/20 shadow-lg">
@@ -215,32 +231,53 @@ const PreTripChecklist = ({ checklist: initialChecklist, tripId }: { checklist: 
                         <DialogTitle>Edit Pre-Trip Checklist</DialogTitle>
                     </DialogHeader>
                     <div className="space-y-4 max-h-[60vh] overflow-y-auto py-4 pr-2">
-                        {editingChecklist.map(item => (
-                            <div key={item.checklist_uuid} className="flex items-center gap-2">
-                                <Input
-                                    value={item.label}
-                                    onChange={(e) => handleItemLabelChange(item.checklist_uuid, e.target.value)}
-                                    className="flex-grow"
-                                />
-                                <AlertDialog>
-                                    <AlertDialogTrigger asChild>
-                                        <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0">
-                                            <Trash2 className="h-4 w-4 text-destructive" />
-                                        </Button>
-                                    </AlertDialogTrigger>
-                                    <AlertDialogContent>
-                                        <AlertDialogHeader>
-                                            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                                            <AlertDialogDescription>This will permanently delete the item "{item.label}".</AlertDialogDescription>
-                                        </AlertDialogHeader>
-                                        <AlertDialogFooter>
-                                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                            <AlertDialogAction onClick={() => handleDeleteItem(item.checklist_uuid)} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
-                                        </AlertDialogFooter>
-                                    </AlertDialogContent>
-                                </AlertDialog>
-                            </div>
-                        ))}
+                         <DragDropContext onDragEnd={onDragEnd}>
+                            <Droppable droppableId="checklist">
+                                {(provided) => (
+                                    <div {...provided.droppableProps} ref={provided.innerRef}>
+                                        {editingChecklist.map((item, index) => (
+                                            <Draggable key={item.checklist_uuid} draggableId={item.checklist_uuid} index={index}>
+                                                {(provided) => (
+                                                    <div
+                                                        ref={provided.innerRef}
+                                                        {...provided.draggableProps}
+                                                        className="flex items-center gap-2 mb-2 p-2 bg-background rounded-md"
+                                                    >
+                                                        <div {...provided.dragHandleProps} className="cursor-grab">
+                                                            <GripVertical className="h-5 w-5 text-muted-foreground" />
+                                                        </div>
+                                                        <Input
+                                                            value={item.label}
+                                                            onChange={(e) => handleItemLabelChange(item.checklist_uuid, e.target.value)}
+                                                            className="flex-grow"
+                                                        />
+                                                        <AlertDialog>
+                                                            <AlertDialogTrigger asChild>
+                                                                <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0">
+                                                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                                                </Button>
+                                                            </AlertDialogTrigger>
+                                                            <AlertDialogContent>
+                                                                <AlertDialogHeader>
+                                                                    <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                                                    <AlertDialogDescription>This will permanently delete the item "{item.label}".</AlertDialogDescription>
+                                                                </AlertDialogHeader>
+                                                                <AlertDialogFooter>
+                                                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                                                    <AlertDialogAction onClick={() => handleDeleteItem(item.checklist_uuid)} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
+                                                                </AlertDialogFooter>
+                                                            </AlertDialogContent>
+                                                        </AlertDialog>
+                                                    </div>
+                                                )}
+                                            </Draggable>
+                                        ))}
+                                        {provided.placeholder}
+                                    </div>
+                                )}
+                            </Droppable>
+                        </DragDropContext>
+
                          <div className="flex items-center gap-2 pt-4 border-t">
                             <Input
                                 placeholder="Add new item..."
@@ -278,9 +315,21 @@ export function TripPlanner({ trip }: TripPlannerProps) {
   const { toast } = useToast();
   
   useEffect(() => {
+    const fetchChecklist = async () => {
+        const { data, error } = await supabase
+            .from('pre_trip_checklist')
+            .select('*')
+            .eq('trip_uuid', trip.trip_uuid)
+            .order('seq', { ascending: true });
+        if (error) {
+            toast({ title: "Error fetching checklist", description: error.message, variant: "destructive"});
+        } else if (data) {
+            setChecklist(data as ChecklistItem[]);
+        }
+    };
+    fetchChecklist();
     setItinerary(trip.itinerary);
-    setChecklist(trip.checklist);
-  }, [trip]);
+  }, [trip, supabase, toast]);
 
   const handleEditClick = (item: ItineraryItem) => {
     setTimeout(() => {
@@ -321,6 +370,8 @@ export function TripPlanner({ trip }: TripPlannerProps) {
         
         const { data: urlData } = supabase.storage.from('day_cover').getPublicUrl(filePath);
         newImageUrl = urlData.publicUrl;
+    } else if (!itemToSave.cover_image_preview && oldImageUrl) {
+        newImageUrl = null;
     }
 
     const dayUpdatePayload = {
@@ -341,12 +392,7 @@ export function TripPlanner({ trip }: TripPlannerProps) {
         return;
     }
 
-    if (itemToSave.cover_image_file && oldImageUrl && oldImageUrl !== newImageUrl) {
-        const oldImageKey = oldImageUrl.split('/day_cover/').pop();
-        if (oldImageKey) {
-            await supabase.storage.from('day_cover').remove([oldImageKey]);
-        }
-    } else if (!itemToSave.cover_image_preview && oldImageUrl) {
+    if ( (itemToSave.cover_image_file || newImageUrl === null) && oldImageUrl && oldImageUrl !== newImageUrl) {
         const oldImageKey = oldImageUrl.split('/day_cover/').pop();
         if (oldImageKey) {
             await supabase.storage.from('day_cover').remove([oldImageKey]);
@@ -437,9 +483,10 @@ export function TripPlanner({ trip }: TripPlannerProps) {
         quality: 0.6,
         maxWidth: 1200,
         success: (compressedResult) => {
+          setEditingItem(prev => prev ? {...prev, cover_image_file: compressedResult as File} : null);
           const reader = new FileReader();
           reader.onloadend = () => {
-            setEditingItem(prev => prev ? {...prev, cover_image_file: compressedResult as File, cover_image_preview: reader.result as string} : null);
+            setEditingItem(prev => prev ? {...prev, cover_image_preview: reader.result as string} : null);
           };
           reader.readAsDataURL(compressedResult);
         },

@@ -20,6 +20,7 @@ export type ChecklistItem = {
     trip_uuid: string;
     label: string;
     checked: boolean;
+    seq:number | null;
 };
 
 export type ItineraryItem = {
