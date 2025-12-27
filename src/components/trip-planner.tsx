@@ -163,10 +163,11 @@ const PreTripChecklist = ({ checklist: initialChecklist, tripId }: { checklist: 
 
 
     useEffect(() => {
-      async function fetchCount() {
+      async function fetchCheckListIdCount() {
         const { count, error } = await supabase
           .from("pre_trip_checklist")
-          .select("max_id", { head: false }) // we want the actual value
+          .select("checklist_id")
+          .order("checklist_id", { ascending: false })
           .limit(1)
           .single();
   
@@ -176,7 +177,7 @@ const PreTripChecklist = ({ checklist: initialChecklist, tripId }: { checklist: 
           setCheckListIdCount(count);
         }
       }
-      fetchCount();
+      fetchCheckListIdCount();
     }, [tripId]);
 
     const handleAddItem = async () => {
