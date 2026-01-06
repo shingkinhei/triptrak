@@ -163,8 +163,8 @@ export default function TripsPage() {
 
     if (newTrip.cover_image_file) {
       const file = newTrip.cover_image_file;
-      const filePath = `${user.id}/${Date.now()}-${file.name}`;
-      const { error: uploadError } = await supabase.storage.from('trip_cover').upload(filePath, file);
+      const filePath = `${user.id}/${newTrip.start_date}-${newTrip.country_code}`;
+      const { error: uploadError } = await supabase.storage.from('trip_cover').upload(filePath, file, { upsert: true });
 
       if (uploadError) {
         toast({ title: 'Error uploading image', description: uploadError.message, variant: 'destructive' });
@@ -267,8 +267,8 @@ export default function TripsPage() {
 
     if (tripForm.cover_image_file) {
       const file = tripForm.cover_image_file;
-      const filePath = `${user.id}/${Date.now()}-${file.name}`;
-      const { error: uploadError } = await supabase.storage.from('trip_cover').upload(filePath, file);
+      const filePath = `${user.id}/${tripForm.start_date}-${tripForm.country_code}`;
+      const { error: uploadError } = await supabase.storage.from('trip_cover').upload(filePath, file, {upsert: true});
 
       if (uploadError) {
         toast({ title: 'Error uploading image', description: uploadError.message, variant: 'destructive' });

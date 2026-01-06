@@ -223,9 +223,11 @@ export default function TripDetailsPage() {
           toast({ title: 'Error fetching checklist', description: checklistError.message, variant: 'destructive' });
       }
 
+      const sortedDays = daysData?.map(day => ({ ...day, activities: day.activities?.sort( (a: Activity, b: Activity) => a.time.localeCompare(b.time) ) }));
+      
       const enrichedTrip: Trip = {
         ...tripData,
-        itinerary: (daysData || []).map(d => ({...d, activities: d.activities})),
+        itinerary: sortedDays || [],
         checklist: checklistData || [],
       };
       

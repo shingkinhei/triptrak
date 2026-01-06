@@ -72,17 +72,6 @@ const iconMap: Record<string, LucideIcon> = {
   Building,
 };
 
-const iconOptions = [
-  { value: 'Plane', label: 'Plane' },
-  { value: 'Train', label: 'Train' },
-  { value: 'BedDouble', label: 'Accommodation' },
-  { value: 'UtensilsCrossed', label: 'Food' },
-  { value: 'Camera', label: 'Sightseeing' },
-  { value: 'Ticket', label: 'Event' },
-  { value: 'Mountain', label: 'Activity' },
-  { value: 'Building', label: 'City' },
-];
-
 interface TripPlannerProps {
   trip: Trip; 
 }
@@ -91,6 +80,8 @@ type EditableItineraryItem = ItineraryItem & {
     cover_image_file?: File | null;
     cover_image_preview?: string | null;
 }
+
+type ActivityOptions = { activity_type: string; icon_text: string; color_code:string; description:string;};
 
 const PreTripChecklist = ({ checklist: initialChecklist, tripId }: { checklist: ChecklistItem[], tripId: string }) => {
     const [checklist, setChecklist] = useState(initialChecklist);
@@ -352,12 +343,14 @@ export function TripPlanner({ trip }: TripPlannerProps) {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [activeView, setActiveView] = useState<string>('checklist');
   const [viewingPhoto, setViewingPhoto] = useState<UserPhoto | null>(null);
+  const [activityOptions , setActivityOptions] = useState<ActivityOptions[]>([]);
   const photoInputRef = useRef<HTMLInputElement>(null);
   const dayCoverInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
   const supabase = createClient();
   const { toast } = useToast();
   
+
   useEffect(() => {
     const fetchChecklist = async () => {
         const { data, error } = await supabase
@@ -371,7 +364,17 @@ export function TripPlanner({ trip }: TripPlannerProps) {
             setChecklist(data as ChecklistItem[]);
         }
     };
+    const fetchActivityOptions = async () => {
+      const { data, error } = await supabase.from('activities_option_setup').select('activity_type, icon_text, color_code, description');
+      if (error) {
+        toast({ title: 'Error fetching statuses', description: error.message, variant: 'destructive'});
+      } else {
+        setActivityOptions(data as ActivityOptions[]);
+      }
+    };
+  
     fetchChecklist();
+    fetchActivityOptions();
     setItinerary(trip.itinerary);
   }, [trip, supabase, toast]);
 
@@ -460,7 +463,7 @@ export function TripPlanner({ trip }: TripPlannerProps) {
     }
 
     if (newActivities.length > 0) {
-        const { error } = await supabase.from('activities').insert(newActivities.map(act => ({ day_uuid: itemToSave.day_uuid, time: act.time, description: act.description, icon: act.icon })));
+        const { error } = await supabase.from('activities').insert(newActivities.map(act => ({ day_uuid: itemToSave.day_uuid, time: act.time, description: act.description, icon: act.activity_type })));
         if (error) toast({ title: 'Error Adding New Activities', description: error.message, variant: 'destructive' });
     }
 
@@ -501,12 +504,12 @@ export function TripPlanner({ trip }: TripPlannerProps) {
 
   const handleAddActivity = () => {
     if (editingItem) {
-      const newActivity: Activity = {
-        activity_uuid: `act_${new Date().getTime()}`,
+      const newActivity: Activity = { 
+        activity_uuid: uuidv4(),
         day_uuid: editingItem.day_uuid,
         time: '00:00',
         description: 'New Activity',
-        icon: 'Camera',
+        activity_type: 'Sightseeing',
       };
       setEditingItem({ ...editingItem, activities: [...editingItem.activities, newActivity] });
     }
@@ -693,7 +696,7 @@ export function TripPlanner({ trip }: TripPlannerProps) {
                 )}
                 <ul className="space-y-4">
                   {item.activities.map((activity, actIndex) => {
-                    const ActivityIcon = iconMap[activity.icon];
+                    const ActivityIcon = iconMap[activity.activity_type];
                     return (
                       <li key={activity.activity_uuid} className="flex items-start gap-4">
                         <div className="flex flex-col items-center">
@@ -804,18 +807,18 @@ export function TripPlanner({ trip }: TripPlannerProps) {
                     <div key={act.activity_uuid} className="flex items-center gap-2 p-2 border rounded-lg">
                       <div className="grid gap-2 flex-grow">
                         <div className="flex items-center gap-2">
-                            <Select value={act.icon} onValueChange={(val) => handleActivityChange(act.activity_uuid, 'icon', val)}>
+                            <Select value={act.activity_type} onValueChange={(val) => handleActivityChange(act.activity_uuid, 'activity_type', val)}>
                                 <SelectTrigger className="w-16 h-8">
                                     <SelectValue>
-                                        {iconMap[act.icon] && React.createElement(iconMap[act.icon], {className: "h-4 w-4"})}
+                                        {iconMap[act.activity_type] && React.createElement(iconMap[act.activity_type], {className: "h-4 w-4"})}
                                     </SelectValue>
                                 </SelectTrigger>
                                 <SelectContent className="shadow-lg">
-                                    {iconOptions.map(opt => (
-                                        <SelectItem key={opt.value} value={opt.value}>
+                                    {activityOptions.map(opt => (
+                                        <SelectItem key={opt.icon_text} value={opt.icon_text}>
                                             <div className="flex items-center gap-2">
-                                                {React.createElement(iconMap[opt.value], {className: "h-4 w-4"})}
-                                                <span>{opt.label}</span>
+                                                {React.createElement(iconMap[opt.icon_text], {className: "h-4 w-4"})}
+                                                <span>{opt.activity_type}</span>
                                             </div>
                                         </SelectItem>
                                     ))}

@@ -2,12 +2,20 @@
 'use client';
 import type { LucideIcon } from "lucide-react";
 
+// export type ActivityOption = {
+//   activity_type: string;
+//   icon_text: string;
+//   color_code: string | null;
+//   description: string | null;
+// };
+
 export type Activity = {
   activity_uuid: string;
   day_uuid: string;
   time: string;
   description: string;
-  icon: string;
+  activity_type: string;
+  // activities_option_setup: ActivityOption | null;
 };
 
 export type UserPhoto = {
