@@ -878,7 +878,7 @@ export function TripPlanner({ trip }: TripPlannerProps) {
                           <Select value={act.activity_type} onValueChange={(val) => handleActivityChange(act.activity_uuid, 'activity_type', val)}>
                             <SelectTrigger className="w-16 h-8">
                               <SelectValue>
-                                {iconMap[act.activity_type] && React.createElement(iconMap[act.activity_type], { className: "h-4 w-4" })}
+                                {iconMap[getIconText(act.activity_type, activityOptions)] && React.createElement(iconMap[getIconText(act.activity_type, activityOptions)], { className: "h-4 w-4" })}
                               </SelectValue>
                             </SelectTrigger>
                             <SelectContent className="shadow-lg">
