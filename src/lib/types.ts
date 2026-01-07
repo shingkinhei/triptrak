@@ -11,11 +11,12 @@ import type { LucideIcon } from "lucide-react";
 
 export type Activity = {
   activity_uuid: string;
+  activity_id: number;
   day_uuid: string;
   time: string;
   description: string;
   activity_type: string;
-  // activities_option_setup: ActivityOption | null;
+//  activities_option_setup: ActivityOption | null;
 };
 
 export type UserPhoto = {
