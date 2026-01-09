@@ -205,7 +205,7 @@ export default function TripDetailsPage() {
       
       const { data: daysData, error: daysError } = await supabase
         .from('trip_days')
-        .select(`*, activities:activities (*)`)
+        .select(`*, activities:activities (*), tripDayPhotos:trip_photos (*)`)
         .eq('trip_uuid', tripId)
         .order('day_number', { ascending: true });
 

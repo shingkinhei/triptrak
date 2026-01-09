@@ -2,31 +2,24 @@
 'use client';
 import type { LucideIcon } from "lucide-react";
 
-// export type ActivityOption = {
-//   activity_type: string;
-//   icon_text: string;
-//   color_code: string | null;
-//   description: string | null;
-// };
-
 export type Activity = {
   activity_uuid: string;
-  activity_id: number;
   day_uuid: string;
   time: string;
   description: string;
   activity_type: string;
-//  activities_option_setup: ActivityOption | null;
 };
 
-export type UserPhoto = {
-    id: string;
+export type TripDayPhotos = {
+    photo_uuid: string;
+    day_uuid: string;
+    seq: string;
     url: string;
 };
 
 export type ChecklistItem = {
     checklist_uuid: string;
-    checklist_id: number;
+    // checklist_id: number |null;
     trip_uuid: string;
     label: string;
     checked: boolean;
@@ -45,7 +38,7 @@ export type ItineraryItem = {
   cover_image_url: string | null;
   cover_image_hint: string | null;
   activities: Activity[];
-  userPhotos?: UserPhoto[];
+  tripDayPhotos: TripDayPhotos[];
 };
 
 export type TransactionCategory = 'Food' | 'Transport' | 'Shopping' | 'Accommodation' | 'Other';

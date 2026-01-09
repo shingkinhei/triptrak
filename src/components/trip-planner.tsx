@@ -9,7 +9,7 @@ import {
   AccordionTrigger,
 } from '@/components/ui/accordion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import type { ItineraryItem, Activity, UserPhoto, ChecklistItem, Trip } from '@/lib/types';
+import type { ItineraryItem, Activity, TripDayPhotos, ChecklistItem, Trip } from '@/lib/types';
 import {
   BedDouble,
   Camera,
@@ -76,10 +76,17 @@ interface TripPlannerProps {
   trip: Trip;
 }
 
+type EditableTripDayPhoto = TripDayPhotos & {
+  trip_day_photo?: File[]; 
+  trip_day_photo_preview?: string[];
+}
+
 type EditableItineraryItem = ItineraryItem & {
   cover_image_file?: File | null;
   cover_image_preview?: string | null;
 }
+
+
 
 type ActivityOptions = { activity_type: string; icon_text: string; color_code: string; description: string; };
 
@@ -91,7 +98,6 @@ function getIconText(
   const match = options.find(opt => opt.activity_type === activityType);
   return match ? match.icon_text : fallback;
 };
-
 
 const PreTripChecklist = ({ checklist: initialChecklist, tripId }: { checklist: ChecklistItem[], tripId: string }) => {
   const [checklist, setChecklist] = useState(initialChecklist);
@@ -133,15 +139,28 @@ const PreTripChecklist = ({ checklist: initialChecklist, tripId }: { checklist: 
       seq: index
     }));
 
-    const { error } = await supabase.from('pre_trip_checklist').upsert(
-      itemsToUpsert.map(({ trip_uuid, ...rest }) => ({ ...rest, trip_uuid: tripId }))
-    );
-
-    if (error) {
-      toast({ title: "Error Saving Checklist", description: error.message, variant: "destructive" });
-      setChecklist(originalChecklist);
-      return;
+    for (const item of itemsToUpsert) {
+      const { checklist_uuid, trip_uuid, ...rest } = item;
+    
+      const { error } = await supabase
+        .from("pre_trip_checklist")
+        .update({
+          ...rest,
+          trip_uuid: tripId, // keep trip reference consistent
+        })
+        .eq("checklist_uuid", checklist_uuid); // WHERE clause
+    
+      if (error) {
+        toast({
+          title: "Error Updating Checklist",
+          description: error.message,
+          variant: "destructive",
+        });
+        setChecklist(originalChecklist);
+        return;
+      }
     }
+    
 
     const deletedItems = originalChecklist.filter(item => !editingChecklist.some(i => i.checklist_uuid === item.checklist_uuid));
     if (deletedItems.length > 0) {
@@ -163,27 +182,27 @@ const PreTripChecklist = ({ checklist: initialChecklist, tripId }: { checklist: 
   };
 
 
-  useEffect(() => {
-    async function fetchCheckListIdCount() {
-      const { count, error } = await supabase
-        .from("pre_trip_checklist")
-        .select("checklist_id")
-        .order("checklist_id", { ascending: false })
-        .limit(1)
-        .single();
+  // useEffect(() => {
+  //   async function fetchCheckListIdCount() {
+  //     const { count, error } = await supabase
+  //       .from("pre_trip_checklist")
+  //       .select("checklist_id")
+  //       .order("checklist_id", { ascending: false })
+  //       .limit(1)
+  //       .single();
 
-      if (error) {
-        console.error("Error counting checklist items:", error.message);
-      } else {
-        setCheckListIdCount(count);
-      }
-    }
-    fetchCheckListIdCount();
-  }, [tripId]);
+  //     if (error) {
+  //       console.error("Error counting checklist items:", error.message);
+  //     } else {
+  //       setCheckListIdCount(count);
+  //     }
+  //   }
+  //   fetchCheckListIdCount();
+  // }, [tripId]);
 
   const handleAddItem = async () => {
     if (newItemLabel.trim()) {
-      const maxId = (checkListIdCount ?? 0) + 1;
+      // const maxId = (checkListIdCount ?? 0) + 1;
       const maxSeq = editingChecklist.reduce(
         (max, item) => Math.max(item.seq ?? 0, max),
         0
@@ -193,10 +212,10 @@ const PreTripChecklist = ({ checklist: initialChecklist, tripId }: { checklist: 
       const {
         data: { user },
       } = await supabase.auth.getUser();
-
+ 
       const newItem: ChecklistItem = {
         checklist_uuid: uuidv4(),
-        checklist_id: maxId + 1,
+        // checklist_id: null,
         trip_uuid: tripId,
         label: newItemLabel.trim(),
         checked: false,
@@ -350,10 +369,10 @@ export function TripPlanner({ trip }: TripPlannerProps) {
   const [itinerary, setItinerary] = useState<ItineraryItem[]>(trip.itinerary);
   const [checklist, setChecklist] = useState<ChecklistItem[]>(trip.checklist);
   const [editingItem, setEditingItem] = useState<EditableItineraryItem | null>(null);
+  const [editingTripDayPhoto, setEditingTripDayPhoto] = useState<EditableTripDayPhoto | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [activeView, setActiveView] = useState<string>('checklist');
-  const [viewingPhoto, setViewingPhoto] = useState<UserPhoto | null>(null);
-  const [activityIdCount, setActivityIdCount] = useState<number | null>(null);
+  const [viewingPhoto, setViewingPhoto] = useState<TripDayPhotos | null>(null);
   const [activityOptions, setActivityOptions] = useState<ActivityOptions[]>([]);
   const photoInputRef = useRef<HTMLInputElement>(null);
   const dayCoverInputRef = useRef<HTMLInputElement>(null);
@@ -383,22 +402,7 @@ export function TripPlanner({ trip }: TripPlannerProps) {
         setActivityOptions(data as ActivityOptions[]);
       }
     };
-    async function fetchActivityIdCount() {
-      const { count, error } = await supabase
-        .from("activities")
-        .select("activity_id")
-        .order("activity_id", { ascending: false })
-        .limit(1)
-        .single();
 
-      if (error) {
-        console.error("Error counting checklist items:", error.message);
-      } else {
-        setActivityIdCount(count);
-      }
-    }
-
-    fetchActivityIdCount();
     fetchChecklist();
     fetchActivityOptions();
     setItinerary(trip.itinerary);
@@ -409,6 +413,7 @@ export function TripPlanner({ trip }: TripPlannerProps) {
       setEditingItem({
         ...item,
         activities: item.activities ? [...item.activities.map(a => ({ ...a }))] : [],
+        tripDayPhotos: item.tripDayPhotos ? [...item.tripDayPhotos.map(a => ({ ...a }))] : [],
         cover_image_preview: item.cover_image_url
       });
       setIsEditDialogOpen(true);
@@ -432,7 +437,7 @@ export function TripPlanner({ trip }: TripPlannerProps) {
 
     if (itemToSave.cover_image_file) {
       const file = itemToSave.cover_image_file;
-      const filePath = `${user.id}/${trip.trip_uuid}/${itemToSave.day_uuid}-${Date.now()}-${file.name}`;
+      const filePath = `${user.id}/${trip.trip_uuid}/${itemToSave.date}-${itemToSave.day_number}`;
 
       const { error: uploadError } = await supabase.storage.from('day_cover').upload(filePath, file, { upsert: true });
 
@@ -487,8 +492,7 @@ export function TripPlanner({ trip }: TripPlannerProps) {
         act.activity_type !== original.activity_type
       );
     });
-    console.log(updatedActivities)
-    //const updatedActivities = itemToSave.activities.filter(act => { const original = originalActivities.find( oa => oa.activity_uuid === act.activity_uuid ); if (!original) return true; // new activity not in original list // Compare relevant fields return ( act.time !== original.time || act.description !== original.description || act.activity_type !== original.activity_type ); });const updatedActivities = itemToSave.activities.filter(act => JSON.stringify(act) !== JSON.stringify(originalActivities.find(oa => oa.activity_uuid === act.activity_uuid)));
+
     const deletedActivities = originalActivities.filter(oa => !itemToSave.activities.some(ea => ea.activity_uuid === oa.activity_uuid));
 
     if (deletedActivities.length > 0) {
@@ -568,11 +572,10 @@ export function TripPlanner({ trip }: TripPlannerProps) {
   };
 
   const handleAddActivity = () => {
-    const maxId = (activityIdCount ?? 0) + 1;
     if (editingItem) {
       const newActivity: Activity = {
         activity_uuid: uuidv4(),
-        activity_id: maxId,
+        // activity_id: maxId,
         day_uuid: editingItem.day_uuid,
         time: '00:00',
         description: 'New Activity',
@@ -618,11 +621,71 @@ export function TripPlanner({ trip }: TripPlannerProps) {
   }
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files || !editingItem) return;
-    toast({ title: 'Feature not implemented', description: 'Uploading user photos is not yet supported in this version.', variant: 'default' });
+    console.log(editingItem); 
+    
+    if (!e.target.files || !editingTripDayPhoto) return;
+    
+    const files = Array.from(e.target.files);
+  
+    files.forEach(file => {
+      new Compressor(file, {
+        quality: 0.6,
+        maxWidth: 1200,
+        success: (compressedResult) => {
+          // Save compressed file
+          setEditingTripDayPhoto (prev =>
+            prev
+              ? {
+                  ...prev,
+                  trip_day_photo: [
+                    ...(prev.trip_day_photo || []),
+                    compressedResult as File,
+                  ],
+                }
+              : null
+          );
+  
+          // Generate preview
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            setEditingTripDayPhoto(prev =>
+              prev
+                ? {
+                    ...prev,
+                    trip_day_photo_preview: [
+                      ...(prev.trip_day_photo_preview || []),
+                      reader.result as string,
+                    ],
+                  }
+                : null
+            );
+          };
+          reader.readAsDataURL(compressedResult);
+        },
+        error: (err) => {
+          toast({
+            title: "Image compression failed",
+            description: err.message,
+            variant: "destructive",
+          });
+        },
+      });
+    });
+  
+  //    toast({ title: 'Feature not implemented', description: 'Uploading user photos is not yet supported in this version.', variant: 'default' });
   };
 
   const handleDeletePhoto = (photoId: string) => {
+  //   if (tripForm.cover_image_file && oldImageUrl) {
+  //     const oldImageKey = oldImageUrl.split('/trip_cover/').pop();
+  //     if (oldImageKey) {
+  //         const { error: deleteError } = await supabase.storage.from('trip_cover').remove([oldImageKey]);
+  //         if (deleteError) {
+  //             toast({ title: 'Could not delete old image', description: deleteError.message, variant: 'destructive' });
+  //         }
+  //     }
+  // }
+ 
     if (editingItem) {
       toast({ title: 'Feature not implemented', description: 'Deleting user photos is not yet supported in this version.', variant: 'default' });
     }
@@ -655,7 +718,7 @@ export function TripPlanner({ trip }: TripPlannerProps) {
     if (error) {
       toast({ title: 'Error adding day', description: error.message, variant: 'destructive' });
     } else if (data) {
-      const newDay: ItineraryItem = { ...data, activities: [], userPhotos: [] };
+      const newDay: ItineraryItem = { ...data, activities: [], tripDayPhotos: [] };
       setItinerary(prev => [...prev, newDay].sort((a, b) => a.day_number - b.day_number));
       toast({ title: 'Day Added!', description: `Day ${newDayNumber} has been successfully added.` });
     }
@@ -752,10 +815,10 @@ export function TripPlanner({ trip }: TripPlannerProps) {
                 </div>
               )}
 
-              {item.userPhotos && item.userPhotos.length > 0 && (
+              {item.tripDayPhotos && item.tripDayPhotos.length > 0 && ( 
                 <div className="grid grid-cols-3 gap-2">
-                  {item.userPhotos.map((photo) => (
-                    <button key={photo.id} onClick={() => setViewingPhoto(photo)} className="relative block w-full aspect-square rounded-md overflow-hidden cursor-pointer">
+                  {item.tripDayPhotos.map((photo) => ( 
+                    <button key={photo.photo_uuid} onClick={() => setViewingPhoto(photo)} className="relative block w-full aspect-square rounded-md overflow-hidden cursor-pointer">
                       <Image src={photo.url} alt="User photo" fill className="object-cover" />
                     </button>
                   ))}
@@ -845,14 +908,14 @@ export function TripPlanner({ trip }: TripPlannerProps) {
                   className="hidden"
                 />
                 <div className="grid grid-cols-3 gap-2">
-                  {(editingItem.userPhotos || []).map((photo) => (
-                    <div key={photo.id} className="relative aspect-square">
+                  {(editingItem.tripDayPhotos || []).map((photo) => (
+                    <div key={photo.photo_uuid} className="relative aspect-square">
                       <Image src={photo.url} alt="User upload" fill className="rounded-md object-cover" />
                       <Button
                         variant="destructive"
                         size="icon"
                         className="absolute top-1 right-1 h-6 w-6 z-10"
-                        onClick={() => handleDeletePhoto(photo.id)}
+                        onClick={() => handleDeletePhoto(photo.photo_uuid)}
                       >
                         <X className="h-4 w-4" />
                       </Button>
