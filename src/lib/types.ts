@@ -7,6 +7,7 @@ export type Activity = {
   day_uuid: string;
   time: string;
   description: string;
+  address?: string | null;
   activity_type: string;
 };
 
@@ -54,23 +55,19 @@ export type Transaction = {
   date: string;
 };
 
-export type ShoppingItem = {
+export type ShoppingItems = {
   item_uuid: string;
-  item_id: number;
+  item_id?: number;
   shopping_category: string | null;
-  name: string | null;
-  checked: boolean | null;
+  name: string;
+  store?: string | null;
+  address?: string | null;
+  checked: boolean;
   image_url: string | null;
   price: number | null;
   user_id: string | null;
   created_at?: string | null;
-};
 
-export type ShoppingCategory = {
-  id: string;
-  name: string;
-  icon?: string;
-  items: ShoppingItem[];
 };
 
 export type Currency = string;
@@ -105,6 +102,6 @@ export type Trip = {
   // These are now handled separately
   itinerary: ItineraryItem[];
   transactions: Transaction[];
-  shopping_list: ShoppingCategory[];
+  shoppingItems: ShoppingItems[];
   checklist: ChecklistItem[];
 };

@@ -1,6 +1,6 @@
 'use client';
 import React, { useRef, useState, useMemo } from 'react';
-import type { ShoppingCategory, ShoppingItem, Trip } from '@/lib/types';
+import type { ShoppingItems, Trip } from '@/lib/types';
 import {
   Card,
   CardContent,
@@ -23,10 +23,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { useRouter } from 'next/navigation';
 
 interface ShoppingListProps {
-  list: ShoppingCategory[];
-  setList: React.Dispatch<React.SetStateAction<ShoppingCategory[]>>;
-  onCheckChange: (categoryId: string, itemId: string, checked: boolean) => void;
-  trip: Trip;
+    list: ShoppingItems[];
+    setList: React.Dispatch<React.SetStateAction<ShoppingItems[]>>;
+    onCheckChange: (itemId: string, checked: boolean) => void;
+    trip: Trip;
 }
 
 const iconMap: Record<string, LucideIcon> = {
@@ -52,90 +52,18 @@ const iconOptions = [
 
 type DisplayCurrency = 'trip' | 'home';
 
-const AddCategoryDialog = ({ onAddCategory }: { onAddCategory: (name: string, icon: string) => void }) => {
-    const [categoryName, setCategoryName] = useState('');
-    const [icon, setIcon] = useState('ShoppingBasket');
-    const [isOpen, setIsOpen] = useState(false);
-
-    const handleAdd = () => {
-        if (categoryName.trim()) {
-            onAddCategory(categoryName.trim(), icon);
-            setCategoryName('');
-            setIcon('ShoppingBasket');
-            setIsOpen(false);
-        }
-    };
-
-    return (
-        <Dialog open={isOpen} onOpenChange={setIsOpen}>
-            <DialogTrigger asChild>
-                <Button variant="outline" className="bg-white/10 border-white/20 text-white hover:bg-white/20 hover:text-white">
-                    <ListPlus className="mr-2 h-4 w-4" />
-                    Add Category
-                </Button>
-            </DialogTrigger>
-            <DialogContent className="shadow-lg">
-                <DialogHeader>
-                    <DialogTitle>Create New Category</DialogTitle>
-                </DialogHeader>
-                <div className="grid gap-4 py-4">
-                    <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="category-name" className="text-right">
-                            Name
-                        </Label>
-                        <Input
-                            id="category-name"
-                            value={categoryName}
-                            onChange={(e) => setCategoryName(e.target.value)}
-                            className="col-span-3"
-                            placeholder="e.g. Toiletries"
-                        />
-                    </div>
-                     <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="category-icon" className="text-right">
-                            Icon
-                        </Label>
-                        <Select value={icon} onValueChange={setIcon}>
-                            <SelectTrigger className="col-span-3">
-                                <SelectValue placeholder="Select an icon" />
-                            </SelectTrigger>
-                            <SelectContent className="shadow-lg">
-                                {iconOptions.map(opt => (
-                                    <SelectItem key={opt.value} value={opt.value}>
-                                        <div className="flex items-center gap-2">
-                                            {React.createElement(iconMap[opt.value], { className: "h-4 w-4" })}
-                                            <span>{opt.label}</span>
-                                        </div>
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
-                </div>
-                <DialogFooter>
-                     <Button variant="outline" onClick={() => setIsOpen(false)}>Cancel</Button>
-                    <Button onClick={handleAdd}>Add Category</Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
-    );
-};
-
 export function ShoppingList({ list, setList, onCheckChange, trip }: ShoppingListProps) {
     const { tripCurrency, tripRate, formatCurrency, homeCurrency, convertToHomeCurrency, formatHomeCurrency } = useCurrency();
     const router = useRouter();
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     // State for main dialogs
-    const [renamingCategory, setRenamingCategory] = useState<ShoppingCategory | null>(null);
-    
     // State for editing items
-    const [editingItem, setEditingItem] = useState<{ categoryId: string; item: ShoppingItem; } | null>(null);
-    const [editItemFormData, setEditItemFormData] = useState<Partial<ShoppingItem> & { file?: File | null, previewUrl?: string | null }>({});
+    const [editingItem, setEditingItem] = useState<{ item: ShoppingItems; } | null>(null);
+    const [editItemFormData, setEditItemFormData] = useState<Partial<ShoppingItems> & { file?: File | null, previewUrl?: string | null }>({});
 
     // Other state
     const [displayCurrency, setDisplayCurrency] = useState<DisplayCurrency>('trip');
-    const [editCategoryFormData, setEditCategoryFormData] = useState<{name: string; icon: string}>({ name: '', icon: '' });
 
 
     const itineraryLocations = useMemo(() => {
@@ -148,13 +76,13 @@ export function ShoppingList({ list, setList, onCheckChange, trip }: ShoppingLis
         const allPois = trip.itinerary.flatMap(day => 
             day.activities.map(activity => ({
                 name: activity.description,
-                location: day.title.replace(/arrival in |exploring |day trip to /i, '')
+                address: activity.address || '',
             }))
         );
         return allPois.filter(poi => 
-            editingItem ? poi.location === editItemFormData.location : true
+            editingItem ? poi.address === editItemFormData.address : true
         );
-    }, [trip, editingItem, editItemFormData.location]);
+    }, [trip, editingItem, editItemFormData]);
 
 
     const currentFormatter = displayCurrency === 'trip' ? formatCurrency : formatHomeCurrency;
@@ -164,33 +92,12 @@ export function ShoppingList({ list, setList, onCheckChange, trip }: ShoppingLis
         setDisplayCurrency(prev => (prev === 'trip' ? 'home' : 'trip'));
     };
 
-    const handleAddCategory = (name: string, icon: string) => {
-        const newCategory: ShoppingCategory = {
-            id: `cat-${name.toLowerCase().replace(/\s/g, '-')}-${new Date().getTime()}`,
-            name: name,
-            icon: icon,
-            items: [],
+    // Category operations removed: categories are derived from items' `shopping_category`
+
+        const handleEditItemClick = (item: ShoppingItems) => {
+            setEditingItem({ item });
+            setEditItemFormData({ ...item, previewUrl: item.image_url });
         };
-        setList(prev => [...prev, newCategory]);
-    };
-
-    const handleRenameCategory = () => {
-        if (!renamingCategory || !editCategoryFormData.name.trim()) return;
-        setList(prevList => prevList.map(cat => 
-            cat.id === renamingCategory.id ? { ...cat, name: editCategoryFormData.name, icon: editCategoryFormData.icon } : cat
-        ));
-        setRenamingCategory(null);
-        setEditCategoryFormData({ name: '', icon: '' });
-    };
-
-    const handleDeleteCategory = (categoryId: string) => {
-        setList(prevList => prevList.filter(cat => cat.id !== categoryId));
-    };
-
-    const handleEditItemClick = (categoryId: string, item: ShoppingItem) => {
-      setEditingItem({ categoryId, item });
-      setEditItemFormData({ ...item, previewUrl: item.imageUrl });
-    };
 
     const handleUpdateItem = () => {
         if (!editingItem) return;
@@ -199,37 +106,19 @@ export function ShoppingList({ list, setList, onCheckChange, trip }: ShoppingLis
             ...editingItem.item,
             ...editItemFormData,
             price: parseFloat(String(editItemFormData.price || 0)) || 0,
-            imageUrl: editItemFormData.previewUrl || editingItem.item.imageUrl,
-        };
-        // remove temporary fields
-        delete updatedItem.file;
-        delete updatedItem.previewUrl;
+            image_url: editItemFormData.previewUrl || editingItem.item.image_url,
+        } as ShoppingItems;
+        delete (updatedItem as any).file;
+        delete (updatedItem as any).previewUrl;
 
-
-        setList(prevList => prevList.map(category => {
-            if (category.id === editingItem.categoryId) {
-                return {
-                    ...category,
-                    items: category.items.map(item => item.id === editingItem.item.id ? updatedItem : item)
-                };
-            }
-            return category;
-        }));
+        setList(prevList => prevList.map(item => item.item_uuid === editingItem.item.item_uuid ? updatedItem : item));
         
         setEditingItem(null);
         setEditItemFormData({});
     };
 
-    const handleDeleteItem = (categoryId: string, itemId: string) => {
-        setList(prevList => prevList.map(category => {
-            if (category.id === categoryId) {
-                return {
-                    ...category,
-                    items: category.items.filter(item => item.id !== itemId)
-                };
-            }
-            return category;
-        }));
+    const handleDeleteItem = (itemId: string) => {
+        setList(prevList => prevList.filter(item => item.item_uuid !== itemId));
     };
     
     const handleEditItemFormChange = (field: keyof typeof editItemFormData, value: string | File | null) => {
@@ -240,8 +129,8 @@ export function ShoppingList({ list, setList, onCheckChange, trip }: ShoppingLis
             }
             reader.readAsDataURL(value);
         } else if (typeof value === 'string') {
-             if (field === 'location') {
-                setEditItemFormData(prev => ({...prev, location: value, store: ''}));
+             if (field === 'store') {
+                setEditItemFormData(prev => ({...prev, store: value, address: ''}));
             } else {
                 setEditItemFormData(prev => ({ ...prev, [field]: value }));
             }
@@ -249,11 +138,24 @@ export function ShoppingList({ list, setList, onCheckChange, trip }: ShoppingLis
     };
 
 
-    const calculateTotal = (items: ShoppingItem[]) => {
+    const calculateTotal = (items: ShoppingItems[]) => {
         return items.reduce((total, item) => total + (item.price || 0), 0);
     }
-    
-    const baseGrandTotal = list.reduce((total, category) => total + calculateTotal(category.items), 0);
+
+    const baseGrandTotal = (list ?? []).reduce(
+    (total, item) => total + (item.price || 0),
+    0
+    );
+
+    const grouped = useMemo(() => {
+        const map: Record<string, ShoppingItems[]> = {};
+       (list ?? []).forEach(i => {
+            const key = i.shopping_category || 'General';
+            if (!map[key]) map[key] = [];
+            map[key].push(i);
+        });
+        return Object.keys(map).map(k => ({ name: k, items: map[k] }));
+    }, [list]);
     
     const grandTotalInCurrent = displayCurrency === 'trip' ? baseGrandTotal : convertToHomeCurrency(baseGrandTotal);
     
@@ -275,7 +177,7 @@ export function ShoppingList({ list, setList, onCheckChange, trip }: ShoppingLis
                 </h1>
             </div>
         </div>
-        <AddCategoryDialog onAddCategory={handleAddCategory} />
+        <div />
       </header>
 
       <Card className="shadow-lg bg-card/80 backdrop-blur-sm border-white/20">
@@ -294,69 +196,36 @@ export function ShoppingList({ list, setList, onCheckChange, trip }: ShoppingLis
       </Card>
 
       <div className="space-y-4">
-        {list.map(category => {
-            const baseCategoryTotal = calculateTotal(category.items);
+        {grouped.map(group => {
+            const baseCategoryTotal = calculateTotal(group.items);
             const categoryTotalInCurrent = displayCurrency === 'trip' ? baseCategoryTotal : convertToHomeCurrency(baseCategoryTotal);
-            const CategoryIcon = category.icon ? iconMap[category.icon] : ShoppingBasket;
+            const CategoryIcon = iconMap[group.name] || ShoppingBasket;
             return (
-            <Card key={category.id} className="bg-card/80 backdrop-blur-sm border-white/20 shadow-lg">
+            <Card key={group.name} className="bg-card/80 backdrop-blur-sm border-white/20 shadow-lg">
                 <CardHeader>
                     <div className="flex justify-between items-center">
                         <CardTitle className="text-lg font-headline text-card-foreground flex items-center gap-2">
                             {CategoryIcon && <CategoryIcon className="h-5 w-5 text-primary" />}
-                            {category.name}
+                            {group.name}
                         </CardTitle>
                         <div className="flex items-center gap-2">
                             <span className="font-semibold text-card-foreground">{currentFormatter(categoryTotalInCurrent)}</span>
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:bg-accent hover:text-accent-foreground">
-                                        <MoreVertical className="h-4 w-4" />
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end" className="shadow-lg">
-                                    <DropdownMenuItem onClick={() => { setRenamingCategory(category); setEditCategoryFormData({ name: category.name, icon: category.icon || 'ShoppingBasket' }); }}>
-                                        <Edit className="mr-2 h-4 w-4" />
-                                        Rename
-                                    </DropdownMenuItem>
-                                    <AlertDialog>
-                                        <AlertDialogTrigger asChild>
-                                            <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive focus:text-destructive">
-                                                <Trash2 className="mr-2 h-4 w-4" />
-                                                Delete
-                                            </DropdownMenuItem>
-                                        </AlertDialogTrigger>
-                                        <AlertDialogContent className="shadow-lg">
-                                            <AlertDialogHeader>
-                                                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                                                <AlertDialogDescription>
-                                                    This will permanently delete the "{category.name}" category and all its items. This action cannot be undone.
-                                                </AlertDialogDescription>
-                                            </AlertDialogHeader>
-                                            <AlertDialogFooter>
-                                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                                <AlertDialogAction onClick={() => handleDeleteCategory(category.id)} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
-                                            </AlertDialogFooter>
-                                        </AlertDialogContent>
-                                    </AlertDialog>
-                                </DropdownMenuContent>
-                            </DropdownMenu>
                         </div>
                     </div>
                 </CardHeader>
                 <CardContent>
                     <div className="grid grid-cols-2 gap-4">
-                        {category.items.map(item => {
+                        {group.items.map(item => {
                             const baseItemPrice = item.price || 0;
                             const itemPriceInCurrent = displayCurrency === 'trip' ? baseItemPrice : convertToHomeCurrency(baseItemPrice);
                             return (
-                                <Card key={item.id} className={cn("overflow-hidden relative bg-card/80 backdrop-blur-sm border-white/20 shadow-lg", item.checked && "opacity-50")}>
+                                <Card key={item.item_uuid} className={cn("overflow-hidden relative bg-card/80 backdrop-blur-sm border-white/20 shadow-lg", item.checked && "opacity-50")}>
                                      <div className="absolute top-2 left-2 z-10">
                                          <Checkbox
-                                            id={`${category.id}-${item.id}`}
+                                            id={`${group.name}-${item.item_uuid}`}
                                             checked={item.checked}
                                             onCheckedChange={(checked) =>
-                                            onCheckChange(category.id, item.id, !!checked)
+                                            onCheckChange(item.item_uuid, !!checked)
                                             }
                                             className="h-5 w-5 bg-background border-2"
                                         />
@@ -366,9 +235,9 @@ export function ShoppingList({ list, setList, onCheckChange, trip }: ShoppingLis
                                             <Button variant="ghost" size="icon" className="absolute top-1 right-1 h-7 w-7 z-10 bg-black/30 text-white hover:bg-black/50 hover:text-white">
                                                 <MoreVertical className="h-4 w-4" />
                                             </Button>
-                                        </DropdownMenuTrigger>
+                                        </DropdownMenuTrigger> 
                                         <DropdownMenuContent>
-                                            <DropdownMenuItem onClick={() => handleEditItemClick(category.id, item)}>
+                                            <DropdownMenuItem onClick={() => handleEditItemClick(item)}>
                                                 <Edit className="mr-2 h-4 w-4" />
                                                 Edit
                                             </DropdownMenuItem>
@@ -386,7 +255,7 @@ export function ShoppingList({ list, setList, onCheckChange, trip }: ShoppingLis
                                                     </AlertDialogHeader>
                                                     <AlertDialogFooter>
                                                         <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                                        <AlertDialogAction onClick={() => handleDeleteItem(category.id, item.id)} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
+                                                        <AlertDialogAction onClick={() => handleDeleteItem(item.item_uuid)} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
                                                     </AlertDialogFooter>
                                                 </AlertDialogContent>
                                             </AlertDialog>
@@ -394,9 +263,9 @@ export function ShoppingList({ list, setList, onCheckChange, trip }: ShoppingLis
                                     </DropdownMenu>
 
                                     <div className="relative aspect-square w-full">
-                                        {item.imageUrl && (
-                                            <Image 
-                                                src={item.imageUrl}
+                                        {item.image_url && (
+                                            <Image  
+                                                src={item.image_url}
                                                 alt={item.name}
                                                 fill
                                                 className="object-cover"
@@ -412,10 +281,10 @@ export function ShoppingList({ list, setList, onCheckChange, trip }: ShoppingLis
                                             {item.name}
                                         </p>
                                         <div className="space-y-1 text-xs text-muted-foreground">
-                                            {item.location && (
+                                            {item.store && (
                                                 <div className="flex items-center gap-1">
                                                     <MapPin className="h-3 w-3" />
-                                                    <span>{item.location}</span>
+                                                    <span>{item.store}</span>
                                                 </div>
                                             )}
                                             {item.store && (
@@ -441,53 +310,7 @@ export function ShoppingList({ list, setList, onCheckChange, trip }: ShoppingLis
         )})}
       </div>
 
-       {renamingCategory && (
-        <Dialog open={!!renamingCategory} onOpenChange={(isOpen) => !isOpen && setRenamingCategory(null)}>
-            <DialogContent className="shadow-lg">
-                <DialogHeader>
-                    <DialogTitle>Edit Category</DialogTitle>
-                </DialogHeader>
-                <div className="grid gap-4 py-4">
-                    <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="category-name" className="text-right">
-                            Name
-                        </Label>
-                        <Input
-                            id="category-name"
-                            value={editCategoryFormData.name}
-                            onChange={(e) => setEditCategoryFormData(prev => ({...prev, name: e.target.value}))}
-                            className="col-span-3"
-                            placeholder="New category name"
-                        />
-                    </div>
-                    <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="category-icon-edit" className="text-right">
-                            Icon
-                        </Label>
-                        <Select value={editCategoryFormData.icon} onValueChange={(value) => setEditCategoryFormData(prev => ({...prev, icon: value}))}>
-                            <SelectTrigger id="category-icon-edit" className="col-span-3">
-                                <SelectValue placeholder="Select an icon" />
-                            </SelectTrigger>
-                            <SelectContent className="shadow-lg">
-                                {iconOptions.map(opt => (
-                                    <SelectItem key={opt.value} value={opt.value}>
-                                        <div className="flex items-center gap-2">
-                                            {React.createElement(iconMap[opt.value], { className: "h-4 w-4" })}
-                                            <span>{opt.label}</span>
-                                        </div>
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
-                </div>
-                <DialogFooter>
-                    <Button variant="outline" onClick={() => setRenamingCategory(null)}>Cancel</Button>
-                    <Button onClick={handleRenameCategory}>Save</Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
-       )}
+       
        {editingItem && (
         <Dialog open={!!editingItem} onOpenChange={(isOpen) => !isOpen && setEditingItem(null)}>
             <DialogContent>
@@ -506,7 +329,7 @@ export function ShoppingList({ list, setList, onCheckChange, trip }: ShoppingLis
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                             <Label htmlFor="item-location">Location</Label>
-                            <Select value={editItemFormData.location || ''} onValueChange={(value) => handleEditItemFormChange('location', value)}>
+                            <Select value={editItemFormData.store || ''} onValueChange={(value) => handleEditItemFormChange('address', value)}>
                                 <SelectTrigger id="item-location">
                                     <SelectValue placeholder="Select a location" />
                                 </SelectTrigger>
@@ -519,7 +342,7 @@ export function ShoppingList({ list, setList, onCheckChange, trip }: ShoppingLis
                         </div>
                          <div className="space-y-2">
                             <Label htmlFor="item-store">Store / POI</Label>
-                            <Select value={editItemFormData.store || ''} onValueChange={(value) => handleEditItemFormChange('store', value)} disabled={!editItemFormData.location}>
+                            <Select value={editItemFormData.store || ''} onValueChange={(value) => handleEditItemFormChange('store', value)} disabled={!editItemFormData.address}>
                                 <SelectTrigger id="item-store">
                                     <SelectValue placeholder="Select a store" />
                                 </SelectTrigger>

@@ -138,6 +138,16 @@ const formatMMDD = (dateStr?: string | null) => {
   const dd = String(d.getDate()).padStart(2, "0");
   return `${mm}/${dd}`;
 };
+const timeToMinutes = (time?: string | null) => {
+  if (!time) return Number.MAX_SAFE_INTEGER;
+  const t = time.toString().trim();
+  const m = t.match(/^(\d{1,2}):(\d{2})/);
+  if (!m) return Number.MAX_SAFE_INTEGER;
+  const hh = parseInt(m[1], 10);
+  const mm = parseInt(m[2], 10);
+  if (Number.isNaN(hh) || Number.isNaN(mm)) return Number.MAX_SAFE_INTEGER;
+  return hh * 60 + mm;
+};
 
 const PreTripChecklist = ({
   checklist: initialChecklist,
@@ -179,6 +189,7 @@ const PreTripChecklist = ({
       setChecklist(originalState);
     }
   };
+
 
   const handleEditClick = () => {
     setEditingChecklist(
@@ -263,23 +274,7 @@ const PreTripChecklist = ({
     );
   };
 
-  // useEffect(() => {
-  //   async function fetchCheckListIdCount() {
-  //     const { count, error } = await supabase
-  //       .from("pre_trip_checklist")
-  //       .select("checklist_id")
-  //       .order("checklist_id", { ascending: false })
-  //       .limit(1)
-  //       .single();
 
-  //     if (error) {
-  //       console.error("Error counting checklist items:", error.message);
-  //     } else {
-  //       setCheckListIdCount(count);
-  //     }
-  //   }
-  //   fetchCheckListIdCount();
-  // }, [tripId]);
 
   const handleAddItem = async () => {
     if (newItemLabel.trim()) {
@@ -691,7 +686,8 @@ export function TripPlanner({ trip }: TripPlannerProps) {
       return (
         act.time !== original.time ||
         act.description !== original.description ||
-        act.activity_type !== original.activity_type
+        act.activity_type !== original.activity_type ||
+        act.address !== original.address
       );
     });
 
@@ -726,6 +722,7 @@ export function TripPlanner({ trip }: TripPlannerProps) {
             time: act.time,
             description: act.description,
             activity_type: act.activity_type,
+            address: act.address,
             day_uuid: itemToSave.day_uuid, // keep consistent day_uuid
           })
           .eq("activity_uuid", act.activity_uuid); // WHERE clause
@@ -748,6 +745,7 @@ export function TripPlanner({ trip }: TripPlannerProps) {
             day_uuid: itemToSave.day_uuid,
             time: act.time,
             description: act.description,
+            address: act.address,
             activity_type: act.activity_type,
           }))
         );
@@ -861,99 +859,54 @@ export function TripPlanner({ trip }: TripPlannerProps) {
 
     const { data: refreshedDay, error: refreshError } = await supabase
       .from("trip_days")
-      .select(`*, activities:activities (*)`)
+      .select(`*, activities:activities (*), tripDayPhotos:trip_photos (*)`)
       .eq("day_uuid", itemToSave.day_uuid)
       .single();
 
-    if (!refreshError && refreshedDay) {
-      const sortedActivities = refreshedDay.activities?.sort(
-        (a: { time: string }, b: { time: string }) =>
-          a.time.localeCompare(b.time)
+    if (refreshError) {
+      toast({
+        title: "Error refreshing day",
+        description: refreshError.message,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (refreshedDay) {
+      // Sort activities
+      const sortedActivities = Array.isArray(refreshedDay.activities)
+        ? [...refreshedDay.activities].sort((a: any, b: any) => {
+            const ma = timeToMinutes(a?.time ?? null);
+            const mb = timeToMinutes(b?.time ?? null);
+            if (ma === mb) return (a.activity_uuid || "").localeCompare(b.activity_uuid || "");
+            return ma - mb;
+          })
+        : [];
+
+      // Sort photos by seq
+      const sortedPhotos = Array.isArray(refreshedDay.tripDayPhotos)
+        ? [...refreshedDay.tripDayPhotos].sort(
+            (a: any, b: any) => Number(a?.seq ?? 0) - Number(b?.seq ?? 0)
+          )
+        : [];
+
+      // Update editing item
+      setEditingItem(prev =>
+        prev ? { ...prev, tripDayPhotos: sortedPhotos } : prev
       );
-      setItinerary((prev) =>
-        prev.map((item) =>
+
+      // Update itinerary
+      setItinerary(prev =>
+        prev.map(item =>
           item.day_uuid === refreshedDay.day_uuid
             ? ({
                 ...refreshedDay,
                 activities: sortedActivities,
+                tripDayPhotos: sortedPhotos,
               } as ItineraryItem)
             : item
         )
       );
-    }
-
-    try {
-      const { data: refreshTripPhotos, error: refreshError } = await supabase
-        .from("trip_photos")
-        .select("*")
-        .eq("day_uuid", itemToSave.day_uuid)
-        .order("seq", { ascending: true });
-
-      if (refreshError) {
-        toast({
-          title: "Error refreshing photos",
-          description: refreshError.message,
-          variant: "destructive",
-        });
-        return;
-      }
-      const fresh = Array.isArray(refreshTripPhotos) ? refreshTripPhotos : [];
-      setEditingItem((prev) =>
-        prev ? { ...prev, tripDayPhotos: fresh } : prev
-      );
-      setItinerary((prev) =>
-        prev.map((d) =>
-          d.day_uuid === itemToSave.day_uuid
-            ? ({ ...d, tripDayPhotos: fresh } as ItineraryItem)
-            : d
-        )
-      );
-    } catch (err: any) {
-      console.error("Refresh photos failed", err);
-      toast({
-        title: "Refresh failed",
-        description: err.message || String(err),
-        variant: "destructive",
-      });
-    }
-
-    // Refresh cover image after save (similar to trip photos refresh)
-    try {
-      const { data: freshDay, error: dayErr } = await supabase
-        .from("trip_days")
-        .select("*")
-        .eq("day_uuid", itemToSave.day_uuid)
-        .single();
-
-      if (!dayErr && freshDay) {
-        setItinerary((prev) =>
-          prev.map((d) =>
-            d.day_uuid === freshDay.day_uuid
-              ? ({
-                  ...d,
-                  cover_image_url: freshDay.cover_image_url,
-                  cover_image_hint: freshDay.cover_image_hint,
-                } as ItineraryItem)
-              : d
-          )
-        );
-        setEditingItem((prev) =>
-          prev && prev.day_uuid === freshDay.day_uuid
-            ? {
-                ...prev,
-                cover_image_url: freshDay.cover_image_url,
-                cover_image_preview: freshDay.cover_image_url,
-              }
-            : prev
-        );
-      }
-    } catch (err: any) {
-      console.error("Refresh cover failed", err);
-      toast({
-        title: "Refresh cover failed",
-        description: err.message || String(err),
-        variant: "destructive",
-      });
     }
 
     // Ensure day_number sequencing and trip start/end dates are correct
@@ -1001,6 +954,7 @@ export function TripPlanner({ trip }: TripPlannerProps) {
         day_uuid: editingItem.day_uuid,
         time: "00:00",
         description: "New Activity",
+        address: null,
         activity_type: "Sightseeing",
       };
       setEditingItem({
@@ -1339,7 +1293,16 @@ export function TripPlanner({ trip }: TripPlannerProps) {
         .eq("trip_uuid", tripUuid)
         .order("day_number", { ascending: true });
       if (!refreshErr && Array.isArray(refreshedDays)) {
-        setItinerary(refreshedDays as ItineraryItem[]);
+        const normalized = refreshedDays.map((d: any) => {
+          const acts = Array.isArray(d.activities)
+            ? [...d.activities].sort((a: any, b: any) => timeToMinutes(a?.time ?? null) - timeToMinutes(b?.time ?? null))
+            : [];
+          const photos = Array.isArray(d.tripDayPhotos)
+            ? [...d.tripDayPhotos].sort((a: any, b: any) => Number(a?.seq ?? 0) - Number(b?.seq ?? 0))
+            : [];
+          return { ...d, activities: acts, tripDayPhotos: photos } as ItineraryItem;
+        });
+        setItinerary(normalized as ItineraryItem[]);
       }
     } catch (err) {
       console.error("Resequence failed", err);
@@ -1563,6 +1526,9 @@ export function TripPlanner({ trip }: TripPlannerProps) {
                         <p className="text-muted-foreground">
                           {activity.description}
                         </p>
+                        <p className="text-muted-foreground">
+                          {activity.address}
+                        </p>
                       </div>
                     </li>
                   );
@@ -1781,6 +1747,18 @@ export function TripPlanner({ trip }: TripPlannerProps) {
                             )
                           }
                           placeholder="Activity description"
+                          className="h-8"
+                        />
+                        <Input
+                          value={act.address||""}
+                          onChange={(e) =>
+                            handleActivityChange(
+                              act.activity_uuid,
+                              "address",
+                              e.target.value
+                            )
+                          }
+                          placeholder="Activity Address"
                           className="h-8"
                         />
                       </div>
