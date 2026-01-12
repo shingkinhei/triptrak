@@ -17,6 +17,7 @@ export type TripDayPhotos = {
     url: string;
     trip_day_photo?: File | null; 
     trip_day_photo_preview?: string | null;
+  pending_delete?: boolean;
 };
 
 export type ChecklistItem = {

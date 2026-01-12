@@ -1,15 +1,20 @@
-
-'use client';
-import React, { useState, useRef, useEffect } from 'react';
-import Image from 'next/image';
+"use client";
+import React, { useState, useRef, useEffect } from "react";
+import Image from "next/image";
 import {
   Accordion,
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
-} from '@/components/ui/accordion';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import type { ItineraryItem, Activity, TripDayPhotos, ChecklistItem, Trip } from '@/lib/types';
+} from "@/components/ui/accordion";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import type {
+  ItineraryItem,
+  Activity,
+  TripDayPhotos,
+  ChecklistItem,
+  Trip,
+} from "@/lib/types";
 import {
   BedDouble,
   Camera,
@@ -30,36 +35,57 @@ import {
   CheckCircle2,
   Edit,
   GripVertical,
-} from 'lucide-react';
-import { Button } from './ui/button';
+} from "lucide-react";
+import { Button } from "./ui/button";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from './ui/dialog';
-import { Input } from './ui/input';
-import { Label } from './ui/label';
+} from "./ui/dialog";
+import { Input } from "./ui/input";
+import { Label } from "./ui/label";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from './ui/dropdown-menu';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { WeatherCard } from './weather-card';
-import { Textarea } from './ui/textarea';
-import { useRouter } from 'next/navigation';
-import { Checkbox } from './ui/checkbox';
-import { cn } from '@/lib/utils';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from './ui/alert-dialog';
-import { ScrollArea, ScrollBar } from './ui/scroll-area';
-import { createClient } from '@/lib/supabase/client';
-import { useToast } from '@/hooks/use-toast';
-import Compressor from 'compressorjs';
-import { DragDropContext, Droppable, Draggable, type DropResult } from '@hello-pangea/dnd';
-import { v4 as uuidv4 } from 'uuid';
+} from "./ui/dropdown-menu";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./ui/select";
+import { WeatherCard } from "./weather-card";
+import { Textarea } from "./ui/textarea";
+import { useRouter } from "next/navigation";
+import { Checkbox } from "./ui/checkbox";
+import { cn } from "@/lib/utils";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "./ui/alert-dialog";
+import { ScrollArea, ScrollBar } from "./ui/scroll-area";
+import { createClient } from "@/lib/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+import Compressor from "compressorjs";
+import {
+  DragDropContext,
+  Droppable,
+  Draggable,
+  type DropResult,
+} from "@hello-pangea/dnd";
+import { v4 as uuidv4 } from "uuid";
 
 const iconMap: Record<string, LucideIcon> = {
   Plane,
@@ -76,33 +102,44 @@ interface TripPlannerProps {
   trip: Trip;
 }
 
- type EditableTripDayPhoto = TripDayPhotos;
+type EditableTripDayPhoto = TripDayPhotos;
 // & {
-//   trip_day_photo?: File | null; 
+//   trip_day_photo?: File | null;
 //   trip_day_photo_preview?: string | null;
 // }
 
 type EditableItineraryItem = ItineraryItem & {
   cover_image_file?: File | null;
   cover_image_preview?: string | null;
-}
+};
 
-type ActivityOptions = { activity_type: string; icon_text: string; color_code: string; description: string; };
+type ActivityOptions = {
+  activity_type: string;
+  icon_text: string;
+  color_code: string;
+  description: string;
+};
 
 function getIconText(
   activityType: string,
   options: ActivityOptions[],
   fallback: string = "❓" // default fallback icon
 ): string {
-  const match = options.find(opt => opt.activity_type === activityType);
+  const match = options.find((opt) => opt.activity_type === activityType);
   return match ? match.icon_text : fallback;
-};
+}
 
-const PreTripChecklist = ({ checklist: initialChecklist, tripId }: { checklist: ChecklistItem[], tripId: string }) => {
+const PreTripChecklist = ({
+  checklist: initialChecklist,
+  tripId,
+}: {
+  checklist: ChecklistItem[];
+  tripId: string;
+}) => {
   const [checklist, setChecklist] = useState(initialChecklist);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingChecklist, setEditingChecklist] = useState<ChecklistItem[]>([]);
-  const [newItemLabel, setNewItemLabel] = useState('');
+  const [newItemLabel, setNewItemLabel] = useState("");
   const supabase = createClient();
   const { toast } = useToast();
 
@@ -112,18 +149,31 @@ const PreTripChecklist = ({ checklist: initialChecklist, tripId }: { checklist: 
 
   const handleCheckChange = async (item: ChecklistItem, checked: boolean) => {
     const originalState = [...checklist];
-    setChecklist(prev => prev.map(i => i.checklist_uuid === item.checklist_uuid ? { ...i, checked } : i));
+    setChecklist((prev) =>
+      prev.map((i) =>
+        i.checklist_uuid === item.checklist_uuid ? { ...i, checked } : i
+      )
+    );
 
-    const { error } = await supabase.from('pre_trip_checklist').update({ checked: checked }).eq('checklist_uuid', item.checklist_uuid);
+    const { error } = await supabase
+      .from("pre_trip_checklist")
+      .update({ checked: checked })
+      .eq("checklist_uuid", item.checklist_uuid);
 
     if (error) {
-      toast({ title: "Error", description: "Failed to update checklist item.", variant: "destructive" });
+      toast({
+        title: "Error",
+        description: "Failed to update checklist item.",
+        variant: "destructive",
+      });
       setChecklist(originalState);
     }
   };
 
   const handleEditClick = () => {
-    setEditingChecklist([...checklist].sort((a, b) => (a.seq ?? 0) - (b.seq ?? 0)));
+    setEditingChecklist(
+      [...checklist].sort((a, b) => (a.seq ?? 0) - (b.seq ?? 0))
+    );
     setIsEditDialogOpen(true);
   };
 
@@ -134,12 +184,12 @@ const PreTripChecklist = ({ checklist: initialChecklist, tripId }: { checklist: 
 
     const itemsToUpsert = editingChecklist.map((item, index) => ({
       ...item,
-      seq: index
+      seq: index,
     }));
 
     for (const item of itemsToUpsert) {
       const { checklist_uuid, trip_uuid, ...rest } = item;
-    
+
       const { error } = await supabase
         .from("pre_trip_checklist")
         .update({
@@ -147,7 +197,7 @@ const PreTripChecklist = ({ checklist: initialChecklist, tripId }: { checklist: 
           trip_uuid: tripId, // keep trip reference consistent
         })
         .eq("checklist_uuid", checklist_uuid); // WHERE clause
-    
+
       if (error) {
         toast({
           title: "Error Updating Checklist",
@@ -158,27 +208,50 @@ const PreTripChecklist = ({ checklist: initialChecklist, tripId }: { checklist: 
         return;
       }
     }
-    
 
-    const deletedItems = originalChecklist.filter(item => !editingChecklist.some(i => i.checklist_uuid === item.checklist_uuid));
+    const deletedItems = originalChecklist.filter(
+      (item) =>
+        !editingChecklist.some((i) => i.checklist_uuid === item.checklist_uuid)
+    );
     if (deletedItems.length > 0) {
-      const { error: deleteError } = await supabase.from('pre_trip_checklist').delete().in('checklist_uuid', deletedItems.map(i => i.checklist_uuid));
-      if (deleteError) toast({ title: "Error Deleting Items", description: deleteError.message, variant: "destructive" });
+      const { error: deleteError } = await supabase
+        .from("pre_trip_checklist")
+        .delete()
+        .in(
+          "checklist_uuid",
+          deletedItems.map((i) => i.checklist_uuid)
+        );
+      if (deleteError)
+        toast({
+          title: "Error Deleting Items",
+          description: deleteError.message,
+          variant: "destructive",
+        });
     }
 
-    const { data, error: fetchError } = await supabase.from('pre_trip_checklist').select('*').eq('trip_uuid', tripId).order('seq', { ascending: true });
+    const { data, error: fetchError } = await supabase
+      .from("pre_trip_checklist")
+      .select("*")
+      .eq("trip_uuid", tripId)
+      .order("seq", { ascending: true });
     if (!fetchError && data) {
       setChecklist(data as ChecklistItem[]);
     } else {
-      toast({ title: "Error", description: "Failed to refresh checklist.", variant: "destructive" });
+      toast({
+        title: "Error",
+        description: "Failed to refresh checklist.",
+        variant: "destructive",
+      });
     }
   };
 
-
   const handleItemLabelChange = (id: string, label: string) => {
-    setEditingChecklist(prev => prev.map(item => item.checklist_uuid === id ? { ...item, label } : item));
+    setEditingChecklist((prev) =>
+      prev.map((item) =>
+        item.checklist_uuid === id ? { ...item, label } : item
+      )
+    );
   };
-
 
   // useEffect(() => {
   //   async function fetchCheckListIdCount() {
@@ -210,7 +283,7 @@ const PreTripChecklist = ({ checklist: initialChecklist, tripId }: { checklist: 
       const {
         data: { user },
       } = await supabase.auth.getUser();
- 
+
       const newItem: ChecklistItem = {
         checklist_uuid: uuidv4(),
         // checklist_id: null,
@@ -219,7 +292,7 @@ const PreTripChecklist = ({ checklist: initialChecklist, tripId }: { checklist: 
         checked: false,
         seq: maxSeq + 1,
         created_at: new Date().toISOString(), // explicitly set timestamp
-        user_id: user?.id ?? null,            // set to current user
+        user_id: user?.id ?? null, // set to current user
       };
 
       // Update local state
@@ -238,7 +311,9 @@ const PreTripChecklist = ({ checklist: initialChecklist, tripId }: { checklist: 
   };
 
   const handleDeleteItem = (id: string) => {
-    setEditingChecklist(prev => prev.filter(item => item.checklist_uuid !== id));
+    setEditingChecklist((prev) =>
+      prev.filter((item) => item.checklist_uuid !== id)
+    );
   };
 
   const onDragEnd = (result: DropResult) => {
@@ -249,7 +324,6 @@ const PreTripChecklist = ({ checklist: initialChecklist, tripId }: { checklist: 
     setEditingChecklist(items);
   };
 
-
   return (
     <Card className="bg-card/80 backdrop-blur-sm border-white/20 shadow-lg">
       <CardHeader>
@@ -258,7 +332,12 @@ const PreTripChecklist = ({ checklist: initialChecklist, tripId }: { checklist: 
             <CheckCircle2 className="h-5 w-5 text-primary" />
             Pre-Trip Checklist
           </CardTitle>
-          <Button variant="ghost" size="icon" className="h-8 w-8 text-card-foreground" onClick={handleEditClick}>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 text-card-foreground"
+            onClick={handleEditClick}
+          >
             <Edit className="h-4 w-4" />
             <span className="sr-only">Edit Checklist</span>
           </Button>
@@ -266,11 +345,13 @@ const PreTripChecklist = ({ checklist: initialChecklist, tripId }: { checklist: 
       </CardHeader>
       <CardContent>
         <div className="space-y-3">
-          {checklist.map(item => (
+          {checklist.map((item) => (
             <div key={item.checklist_uuid} className="flex items-center gap-3">
               <Checkbox
                 id={item.checklist_uuid}
-                onCheckedChange={(checked) => handleCheckChange(item, !!checked)}
+                onCheckedChange={(checked) =>
+                  handleCheckChange(item, !!checked)
+                }
                 checked={item.checked}
               />
               <Label
@@ -298,35 +379,63 @@ const PreTripChecklist = ({ checklist: initialChecklist, tripId }: { checklist: 
                 {(provided) => (
                   <div {...provided.droppableProps} ref={provided.innerRef}>
                     {editingChecklist.map((item, index) => (
-                      <Draggable key={item.checklist_uuid} draggableId={item.checklist_uuid} index={index}>
+                      <Draggable
+                        key={item.checklist_uuid}
+                        draggableId={item.checklist_uuid}
+                        index={index}
+                      >
                         {(provided) => (
                           <div
                             ref={provided.innerRef}
                             {...provided.draggableProps}
                             className="flex items-center gap-2 mb-2 p-2 bg-background rounded-md"
                           >
-                            <div {...provided.dragHandleProps} className="cursor-grab">
+                            <div
+                              {...provided.dragHandleProps}
+                              className="cursor-grab"
+                            >
                               <GripVertical className="h-5 w-5 text-muted-foreground" />
                             </div>
                             <Input
                               value={item.label}
-                              onChange={(e) => handleItemLabelChange(item.checklist_uuid, e.target.value)}
+                              onChange={(e) =>
+                                handleItemLabelChange(
+                                  item.checklist_uuid,
+                                  e.target.value
+                                )
+                              }
                               className="flex-grow"
                             />
                             <AlertDialog>
                               <AlertDialogTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-9 w-9 shrink-0"
+                                >
                                   <Trash2 className="h-4 w-4 text-destructive" />
                                 </Button>
                               </AlertDialogTrigger>
                               <AlertDialogContent>
                                 <AlertDialogHeader>
-                                  <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                                  <AlertDialogDescription>This will permanently delete the item "{item.label}".</AlertDialogDescription>
+                                  <AlertDialogTitle>
+                                    Are you sure?
+                                  </AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    This will permanently delete the item "
+                                    {item.label}".
+                                  </AlertDialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
                                   <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                  <AlertDialogAction onClick={() => handleDeleteItem(item.checklist_uuid)} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
+                                  <AlertDialogAction
+                                    onClick={() =>
+                                      handleDeleteItem(item.checklist_uuid)
+                                    }
+                                    className="bg-destructive hover:bg-destructive/90"
+                                  >
+                                    Delete
+                                  </AlertDialogAction>
                                 </AlertDialogFooter>
                               </AlertDialogContent>
                             </AlertDialog>
@@ -345,7 +454,7 @@ const PreTripChecklist = ({ checklist: initialChecklist, tripId }: { checklist: 
                 placeholder="Add new item..."
                 value={newItemLabel}
                 onChange={(e) => setNewItemLabel(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleAddItem()}
+                onKeyDown={(e) => e.key === "Enter" && handleAddItem()}
               />
               <Button onClick={handleAddItem} className="shrink-0">
                 <PlusCircle className="mr-2 h-4 w-4" />
@@ -354,22 +463,28 @@ const PreTripChecklist = ({ checklist: initialChecklist, tripId }: { checklist: 
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>Cancel</Button>
+            <Button
+              variant="outline"
+              onClick={() => setIsEditDialogOpen(false)}
+            >
+              Cancel
+            </Button>
             <Button onClick={handleSave}>Save</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
     </Card>
-  )
-}
+  );
+};
 
 export function TripPlanner({ trip }: TripPlannerProps) {
   const [itinerary, setItinerary] = useState<ItineraryItem[]>(trip.itinerary);
   const [checklist, setChecklist] = useState<ChecklistItem[]>(trip.checklist);
-  const [editingItem, setEditingItem] = useState<EditableItineraryItem | null>(null);
-  const [editingTripDayPhoto, setEditingTripDayPhoto] = useState<EditableTripDayPhoto | null>(null);
+  const [editingItem, setEditingItem] = useState<EditableItineraryItem | null>(
+    null
+  );
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [activeView, setActiveView] = useState<string>('checklist');
+  const [activeView, setActiveView] = useState<string>("checklist");
   const [viewingPhoto, setViewingPhoto] = useState<TripDayPhotos | null>(null);
   const [activityOptions, setActivityOptions] = useState<ActivityOptions[]>([]);
   const photoInputRef = useRef<HTMLInputElement>(null);
@@ -378,24 +493,33 @@ export function TripPlanner({ trip }: TripPlannerProps) {
   const supabase = createClient();
   const { toast } = useToast();
 
-
   useEffect(() => {
     const fetchChecklist = async () => {
       const { data, error } = await supabase
-        .from('pre_trip_checklist')
-        .select('*')
-        .eq('trip_uuid', trip.trip_uuid)
-        .order('seq', { ascending: true });
+        .from("pre_trip_checklist")
+        .select("*")
+        .eq("trip_uuid", trip.trip_uuid)
+        .order("seq", { ascending: true });
       if (error) {
-        toast({ title: "Error fetching checklist", description: error.message, variant: "destructive" });
+        toast({
+          title: "Error fetching checklist",
+          description: error.message,
+          variant: "destructive",
+        });
       } else if (data) {
         setChecklist(data as ChecklistItem[]);
       }
     };
     const fetchActivityOptions = async () => {
-      const { data, error } = await supabase.from('activities_option_setup').select('activity_type, icon_text, color_code, description');
+      const { data, error } = await supabase
+        .from("activities_option_setup")
+        .select("activity_type, icon_text, color_code, description");
       if (error) {
-        toast({ title: 'Error fetching statuses', description: error.message, variant: 'destructive' });
+        toast({
+          title: "Error fetching statuses",
+          description: error.message,
+          variant: "destructive",
+        });
       } else {
         setActivityOptions(data as ActivityOptions[]);
       }
@@ -410,9 +534,13 @@ export function TripPlanner({ trip }: TripPlannerProps) {
     setTimeout(() => {
       setEditingItem({
         ...item,
-        activities: item.activities ? [...item.activities.map(a => ({ ...a }))] : [],
-        tripDayPhotos: item.tripDayPhotos ? [...item.tripDayPhotos.map(a => ({ ...a }))] : [],
-        cover_image_preview: item.cover_image_url
+        activities: item.activities
+          ? [...item.activities.map((a) => ({ ...a }))]
+          : [],
+        tripDayPhotos: item.tripDayPhotos
+          ? [...item.tripDayPhotos.map((a) => ({ ...a }))]
+          : [],
+        cover_image_preview: item.cover_image_url,
       });
       setIsEditDialogOpen(true);
     }, 150);
@@ -421,37 +549,61 @@ export function TripPlanner({ trip }: TripPlannerProps) {
   const handleSave = async () => {
     if (!editingItem) return;
 
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (!user) {
-      toast({ title: 'Not Authenticated', description: 'You must be logged in to save changes.', variant: 'destructive' });
+      toast({
+        title: "Not Authenticated",
+        description: "You must be logged in to save changes.",
+        variant: "destructive",
+      });
       return;
     }
 
     const itemToSave = { ...editingItem };
-    const originalDay = itinerary.find(d => d.day_uuid === itemToSave.day_uuid);
+    const originalDay = itinerary.find(
+      (d) => d.day_uuid === itemToSave.day_uuid
+    );
     const oldImageUrl = originalDay?.cover_image_url;
 
     let newImageUrl: string | null = itemToSave.cover_image_url;
 
-    if ((itemToSave.cover_image_file || newImageUrl === null) && oldImageUrl && oldImageUrl !== newImageUrl) {
-      const oldImageKey = oldImageUrl.split('/day_cover/').pop();
+    if (
+      (itemToSave.cover_image_file || newImageUrl === null) &&
+      oldImageUrl &&
+      oldImageUrl !== newImageUrl
+    ) {
+      const oldImageKey = oldImageUrl.split("/day_cover/").pop();
       if (oldImageKey) {
-        await supabase.storage.from('day_cover').remove([oldImageKey]);
+        await supabase.storage.from("day_cover").remove([oldImageKey]);
       }
     }
 
     if (itemToSave.cover_image_file) {
       const file = itemToSave.cover_image_file;
-      const filePath = `${user.id}/${trip.trip_uuid}/${itemToSave.date}-${itemToSave.day_number}`;
+      const fileExt = (file.name.split(".").pop() || "jpg").replace(
+        /[^a-z0-9]/gi,
+        ""
+      );
+      const filePath = `${user.id}/${trip.trip_uuid}/${itemToSave.date}-${itemToSave.day_number}-${uuidv4()}.${fileExt}`;
 
-      const { error: uploadError } = await supabase.storage.from('day_cover').upload(filePath, file, { upsert: true });
+      const { error: uploadError } = await supabase.storage
+        .from("day_cover")
+        .upload(filePath, file, { upsert: true });
 
       if (uploadError) {
-        toast({ title: 'Error uploading day cover', description: uploadError.message, variant: 'destructive' });
+        toast({
+          title: "Error uploading day cover",
+          description: uploadError.message,
+          variant: "destructive",
+        });
         return;
       }
 
-      const { data: urlData } = supabase.storage.from('day_cover').getPublicUrl(filePath);
+      const { data: urlData } = supabase.storage
+        .from("day_cover")
+        .getPublicUrl(filePath);
       newImageUrl = urlData.publicUrl;
     } else if (!itemToSave.cover_image_preview && oldImageUrl) {
       newImageUrl = null;
@@ -466,36 +618,60 @@ export function TripPlanner({ trip }: TripPlannerProps) {
     };
 
     const { error: dayError } = await supabase
-      .from('trip_days')
+      .from("trip_days")
       .update(dayUpdatePayload)
-      .eq('day_uuid', itemToSave.day_uuid);
+      .eq("day_uuid", itemToSave.day_uuid);
 
     if (dayError) {
-      toast({ title: 'Error saving day', description: dayError.message, variant: 'destructive' });
+      toast({
+        title: "Error saving day",
+        description: dayError.message,
+        variant: "destructive",
+      });
       return;
     }
 
     const originalActivities = originalDay?.activities || [];
 
-    const newActivities = itemToSave.activities.filter(act => !originalActivities.some(oa => oa.activity_uuid === act.activity_uuid)); //.filter(act => act.activity_uuid.startsWith('act_'));
-    const updatedActivities = itemToSave.activities.filter(act => {
+    const newActivities = itemToSave.activities.filter(
+      (act) =>
+        !originalActivities.some((oa) => oa.activity_uuid === act.activity_uuid)
+    ); //.filter(act => act.activity_uuid.startsWith('act_'));
+    const updatedActivities = itemToSave.activities.filter((act) => {
       const original = originalActivities.find(
-        oa => oa.activity_uuid === act.activity_uuid
+        (oa) => oa.activity_uuid === act.activity_uuid
       );
-      if (!original) return true; // new activity not in original list 
+      if (!original) return true; // new activity not in original list
 
-      // Compare relevant fields 
-      return (act.time !== original.time ||
+      // Compare relevant fields
+      return (
+        act.time !== original.time ||
         act.description !== original.description ||
         act.activity_type !== original.activity_type
       );
     });
 
-    const deletedActivities = originalActivities.filter(oa => !itemToSave.activities.some(ea => ea.activity_uuid === oa.activity_uuid));
+    const deletedActivities = originalActivities.filter(
+      (oa) =>
+        !itemToSave.activities.some(
+          (ea) => ea.activity_uuid === oa.activity_uuid
+        )
+    );
 
     if (deletedActivities.length > 0) {
-      const { error } = await supabase.from('activities').delete().in('activity_uuid', deletedActivities.map(a => a.activity_uuid));
-      if (error) toast({ title: 'Error Deleting Activities', description: error.message, variant: 'destructive' });
+      const { error } = await supabase
+        .from("activities")
+        .delete()
+        .in(
+          "activity_uuid",
+          deletedActivities.map((a) => a.activity_uuid)
+        );
+      if (error)
+        toast({
+          title: "Error Deleting Activities",
+          description: error.message,
+          variant: "destructive",
+        });
     }
 
     if (updatedActivities.length > 0) {
@@ -521,49 +697,246 @@ export function TripPlanner({ trip }: TripPlannerProps) {
     }
 
     if (newActivities.length > 0) {
-      const { error } = await supabase.from('activities').insert(newActivities.map(act => ({ day_uuid: itemToSave.day_uuid, time: act.time, description: act.description, activity_type: act.activity_type })));
-      if (error) toast({ title: 'Error Adding New Activities', description: error.message, variant: 'destructive' });
+      const { error } = await supabase
+        .from("activities")
+        .insert(
+          newActivities.map((act) => ({
+            day_uuid: itemToSave.day_uuid,
+            time: act.time,
+            description: act.description,
+            activity_type: act.activity_type,
+          }))
+        );
+      if (error)
+        toast({
+          title: "Error Adding New Activities",
+          description: error.message,
+          variant: "destructive",
+        });
     }
 
-    toast({ title: 'Day Saved!', description: `Changes to Day ${itemToSave.day_number} have been saved.` });
+    // Upload any pending (new) trip day photos that were added during editing
+
+    try {
+      const photos = (itemToSave.tripDayPhotos || []) as any[];
+
+      // 1) Delete photos marked pending_delete
+      const photosToDelete = photos.filter((p) => p.pending_delete && !p.trip_day_photo);
+      if (photosToDelete.length > 0) {
+        for (const dp of photosToDelete) {
+          try {
+            const url: string = dp.url || "";
+            const key = url.split("/day_feedback/").pop();
+            if (key) {
+              const { error: delErr } = await supabase.storage.from("day_feedback").remove([key]);
+              if (delErr) console.warn("Storage delete error", delErr.message);
+            }
+            const { error: dbErr } = await supabase.from("trip_photos").delete().eq("photo_uuid", dp.photo_uuid);
+            if (dbErr) console.warn("DB delete error", dbErr.message);
+          } catch (innerErr) {
+            console.error("Error deleting photo", innerErr);
+          }
+        }
+      }
+
+      // 2) Upload new pending previews (trip_day_photo)
+      const pendingPhotos = photos.filter((p) => !!p.trip_day_photo) as Array<any>;
+      if (pendingPhotos.length > 0) {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (!user) {
+          toast({ title: "Not Authenticated", description: "You must be logged in to save changes.", variant: "destructive" });
+          return;
+        }
+
+        // find current count after deletions
+        const { data: existing } = await supabase.from("trip_photos").select("seq").eq("day_uuid", itemToSave.day_uuid);
+        let startSeq = Array.isArray(existing) ? existing.length : 0;
+
+        for (let i = 0; i < pendingPhotos.length; i++) {
+          const p = pendingPhotos[i];
+          const file: File = p.trip_day_photo as File;
+          const fileExt = (file.name.split(".").pop() || "jpg").replace(/[^a-z0-9]/gi, "");
+          const filePath = `${user.id}/${trip.trip_uuid}/${itemToSave.day_uuid}/${itemToSave.date}-${itemToSave.day_number}-${Date.now()}-${i + 1}.${fileExt}`;
+
+          const { error: uploadError } = await supabase.storage.from("day_feedback").upload(filePath, file, { upsert: false });
+          if (uploadError) {
+            toast({ title: "Photo upload failed", description: uploadError.message, variant: "destructive" });
+            continue;
+          }
+
+          const { data: urlData } = supabase.storage.from("day_feedback").getPublicUrl(filePath);
+          const publicUrl = urlData.publicUrl;
+
+          const photoRow = {
+            photo_uuid: p.photo_uuid || uuidv4(),
+            day_uuid: itemToSave.day_uuid,
+            seq: startSeq,
+            url: publicUrl,
+            user_id: user.id,
+          };
+
+          const { error: insertError } = await supabase.from("trip_photos").insert(photoRow);
+          if (insertError) {
+            toast({ title: "DB insert failed", description: insertError.message, variant: "destructive" });
+            console.log(insertError.message);
+          } else {
+            startSeq += 1;
+          }
+        }
+      }
+
+      // 3) Resequence remaining photos to be contiguous
+      const { data: remainingPhotos } = await supabase.from("trip_photos").select("*").eq("day_uuid", itemToSave.day_uuid).order("seq", { ascending: true });
+      if (Array.isArray(remainingPhotos)) {
+        for (let idx = 0; idx < remainingPhotos.length; idx++) {
+          const p = remainingPhotos[idx];
+          if (p.seq !== idx) {
+            await supabase.from("trip_photos").update({ seq: idx }).eq("photo_uuid", p.photo_uuid);
+          }
+        }
+      }
+
+      // 4) Refresh local photos
+      const { data: freshPhotos } = await supabase.from("trip_photos").select("*").eq("day_uuid", itemToSave.day_uuid).order("seq", { ascending: true });
+      if (freshPhotos) {
+        setItinerary((prev) => prev.map((d) => (d.day_uuid === itemToSave.day_uuid ? ({ ...d, tripDayPhotos: freshPhotos } as ItineraryItem) : d)));
+      }
+    } catch (err: any) {
+      console.error("Error processing photo changes", err);
+      toast({ title: "Error", description: "One or more photo operations failed.", variant: "destructive" });
+    }
+
+    toast({
+      title: "Day Saved!",
+      description: `Changes to Day ${itemToSave.day_number} have been saved.`,
+    });
 
     handleCancelEdit();
 
     const { data: refreshedDay, error: refreshError } = await supabase
-      .from('trip_days')
+      .from("trip_days")
       .select(`*, activities:activities (*)`)
-      .eq('day_uuid', itemToSave.day_uuid)
+      .eq("day_uuid", itemToSave.day_uuid)
       .single();
 
     if (!refreshError && refreshedDay) {
       const sortedActivities = refreshedDay.activities?.sort(
-        (a: { time: string }, b: { time: string }) => a.time.localeCompare(b.time)
+        (a: { time: string }, b: { time: string }) =>
+          a.time.localeCompare(b.time)
       );
-      setItinerary(prev =>
-        prev.map(item =>
+      setItinerary((prev) =>
+        prev.map((item) =>
           item.day_uuid === refreshedDay.day_uuid
-            ? ({ ...refreshedDay, activities: sortedActivities } as ItineraryItem)
+            ? ({
+                ...refreshedDay,
+                activities: sortedActivities,
+              } as ItineraryItem)
             : item
         )
       );
     }
-  };
 
+    try {
+      const { data: refreshTripPhotos, error: refreshError } = await supabase
+        .from("trip_photos")
+        .select("*")
+        .eq("day_uuid", itemToSave.day_uuid)
+        .order("seq", { ascending: true });
+
+      if (refreshError) {
+        toast({
+          title: "Error refreshing photos",
+          description: refreshError.message,
+          variant: "destructive",
+        });
+        return;
+      }
+      const fresh = Array.isArray(refreshTripPhotos) ? refreshTripPhotos : [];
+      setEditingItem((prev) =>
+        prev ? { ...prev, tripDayPhotos: fresh } : prev
+      );
+      setItinerary((prev) =>
+        prev.map((d) =>
+          d.day_uuid === itemToSave.day_uuid
+            ? ({ ...d, tripDayPhotos: fresh } as ItineraryItem)
+            : d
+        )
+      );
+    } catch (err: any) {
+      console.error("Refresh photos failed", err);
+      toast({
+        title: "Refresh failed",
+        description: err.message || String(err),
+        variant: "destructive",
+      });
+    }
+
+    // Refresh cover image after save (similar to trip photos refresh)
+    try {
+      const { data: freshDay, error: dayErr } = await supabase
+        .from("trip_days")
+        .select("*")
+        .eq("day_uuid", itemToSave.day_uuid)
+        .single();
+
+      if (!dayErr && freshDay) {
+        setItinerary((prev) =>
+          prev.map((d) =>
+            d.day_uuid === freshDay.day_uuid
+              ? ({
+                  ...d,
+                  cover_image_url: freshDay.cover_image_url,
+                  cover_image_hint: freshDay.cover_image_hint,
+                } as ItineraryItem)
+              : d
+          )
+        );
+        setEditingItem((prev) =>
+          prev && prev.day_uuid === freshDay.day_uuid
+            ? {
+                ...prev,
+                cover_image_url: freshDay.cover_image_url,
+                cover_image_preview: freshDay.cover_image_url,
+              }
+            : prev
+        );
+      }
+    } catch (err: any) {
+      console.error("Refresh cover failed", err);
+      toast({
+        title: "Refresh cover failed",
+        description: err.message || String(err),
+        variant: "destructive",
+      });
+    }
+  };
 
   const handleCancelEdit = () => {
     setIsEditDialogOpen(false);
     setEditingItem(null);
-  }
+  };
 
-  const handleFieldChange = (field: keyof Omit<EditableItineraryItem, 'activities' | 'userPhotos' | 'checklist'>, value: string | null) => {
+  const handleFieldChange = (
+    field: keyof Omit<
+      EditableItineraryItem,
+      "activities" | "userPhotos" | "checklist"
+    >,
+    value: string | null
+  ) => {
     if (editingItem) {
       setEditingItem({ ...editingItem, [field]: value });
     }
   };
 
-  const handleActivityChange = (actId: string, field: keyof Activity, value: string) => {
+  const handleActivityChange = (
+    actId: string,
+    field: keyof Activity,
+    value: string
+  ) => {
     if (editingItem) {
-      const updatedActivities = editingItem.activities.map(act =>
+      const updatedActivities = editingItem.activities.map((act) =>
         act.activity_uuid === actId ? { ...act, [field]: value } : act
       );
       setEditingItem({ ...editingItem, activities: updatedActivities });
@@ -574,24 +947,30 @@ export function TripPlanner({ trip }: TripPlannerProps) {
     if (editingItem) {
       const newActivity: Activity = {
         activity_uuid: uuidv4(),
-        // activity_id: maxId,
         day_uuid: editingItem.day_uuid,
-        time: '00:00',
-        description: 'New Activity',
-        activity_type: 'Sightseeing',
+        time: "00:00",
+        description: "New Activity",
+        activity_type: "Sightseeing",
       };
-      setEditingItem({ ...editingItem, activities: [...editingItem.activities, newActivity] });
+      setEditingItem({
+        ...editingItem,
+        activities: [...editingItem.activities, newActivity],
+      });
     }
   };
 
   const handleDeleteActivity = (actId: string) => {
     if (editingItem) {
-      const updatedActivities = editingItem.activities.filter(act => act.activity_uuid !== actId);
+      const updatedActivities = editingItem.activities.filter(
+        (act) => act.activity_uuid !== actId
+      );
       setEditingItem({ ...editingItem, activities: updatedActivities });
     }
   };
 
-  const handleDayCoverImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleDayCoverImageChange = (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
     if (!e.target.files || !editingItem) return;
     const file = e.target.files[0];
     if (file) {
@@ -599,15 +978,27 @@ export function TripPlanner({ trip }: TripPlannerProps) {
         quality: 0.6,
         maxWidth: 1200,
         success: (compressedResult) => {
-          setEditingItem(prev => prev ? { ...prev, cover_image_file: compressedResult as File } : null);
+          setEditingItem((prev) =>
+            prev
+              ? { ...prev, cover_image_file: compressedResult as File }
+              : null
+          );
           const reader = new FileReader();
           reader.onloadend = () => {
-            setEditingItem(prev => prev ? { ...prev, cover_image_preview: reader.result as string } : null);
+            setEditingItem((prev) =>
+              prev
+                ? { ...prev, cover_image_preview: reader.result as string }
+                : null
+            );
           };
           reader.readAsDataURL(compressedResult);
         },
         error: (err) => {
-          toast({ title: 'Image compression failed', description: err.message, variant: 'destructive' });
+          toast({
+            title: "Image compression failed",
+            description: err.message,
+            variant: "destructive",
+          });
         },
       });
     }
@@ -615,89 +1006,168 @@ export function TripPlanner({ trip }: TripPlannerProps) {
 
   const handleRemoveDayCoverImage = () => {
     if (editingItem) {
-      setEditingItem(prev => prev ? { ...prev, cover_image_file: null, cover_image_preview: null, cover_image_url: null } : null);
+      setEditingItem((prev) =>
+        prev
+          ? {
+              ...prev,
+              cover_image_file: null,
+              cover_image_preview: null,
+              cover_image_url: null,
+            }
+          : null
+      );
     }
-  }
-
-  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const originalTripDayPhoto = {... editingItem?.tripDayPhotos};
-    // console.log(editingTripDayPhoto); 
-    console.log(originalTripDayPhoto);
-    
-    // const originalPhoto = itinerary.find(d => d.day_uuid === itemToSave.day_uuid);
-    // const oldImageUrl = originalDay?.cover_image_url;
-    // if (!e.target.files || !editingTripDayPhoto) return;
-    if (!e.target.files || !originalTripDayPhoto) return;
-    
-
-    const files = Array.from(e.target.files);
-    console.log(files);
-    // files.forEach(file => {
-    //   new Compressor(file, {
-    //     quality: 0.6,
-    //     maxWidth: 1200,
-    //     success: (compressedResult) => {
-    //       // Save compressed file
-    //       setEditingTripDayPhoto (prev =>
-    //         prev
-    //           ? {
-    //               ...prev,
-    //               trip_day_photo: [
-    //                 ...(prev.trip_day_photo || []),
-    //                 compressedResult as File,
-    //               ],
-    //             }
-    //           : null
-    //       );
-  
-    //       // Generate preview
-    //       const reader = new FileReader();
-    //       reader.onloadend = () => {
-    //         setEditingTripDayPhoto(prev =>
-    //           prev
-    //             ? {
-    //                 ...prev,
-    //                 trip_day_photo_preview: [
-    //                   ...(prev.trip_day_photo_preview || []),
-    //                   reader.result as string,
-    //                 ],
-    //               }
-    //             : null
-    //         );
-    //       };
-    //       reader.readAsDataURL(compressedResult);
-    //     },
-    //     error: (err) => {
-    //       toast({
-    //         title: "Image compression failed",
-    //         description: err.message,
-    //         variant: "destructive",
-    //       });
-    //     },
-    //   });
-    //  });
-  
-  //    toast({ title: 'Feature not implemented', description: 'Uploading user photos is not yet supported in this version.', variant: 'default' });
   };
 
-  const handleDeletePhoto = (photoId: string) => {
-  //   if (tripForm.cover_image_file && oldImageUrl) {
-  //     const oldImageKey = oldImageUrl.split('/trip_cover/').pop();
-  //     if (oldImageKey) {
-  //         const { error: deleteError } = await supabase.storage.from('trip_cover').remove([oldImageKey]);
-  //         if (deleteError) {
-  //             toast({ title: 'Could not delete old image', description: deleteError.message, variant: 'destructive' });
-  //         }
-  //     }
-  // }
- 
-    if (editingItem) {
-      toast({ title: 'Feature not implemented', description: 'Deleting user photos is not yet supported in this version.', variant: 'default' });
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || !editingItem) return;
+
+    const files = Array.from(e.target.files);
+    if (files.length === 0) return;
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      toast({
+        title: "Not Authenticated",
+        description: "You must be logged in to upload photos.",
+        variant: "destructive",
+      });
+      return;
     }
+
+    toast({
+      title: "Uploading photos",
+      description: `Uploading ${files.length} file(s)...`,
+      variant: "default",
+    });
+
+    const compressFile = (file: File): Promise<File> => {
+      return new Promise((resolve, reject) => {
+        // @ts-ignore
+        new Compressor(file, {
+          quality: 0.6,
+          maxWidth: 1200,
+          success(result: Blob) {
+            const ext = (file.name.split(".").pop() || "").toLowerCase();
+            const mime = result.type || file.type || "image/jpeg";
+            const name = `${editingItem.date}_${editingItem.day_number}_${uuidv4()}.${ext || (mime.split("/")[1] ?? "jpg")}`;
+            const compressedFile = new File([result], name, { type: mime });
+            resolve(compressedFile);
+          },
+          error(err: any) {
+            reject(err);
+          },
+        });
+      });
+    };
+
+    try {
+      // Instead of uploading immediately, create compressed previews and attach them to editingItem
+      const previews = await Promise.all(
+        files.map(async (file, idx) => {
+          const compressed = await compressFile(file);
+          // create data URL preview
+          const reader = new FileReader();
+          const dataUrl: string = await new Promise((resolve, reject) => {
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(compressed);
+          });
+
+          return {
+            photo_uuid: uuidv4(),
+            day_uuid: editingItem.day_uuid,
+            seq: (editingItem.tripDayPhotos?.length ?? 0) + idx,
+            url: "",
+            trip_day_photo: compressed,
+            trip_day_photo_preview: dataUrl,
+          } as any;
+        })
+      );
+
+      setEditingItem((prev) =>
+        prev
+          ? {
+              ...prev,
+              tripDayPhotos: [...(prev.tripDayPhotos || []), ...previews],
+            }
+          : prev
+      );
+      // Also optimistically update itinerary view while editing
+      setItinerary((prev) =>
+        prev.map((d) =>
+          d.day_uuid === editingItem.day_uuid
+            ? ({
+                ...d,
+                tripDayPhotos: [...(d.tripDayPhotos || []), ...previews],
+              } as ItineraryItem)
+            : d
+        )
+      );
+
+      toast({
+        title: "Files ready",
+        description: `${previews.length} photo(s) ready to save. Click Save Changes to upload.`,
+        variant: "default",
+      });
+      if (photoInputRef.current) photoInputRef.current.value = "";
+    } catch (err: any) {
+      console.error("Preparing previews failed", err);
+      toast({
+        title: "Preview failed",
+        description: err.message || String(err),
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDeletePhoto = async (photoId: string) => {
+    if (!editingItem) return;
+
+    const photo = (editingItem.tripDayPhotos || []).find((p) => p.photo_uuid === photoId) as any;
+    if (!photo) return;
+
+    // If it's a pending (unsaved) photo (has trip_day_photo), just remove locally now
+    if (photo.trip_day_photo) {
+      setEditingItem((prev) =>
+        prev
+          ? { ...prev, tripDayPhotos: (prev.tripDayPhotos || []).filter((p) => p.photo_uuid !== photoId) }
+          : prev
+      );
+      setItinerary((prev) =>
+        prev.map((d) =>
+          d.day_uuid === editingItem.day_uuid
+            ? ({ ...d, tripDayPhotos: (d.tripDayPhotos || []).filter((p: any) => p.photo_uuid !== photoId) } as ItineraryItem)
+            : d
+        )
+      );
+      toast({ title: "Removed", description: "Photo removed from selection.", variant: "default" });
+      return;
+    }
+
+    // For already-saved photos, toggle pending_delete flag (mark for deletion on Save)
+    const isPending = !!photo.pending_delete;
+    setEditingItem((prev) =>
+      prev ? { ...prev, tripDayPhotos: (prev.tripDayPhotos || []).map((p: any) => (p.photo_uuid === photoId ? { ...p, pending_delete: !isPending } : p)) } : prev
+    );
+    setItinerary((prev) =>
+      prev.map((d) =>
+        d.day_uuid === editingItem.day_uuid
+          ? ({ ...d, tripDayPhotos: (d.tripDayPhotos || []).map((p: any) => (p.photo_uuid === photoId ? { ...p, pending_delete: !isPending } : p)) } as ItineraryItem)
+          : d
+      )
+    );
+
+    toast({ title: isPending ? "Restore" : "Pending delete", description: isPending ? "Photo will no longer be deleted." : "Photo marked for deletion. Click Save Changes to apply.", variant: "default" });
   };
 
   const handleAddDay = async () => {
-    const newDayNumber = itinerary.length > 0 ? Math.max(...itinerary.map(i => i.day_number)) + 1 : 1;
+    const newDayNumber =
+      itinerary.length > 0
+        ? Math.max(...itinerary.map((i) => i.day_number)) + 1
+        : 1;
 
     let newDate = new Date();
     if (itinerary.length > 0) {
@@ -707,42 +1177,70 @@ export function TripPlanner({ trip }: TripPlannerProps) {
     } else if (trip.start_date) {
       newDate = new Date(trip.start_date);
     }
-    const newDateString = newDate.toISOString().split('T')[0];
+    const newDateString = newDate.toISOString().split("T")[0];
 
     const newDayData = {
       trip_uuid: trip.trip_uuid,
       day_number: newDayNumber,
-      title: 'New Destination',
+      title: "New Destination",
       date: newDateString,
       cover_image_url: `https://picsum.photos/seed/${new Date().getTime()}/600/400`,
-      cover_image_hint: 'landscape',
+      cover_image_hint: "landscape",
     };
 
-    const { data, error } = await supabase.from('trip_days').insert(newDayData).select().single();
+    const { data, error } = await supabase
+      .from("trip_days")
+      .insert(newDayData)
+      .select()
+      .single();
 
     if (error) {
-      toast({ title: 'Error adding day', description: error.message, variant: 'destructive' });
+      toast({
+        title: "Error adding day",
+        description: error.message,
+        variant: "destructive",
+      });
     } else if (data) {
-      const newDay: ItineraryItem = { ...data, activities: [], tripDayPhotos: [] };
-      setItinerary(prev => [...prev, newDay].sort((a, b) => a.day_number - b.day_number));
-      toast({ title: 'Day Added!', description: `Day ${newDayNumber} has been successfully added.` });
+      const newDay: ItineraryItem = {
+        ...data,
+        activities: [],
+        tripDayPhotos: [],
+      };
+      setItinerary((prev) =>
+        [...prev, newDay].sort((a, b) => a.day_number - b.day_number)
+      );
+      toast({
+        title: "Day Added!",
+        description: `Day ${newDayNumber} has been successfully added.`,
+      });
     }
   };
 
-  const activeItineraryItem = itinerary.find(item => `day-${item.day_number}` === activeView);
+  const activeItineraryItem = itinerary.find(
+    (item) => `day-${item.day_number}` === activeView
+  );
 
   return (
     <div className="space-y-4">
       <header className="flex justify-between items-center">
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" className="h-8 w-8 text-primary-foreground hover:bg-white/20 hover:text-primary-foreground" onClick={() => router.push('/trips')}>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 text-primary-foreground hover:bg-white/20 hover:text-primary-foreground"
+            onClick={() => router.push("/trips")}
+          >
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <h1 className="text-2xl font-bold font-headline text-primary-foreground truncate">
             {trip.name}
           </h1>
         </div>
-        <Button onClick={handleAddDay} variant="outline" className="bg-white/10 border-white/20 text-white hover:bg-white/20 hover:text-white shrink-0">
+        <Button
+          onClick={handleAddDay}
+          variant="outline"
+          className="bg-white/10 border-white/20 text-white hover:bg-white/20 hover:text-white shrink-0"
+        >
           <PlusCircle className="mr-2 h-4 w-4" /> Add Day
         </Button>
       </header>
@@ -750,18 +1248,28 @@ export function TripPlanner({ trip }: TripPlannerProps) {
       <ScrollArea className="w-full whitespace-nowrap">
         <div className="flex space-x-2 pb-2">
           <Button
-            variant={activeView === 'checklist' ? 'default' : 'outline'}
-            onClick={() => setActiveView('checklist')}
-            className={cn("shrink-0", activeView !== 'checklist' && 'bg-white/10 border-white/20 text-white hover:bg-white/20 hover:text-white')}
+            variant={activeView === "checklist" ? "default" : "outline"}
+            onClick={() => setActiveView("checklist")}
+            className={cn(
+              "shrink-0",
+              activeView !== "checklist" &&
+                "bg-white/10 border-white/20 text-white hover:bg-white/20 hover:text-white"
+            )}
           >
             Checklist
           </Button>
           {itinerary.map((item) => (
             <Button
               key={item.day_uuid}
-              variant={activeView === `day-${item.day_number}` ? 'default' : 'outline'}
+              variant={
+                activeView === `day-${item.day_number}` ? "default" : "outline"
+              }
               onClick={() => setActiveView(`day-${item.day_number}`)}
-              className={cn("shrink-0", activeView !== `day-${item.day_number}` && 'bg-white/10 border-white/20 text-white hover:bg-white/20 hover:text-white')}
+              className={cn(
+                "shrink-0",
+                activeView !== `day-${item.day_number}` &&
+                  "bg-white/10 border-white/20 text-white hover:bg-white/20 hover:text-white"
+              )}
             >
               Day {item.day_number}
             </Button>
@@ -770,24 +1278,38 @@ export function TripPlanner({ trip }: TripPlannerProps) {
         <ScrollBar orientation="horizontal" />
       </ScrollArea>
 
-      {activeView === 'checklist' && <PreTripChecklist checklist={checklist} tripId={trip.trip_uuid} />}
+      {activeView === "checklist" && (
+        <PreTripChecklist checklist={checklist} tripId={trip.trip_uuid} />
+      )}
 
-      {activeItineraryItem && <WeatherCard location={activeItineraryItem.title.replace(/arrival in |exploring |day trip to /i, '')} />}
+      {activeItineraryItem && (
+        <WeatherCard
+          location={activeItineraryItem.title.replace(
+            /arrival in |exploring |day trip to /i,
+            ""
+          )}
+        />
+      )}
 
       {itinerary.map((item) => (
-        <div key={item.day_uuid} className={cn(activeView === `day-${item.day_number}` ? 'block' : 'hidden')}>
+        <div
+          key={item.day_uuid}
+          className={cn(
+            activeView === `day-${item.day_number}` ? "block" : "hidden"
+          )}
+        >
           <Card className="overflow-hidden bg-card/80 backdrop-blur-sm border-white/20 shadow-lg">
             <div className="relative">
               <div className="relative w-full h-32 rounded-t-lg overflow-hidden">
-                {item.cover_image_url &&
+                {item.cover_image_url && (
                   <Image
                     src={item.cover_image_url}
                     alt={item.title}
                     fill
                     className="object-cover"
-                    data-ai-hint={item.cover_image_hint || ''}
+                    data-ai-hint={item.cover_image_hint || ""}
                   />
-                }
+                )}
                 <div className="absolute inset-0 bg-black/40 flex items-end p-4">
                   <div className="text-white flex-grow text-left">
                     <h2 className="font-bold text-lg font-headline">
@@ -800,7 +1322,11 @@ export function TripPlanner({ trip }: TripPlannerProps) {
               <div className="absolute top-2 right-2 z-10">
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-white hover:bg-white/20 hover:text-white">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-white hover:bg-white/20 hover:text-white"
+                    >
                       <MoreVertical className="h-4 w-4" />
                     </Button>
                   </DropdownMenuTrigger>
@@ -820,21 +1346,36 @@ export function TripPlanner({ trip }: TripPlannerProps) {
                 </div>
               )}
 
-              {item.tripDayPhotos && item.tripDayPhotos.length > 0 && ( 
+              {item.tripDayPhotos && item.tripDayPhotos.length > 0 && (
                 <div className="grid grid-cols-3 gap-2">
-                  {item.tripDayPhotos.map((photo) => ( 
-                    <button key={photo.photo_uuid} onClick={() => setViewingPhoto(photo)} className="relative block w-full aspect-square rounded-md overflow-hidden cursor-pointer">
-                      <Image src={photo.url} alt="User photo" fill className="object-cover" />
+                  {item.tripDayPhotos.filter((p) => !p.pending_delete).map((photo) => (
+                    <button
+                      key={photo.photo_uuid}
+                      onClick={() => setViewingPhoto(photo)}
+                      className="relative block w-full aspect-square rounded-md overflow-hidden cursor-pointer"
+                    >
+                      <Image
+                        src={photo.trip_day_photo_preview ?? photo.url}
+                        alt="User photo"
+                        fill
+                        className="object-cover"
+                      />
                     </button>
                   ))}
                 </div>
               )}
               <ul className="space-y-4">
                 {item.activities.map((activity, actIndex) => {
-                  const icon = getIconText(activity.activity_type, activityOptions);
+                  const icon = getIconText(
+                    activity.activity_type,
+                    activityOptions
+                  );
                   const ActivityIcon = iconMap[icon];
                   return (
-                    <li key={activity.activity_uuid} className="flex items-start gap-4">
+                    <li
+                      key={activity.activity_uuid}
+                      className="flex items-start gap-4"
+                    >
                       <div className="flex flex-col items-center">
                         <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary">
                           {ActivityIcon && <ActivityIcon className="h-4 w-4" />}
@@ -844,7 +1385,9 @@ export function TripPlanner({ trip }: TripPlannerProps) {
                         )}
                       </div>
                       <div>
-                        <p className="font-semibold text-card-foreground">{activity.time}</p>
+                        <p className="font-semibold text-card-foreground">
+                          {activity.time}
+                        </p>
                         <p className="text-muted-foreground">
                           {activity.description}
                         </p>
@@ -859,7 +1402,12 @@ export function TripPlanner({ trip }: TripPlannerProps) {
       ))}
 
       {editingItem && (
-        <Dialog open={isEditDialogOpen} onOpenChange={(isOpen) => { if (!isOpen) handleCancelEdit(); }}>
+        <Dialog
+          open={isEditDialogOpen}
+          onOpenChange={(isOpen) => {
+            if (!isOpen) handleCancelEdit();
+          }}
+        >
           <DialogContent className="max-h-[90vh] flex flex-col shadow-lg">
             <DialogHeader>
               <DialogTitle>Edit Day {editingItem.day_number}</DialogTitle>
@@ -867,18 +1415,32 @@ export function TripPlanner({ trip }: TripPlannerProps) {
             <div className="flex-grow overflow-y-auto pr-6 -mr-6 space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="title">Title</Label>
-                <Input id="title" value={editingItem.title} onChange={(e) => handleFieldChange('title', e.target.value)} />
+                <Input
+                  id="title"
+                  value={editingItem.title}
+                  onChange={(e) => handleFieldChange("title", e.target.value)}
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="date">Date</Label>
-                <Input id="date" type="date" value={editingItem.date} onChange={(e) => handleFieldChange('date', e.target.value)} />
+                <Input
+                  id="date"
+                  type="date"
+                  value={editingItem.date}
+                  onChange={(e) => handleFieldChange("date", e.target.value)}
+                />
               </div>
 
               <div className="space-y-2">
                 <Label>Day Cover Image</Label>
                 {editingItem.cover_image_preview && (
                   <div className="relative w-full aspect-[4/3] rounded-md overflow-hidden">
-                    <Image src={editingItem.cover_image_preview} alt="Day cover preview" fill className="object-cover" />
+                    <Image
+                      src={editingItem.cover_image_preview}
+                      alt="Day cover preview"
+                      fill
+                      className="object-cover"
+                    />
                   </div>
                 )}
                 <div className="flex gap-2">
@@ -889,10 +1451,19 @@ export function TripPlanner({ trip }: TripPlannerProps) {
                     onChange={handleDayCoverImageChange}
                     className="hidden"
                   />
-                  <Button variant="outline" size="sm" onClick={() => dayCoverInputRef.current?.click()}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => dayCoverInputRef.current?.click()}
+                  >
                     <Upload className="mr-2 h-4 w-4" /> Upload
                   </Button>
-                  <Button variant="destructive" size="sm" onClick={handleRemoveDayCoverImage} disabled={!editingItem.cover_image_preview}>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={handleRemoveDayCoverImage}
+                    disabled={!editingItem.cover_image_preview}
+                  >
                     <Trash2 className="mr-2 h-4 w-4" /> Remove
                   </Button>
                 </div>
@@ -900,7 +1471,14 @@ export function TripPlanner({ trip }: TripPlannerProps) {
 
               <div className="space-y-2">
                 <Label htmlFor="remarks">Feedback</Label>
-                <Textarea id="remarks" value={editingItem.feedback || ''} onChange={(e) => handleFieldChange('feedback', e.target.value)} placeholder="Write your feelings or reflections..." />
+                <Textarea
+                  id="remarks"
+                  value={editingItem.feedback || ""}
+                  onChange={(e) =>
+                    handleFieldChange("feedback", e.target.value)
+                  }
+                  placeholder="Write your feelings or reflections..."
+                />
               </div>
 
               <div className="space-y-2">
@@ -908,6 +1486,7 @@ export function TripPlanner({ trip }: TripPlannerProps) {
                 <Input
                   type="file"
                   accept="image/*"
+                  multiple
                   ref={photoInputRef}
                   onChange={handlePhotoUpload}
                   className="hidden"
@@ -915,18 +1494,30 @@ export function TripPlanner({ trip }: TripPlannerProps) {
                 <div className="grid grid-cols-3 gap-2">
                   {(editingItem.tripDayPhotos || []).map((photo) => (
                     <div key={photo.photo_uuid} className="relative aspect-square">
-                      <Image src={photo.url} alt="User upload" fill className="rounded-md object-cover" />
+                      <Image
+                        src={photo.trip_day_photo_preview ?? photo.url}
+                        alt="User upload"
+                        fill
+                        className={cn("rounded-md object-cover", photo.pending_delete && "opacity-40")}
+                      />
+                      {photo.pending_delete && (
+                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center text-white text-sm z-10">Marked for deletion</div>
+                      )}
                       <Button
-                        variant="destructive"
+                        variant={photo.pending_delete ? "outline" : "destructive"}
                         size="icon"
-                        className="absolute top-1 right-1 h-6 w-6 z-10"
+                        className="absolute top-1 right-1 h-6 w-6 z-20"
                         onClick={() => handleDeletePhoto(photo.photo_uuid)}
                       >
                         <X className="h-4 w-4" />
                       </Button>
                     </div>
                   ))}
-                  <Button variant="outline" className="aspect-square flex-col gap-1" onClick={() => photoInputRef.current?.click()}>
+                  <Button
+                    variant="outline"
+                    className="aspect-square flex-col gap-1"
+                    onClick={() => photoInputRef.current?.click()}
+                  >
                     <Upload className="h-6 w-6" />
                     <span className="text-xs">Upload</span>
                   </Button>
@@ -936,24 +1527,59 @@ export function TripPlanner({ trip }: TripPlannerProps) {
               <div className="space-y-2">
                 <div className="flex justify-between items-center">
                   <h3 className="text-lg font-semibold">Activities</h3>
-                  <Button variant="ghost" size="sm" onClick={handleAddActivity}><PlusCircle className="mr-2 h-4 w-4" />Add Activity</Button>
+                  <Button variant="ghost" size="sm" onClick={handleAddActivity}>
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    Add Activity
+                  </Button>
                 </div>
                 <div className="space-y-4">
                   {editingItem.activities.map((act) => (
-                    <div key={act.activity_uuid} className="flex items-center gap-2 p-2 border rounded-lg">
+                    <div
+                      key={act.activity_uuid}
+                      className="flex items-center gap-2 p-2 border rounded-lg"
+                    >
                       <div className="grid gap-2 flex-grow">
                         <div className="flex items-center gap-2">
-                          <Select value={act.activity_type} onValueChange={(val) => handleActivityChange(act.activity_uuid, 'activity_type', val)}>
+                          <Select
+                            value={act.activity_type}
+                            onValueChange={(val) =>
+                              handleActivityChange(
+                                act.activity_uuid,
+                                "activity_type",
+                                val
+                              )
+                            }
+                          >
                             <SelectTrigger className="w-16 h-8">
                               <SelectValue>
-                                {iconMap[getIconText(act.activity_type, activityOptions)] && React.createElement(iconMap[getIconText(act.activity_type, activityOptions)], { className: "h-4 w-4" })}
+                                {iconMap[
+                                  getIconText(
+                                    act.activity_type,
+                                    activityOptions
+                                  )
+                                ] &&
+                                  React.createElement(
+                                    iconMap[
+                                      getIconText(
+                                        act.activity_type,
+                                        activityOptions
+                                      )
+                                    ],
+                                    { className: "h-4 w-4" }
+                                  )}
                               </SelectValue>
                             </SelectTrigger>
                             <SelectContent className="shadow-lg">
-                              {activityOptions.map(opt => (
-                                <SelectItem key={opt.icon_text} value={opt.activity_type}>
+                              {activityOptions.map((opt) => (
+                                <SelectItem
+                                  key={opt.icon_text}
+                                  value={opt.activity_type}
+                                >
                                   <div className="flex items-center gap-2">
-                                    {React.createElement(iconMap[opt.icon_text], { className: "h-4 w-4" })}
+                                    {React.createElement(
+                                      iconMap[opt.icon_text],
+                                      { className: "h-4 w-4" }
+                                    )}
                                     <span>{opt.activity_type}</span>
                                   </div>
                                 </SelectItem>
@@ -963,18 +1589,35 @@ export function TripPlanner({ trip }: TripPlannerProps) {
                           <Input
                             type="time"
                             value={act.time}
-                            onChange={(e) => handleActivityChange(act.activity_uuid, 'time', e.target.value)}
+                            onChange={(e) =>
+                              handleActivityChange(
+                                act.activity_uuid,
+                                "time",
+                                e.target.value
+                              )
+                            }
                             className="w-24 h-8"
                           />
                         </div>
                         <Input
                           value={act.description}
-                          onChange={(e) => handleActivityChange(act.activity_uuid, 'description', e.target.value)}
+                          onChange={(e) =>
+                            handleActivityChange(
+                              act.activity_uuid,
+                              "description",
+                              e.target.value
+                            )
+                          }
                           placeholder="Activity description"
                           className="h-8"
                         />
                       </div>
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDeleteActivity(act.activity_uuid)}>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => handleDeleteActivity(act.activity_uuid)}
+                      >
                         <Trash2 className="h-4 w-4 text-destructive" />
                       </Button>
                     </div>
@@ -983,7 +1626,9 @@ export function TripPlanner({ trip }: TripPlannerProps) {
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={handleCancelEdit}>Cancel</Button>
+              <Button variant="outline" onClick={handleCancelEdit}>
+                Cancel
+              </Button>
               <Button onClick={handleSave}>Save Changes</Button>
             </DialogFooter>
           </DialogContent>
@@ -991,14 +1636,19 @@ export function TripPlanner({ trip }: TripPlannerProps) {
       )}
 
       {viewingPhoto && (
-        <Dialog open={!!viewingPhoto} onOpenChange={() => setViewingPhoto(null)}>
+        <Dialog
+          open={!!viewingPhoto}
+          onOpenChange={() => setViewingPhoto(null)}
+        >
           <DialogContent className="max-w-3xl p-2 bg-transparent border-0 shadow-none">
             <DialogHeader>
-              <DialogTitle className="sr-only">Full screen user photo</DialogTitle>
+              <DialogTitle className="sr-only">
+                Full screen user photo
+              </DialogTitle>
             </DialogHeader>
             <div className="relative w-full h-auto">
               <Image
-                src={viewingPhoto.url}
+                src={viewingPhoto.trip_day_photo_preview ?? viewingPhoto.url}
                 alt="Full screen user photo"
                 width={1920}
                 height={1080}
