@@ -278,21 +278,22 @@ export default function TripsPage() {
       const { data: urlData } = supabase.storage.from('trip_cover').getPublicUrl(filePath);
       updatedTripData.cover_image_url = urlData.publicUrl;
     }
+    
+    if (tripForm.cover_image_file && oldImageUrl) {
+      const oldImageKey = oldImageUrl.split('/trip_cover/').pop();
+      if (oldImageKey) {
+          const { error: deleteError } = await supabase.storage.from('trip_cover').remove([oldImageKey]);
+          if (deleteError) {
+              toast({ title: 'Could not delete old image', description: deleteError.message, variant: 'destructive' });
+          }
+      }
+    }
 
     const { error: updateDbError } = await supabase.from('trips').update(updatedTripData).eq('trip_uuid', editingTrip.trip_uuid);
     
     if (updateDbError) {
         toast({ title: 'Error updating trip', description: updateDbError.message, variant: 'destructive' });
     } else {
-        if (tripForm.cover_image_file && oldImageUrl) {
-            const oldImageKey = oldImageUrl.split('/trip_cover/').pop();
-            if (oldImageKey) {
-                const { error: deleteError } = await supabase.storage.from('trip_cover').remove([oldImageKey]);
-                if (deleteError) {
-                    toast({ title: 'Could not delete old image', description: deleteError.message, variant: 'destructive' });
-                }
-            }
-        }
         
         fetchTrips();
         setIsEditDialogOpen(false);

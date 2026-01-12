@@ -22,7 +22,7 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import type { Currency, Transaction, ShoppingCategory, Trip, ShoppingItem, ItineraryItem, Activity, ChecklistItem } from '@/lib/types';
+import type { Currency, Transaction, ShoppingCategory, Trip, ShoppingItem, ItineraryItem, Activity, ChecklistItem , TripDayPhotos} from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import Image from 'next/image';
 import { createClient } from '@/lib/supabase/client';
@@ -223,8 +223,18 @@ export default function TripDetailsPage() {
           toast({ title: 'Error fetching checklist', description: checklistError.message, variant: 'destructive' });
       }
 
-      const sortedDays = daysData?.map(day => ({ ...day, activities: day.activities?.sort( (a: Activity, b: Activity) => a.time.localeCompare(b.time) ) }));
-      
+    
+    const sortedDays = daysData?.map(day => ({
+      ...day,
+      activities: day.activities?.sort(
+        (a: Activity, b: Activity) => a.time.localeCompare(b.time)
+      ), 
+      tripDayPhotos: day.tripDayPhotos?.sort(
+        (a: TripDayPhotos, b: TripDayPhotos) => (a.seq ?? 0) - (b.seq ?? 0)
+      ),
+    }));
+    
+          
       const enrichedTrip: Trip = {
         ...tripData,
         itinerary: sortedDays || [],

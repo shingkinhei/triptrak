@@ -76,17 +76,16 @@ interface TripPlannerProps {
   trip: Trip;
 }
 
-type EditableTripDayPhoto = TripDayPhotos & {
-  trip_day_photo?: File[]; 
-  trip_day_photo_preview?: string[];
-}
+ type EditableTripDayPhoto = TripDayPhotos;
+// & {
+//   trip_day_photo?: File | null; 
+//   trip_day_photo_preview?: string | null;
+// }
 
 type EditableItineraryItem = ItineraryItem & {
   cover_image_file?: File | null;
   cover_image_preview?: string | null;
 }
-
-
 
 type ActivityOptions = { activity_type: string; icon_text: string; color_code: string; description: string; };
 
@@ -106,7 +105,6 @@ const PreTripChecklist = ({ checklist: initialChecklist, tripId }: { checklist: 
   const [newItemLabel, setNewItemLabel] = useState('');
   const supabase = createClient();
   const { toast } = useToast();
-  const [checkListIdCount, setCheckListIdCount] = useState<number | null>(null);
 
   useEffect(() => {
     setChecklist(initialChecklist.sort((a, b) => (a.seq ?? 0) - (b.seq ?? 0)));
@@ -435,6 +433,13 @@ export function TripPlanner({ trip }: TripPlannerProps) {
 
     let newImageUrl: string | null = itemToSave.cover_image_url;
 
+    if ((itemToSave.cover_image_file || newImageUrl === null) && oldImageUrl && oldImageUrl !== newImageUrl) {
+      const oldImageKey = oldImageUrl.split('/day_cover/').pop();
+      if (oldImageKey) {
+        await supabase.storage.from('day_cover').remove([oldImageKey]);
+      }
+    }
+
     if (itemToSave.cover_image_file) {
       const file = itemToSave.cover_image_file;
       const filePath = `${user.id}/${trip.trip_uuid}/${itemToSave.date}-${itemToSave.day_number}`;
@@ -468,13 +473,6 @@ export function TripPlanner({ trip }: TripPlannerProps) {
     if (dayError) {
       toast({ title: 'Error saving day', description: dayError.message, variant: 'destructive' });
       return;
-    }
-
-    if ((itemToSave.cover_image_file || newImageUrl === null) && oldImageUrl && oldImageUrl !== newImageUrl) {
-      const oldImageKey = oldImageUrl.split('/day_cover/').pop();
-      if (oldImageKey) {
-        await supabase.storage.from('day_cover').remove([oldImageKey]);
-      }
     }
 
     const originalActivities = originalDay?.activities || [];
@@ -530,6 +528,7 @@ export function TripPlanner({ trip }: TripPlannerProps) {
     toast({ title: 'Day Saved!', description: `Changes to Day ${itemToSave.day_number} have been saved.` });
 
     handleCancelEdit();
+
     const { data: refreshedDay, error: refreshError } = await supabase
       .from('trip_days')
       .select(`*, activities:activities (*)`)
@@ -621,56 +620,62 @@ export function TripPlanner({ trip }: TripPlannerProps) {
   }
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    console.log(editingItem); 
+    const originalTripDayPhoto = {... editingItem?.tripDayPhotos};
+    // console.log(editingTripDayPhoto); 
+    console.log(originalTripDayPhoto);
     
-    if (!e.target.files || !editingTripDayPhoto) return;
+    // const originalPhoto = itinerary.find(d => d.day_uuid === itemToSave.day_uuid);
+    // const oldImageUrl = originalDay?.cover_image_url;
+    // if (!e.target.files || !editingTripDayPhoto) return;
+    if (!e.target.files || !originalTripDayPhoto) return;
     
+
     const files = Array.from(e.target.files);
+    console.log(files);
+    // files.forEach(file => {
+    //   new Compressor(file, {
+    //     quality: 0.6,
+    //     maxWidth: 1200,
+    //     success: (compressedResult) => {
+    //       // Save compressed file
+    //       setEditingTripDayPhoto (prev =>
+    //         prev
+    //           ? {
+    //               ...prev,
+    //               trip_day_photo: [
+    //                 ...(prev.trip_day_photo || []),
+    //                 compressedResult as File,
+    //               ],
+    //             }
+    //           : null
+    //       );
   
-    files.forEach(file => {
-      new Compressor(file, {
-        quality: 0.6,
-        maxWidth: 1200,
-        success: (compressedResult) => {
-          // Save compressed file
-          setEditingTripDayPhoto (prev =>
-            prev
-              ? {
-                  ...prev,
-                  trip_day_photo: [
-                    ...(prev.trip_day_photo || []),
-                    compressedResult as File,
-                  ],
-                }
-              : null
-          );
-  
-          // Generate preview
-          const reader = new FileReader();
-          reader.onloadend = () => {
-            setEditingTripDayPhoto(prev =>
-              prev
-                ? {
-                    ...prev,
-                    trip_day_photo_preview: [
-                      ...(prev.trip_day_photo_preview || []),
-                      reader.result as string,
-                    ],
-                  }
-                : null
-            );
-          };
-          reader.readAsDataURL(compressedResult);
-        },
-        error: (err) => {
-          toast({
-            title: "Image compression failed",
-            description: err.message,
-            variant: "destructive",
-          });
-        },
-      });
-    });
+    //       // Generate preview
+    //       const reader = new FileReader();
+    //       reader.onloadend = () => {
+    //         setEditingTripDayPhoto(prev =>
+    //           prev
+    //             ? {
+    //                 ...prev,
+    //                 trip_day_photo_preview: [
+    //                   ...(prev.trip_day_photo_preview || []),
+    //                   reader.result as string,
+    //                 ],
+    //               }
+    //             : null
+    //         );
+    //       };
+    //       reader.readAsDataURL(compressedResult);
+    //     },
+    //     error: (err) => {
+    //       toast({
+    //         title: "Image compression failed",
+    //         description: err.message,
+    //         variant: "destructive",
+    //       });
+    //     },
+    //   });
+    //  });
   
   //    toast({ title: 'Feature not implemented', description: 'Uploading user photos is not yet supported in this version.', variant: 'default' });
   };

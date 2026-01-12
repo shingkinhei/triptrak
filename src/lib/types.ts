@@ -13,8 +13,10 @@ export type Activity = {
 export type TripDayPhotos = {
     photo_uuid: string;
     day_uuid: string;
-    seq: string;
+    seq: number;
     url: string;
+    trip_day_photo?: File | null; 
+    trip_day_photo_preview?: string | null;
 };
 
 export type ChecklistItem = {
