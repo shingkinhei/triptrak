@@ -111,6 +111,7 @@ type EditableTripDayPhoto = TripDayPhotos;
 type EditableItineraryItem = ItineraryItem & {
   cover_image_file?: File | null;
   cover_image_preview?: string | null;
+  isNew?: boolean;
 };
 
 type ActivityOptions = {
@@ -128,6 +129,15 @@ function getIconText(
   const match = options.find((opt) => opt.activity_type === activityType);
   return match ? match.icon_text : fallback;
 }
+
+const formatMMDD = (dateStr?: string | null) => {
+  if (!dateStr) return "";
+  const d = new Date(dateStr);
+  if (Number.isNaN(d.getTime())) return "";
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${mm}/${dd}`;
+};
 
 const PreTripChecklist = ({
   checklist: initialChecklist,
@@ -479,6 +489,7 @@ const PreTripChecklist = ({
 
 export function TripPlanner({ trip }: TripPlannerProps) {
   const [itinerary, setItinerary] = useState<ItineraryItem[]>(trip.itinerary);
+  const [tripState, setTripState] = useState<Trip>(trip);
   const [checklist, setChecklist] = useState<ChecklistItem[]>(trip.checklist);
   const [editingItem, setEditingItem] = useState<EditableItineraryItem | null>(
     null
@@ -609,26 +620,59 @@ export function TripPlanner({ trip }: TripPlannerProps) {
       newImageUrl = null;
     }
 
-    const dayUpdatePayload = {
-      title: itemToSave.title,
-      date: itemToSave.date,
-      feedback: itemToSave.feedback,
-      cover_image_hint: itemToSave.cover_image_hint,
-      cover_image_url: newImageUrl,
-    };
+    if (!originalDay) {
+      // Insert new day record when adding a fresh day
+      const dayInsertPayload = {
+        day_uuid: itemToSave.day_uuid,
+        trip_uuid: trip.trip_uuid,
+        day_number: itemToSave.day_number,
+        title: itemToSave.title,
+        date: itemToSave.date,
+        feedback: itemToSave.feedback,
+        cover_image_hint: itemToSave.cover_image_hint,
+        cover_image_url: newImageUrl,
+        user_id: user.id,
+      };
 
-    const { error: dayError } = await supabase
-      .from("trip_days")
-      .update(dayUpdatePayload)
-      .eq("day_uuid", itemToSave.day_uuid);
+      const { data: insertedDay, error: insertErr } = await supabase
+        .from("trip_days")
+        .insert(dayInsertPayload)
+        .select()
+        .single();
 
-    if (dayError) {
-      toast({
-        title: "Error saving day",
-        description: dayError.message,
-        variant: "destructive",
-      });
-      return;
+      if (insertErr) {
+        toast({ title: "Error adding day", description: insertErr.message, variant: "destructive" });
+        return;
+      }
+
+      // Add to local itinerary view
+      setItinerary((prev) =>
+        [...prev, { ...(insertedDay as any), activities: itemToSave.activities || [], tripDayPhotos: [] } as ItineraryItem].sort(
+          (a, b) => a.day_number - b.day_number
+        )
+      );
+    } else {
+      const dayUpdatePayload = {
+        title: itemToSave.title,
+        date: itemToSave.date,
+        feedback: itemToSave.feedback,
+        cover_image_hint: itemToSave.cover_image_hint,
+        cover_image_url: newImageUrl,
+      };
+
+      const { error: dayError } = await supabase
+        .from("trip_days")
+        .update(dayUpdatePayload)
+        .eq("day_uuid", itemToSave.day_uuid);
+
+      if (dayError) {
+        toast({
+          title: "Error saving day",
+          description: dayError.message,
+          variant: "destructive",
+        });
+        return;
+      }
     }
 
     const originalActivities = originalDay?.activities || [];
@@ -758,7 +802,7 @@ export function TripPlanner({ trip }: TripPlannerProps) {
           const p = pendingPhotos[i];
           const file: File = p.trip_day_photo as File;
           const fileExt = (file.name.split(".").pop() || "jpg").replace(/[^a-z0-9]/gi, "");
-          const filePath = `${user.id}/${trip.trip_uuid}/${itemToSave.day_uuid}/${itemToSave.date}-${itemToSave.day_number}-${Date.now()}-${i + 1}.${fileExt}`;
+          const filePath = `${user.id}/${trip.trip_uuid}/${itemToSave.day_uuid}/${itemToSave.date}-${itemToSave.day_number}-${uuidv4}-${i + 1}.${fileExt}`;
 
           const { error: uploadError } = await supabase.storage.from("day_feedback").upload(filePath, file, { upsert: false });
           if (uploadError) {
@@ -910,6 +954,13 @@ export function TripPlanner({ trip }: TripPlannerProps) {
         description: err.message || String(err),
         variant: "destructive",
       });
+    }
+
+    // Ensure day_number sequencing and trip start/end dates are correct
+    try {
+      await resequenceAndUpdateTripDates(trip.trip_uuid);
+    } catch (err) {
+      console.warn("Resequence after save failed", err);
     }
   };
 
@@ -1163,7 +1214,140 @@ export function TripPlanner({ trip }: TripPlannerProps) {
     toast({ title: isPending ? "Restore" : "Pending delete", description: isPending ? "Photo will no longer be deleted." : "Photo marked for deletion. Click Save Changes to apply.", variant: "default" });
   };
 
+  const handleDeleteDay = async () => {
+    if (!editingItem) return;
+
+    const dayUuid = editingItem.day_uuid;
+
+    try {
+      const {
+        data: photos,
+        error: photosErr,
+      } = await supabase.from("trip_photos").select("url,photo_uuid").eq("day_uuid", dayUuid);
+
+      if (photosErr) {
+        toast({ title: "Error", description: photosErr.message, variant: "destructive" });
+      }
+
+      // Remove storage objects for any photos that have been uploaded
+      if (Array.isArray(photos) && photos.length > 0) {
+        for (const p of photos) {
+          try {
+            const url = p.url || "";
+            const key = url.split("/day_feedback/").pop();
+            if (key) {
+              const { error: delErr } = await supabase.storage.from("day_feedback").remove([key]);
+              if (delErr) console.warn("Storage delete error", delErr.message);
+            }
+          } catch (inner) {
+            console.warn("Error deleting storage object", inner);
+          }
+        }
+      }
+
+      // Delete DB rows: trip_photos, activities, then trip_days
+      const { error: photosDeleteErr } = await supabase.from("trip_photos").delete().eq("day_uuid", dayUuid);
+      if (photosDeleteErr) console.warn("Error deleting photo rows", photosDeleteErr.message);
+
+      const { error: actDelErr } = await supabase.from("activities").delete().eq("day_uuid", dayUuid);
+      if (actDelErr) console.warn("Error deleting activities", actDelErr.message);
+
+      const { error: dayDelErr } = await supabase.from("trip_days").delete().eq("day_uuid", dayUuid);
+      if (dayDelErr) {
+        toast({ title: "Error deleting day", description: dayDelErr.message, variant: "destructive" });
+        return;
+      }
+
+      // Update local UI
+      const newItinerary = itinerary.filter((d) => d.day_uuid !== dayUuid);
+      setItinerary(newItinerary);
+      setIsEditDialogOpen(false);
+      setEditingItem(null);
+
+      // Choose next active view: first available day or checklist
+      if (newItinerary.length > 0) {
+        setActiveView(`day-${newItinerary[0].day_number}`);
+      } else {
+        setActiveView("checklist");
+      }
+
+      toast({ title: "Day deleted", description: `Day ${editingItem.day_number} removed.` });
+      // Resequence remaining days and update trip dates
+      try {
+        await resequenceAndUpdateTripDates(trip.trip_uuid);
+      } catch (err) {
+        console.warn("Resequence after delete failed", err);
+      }
+    } catch (err: any) {
+      console.error("Delete day failed", err);
+      toast({ title: "Error", description: err?.message || String(err), variant: "destructive" });
+    }
+  };
+
+  const resequenceAndUpdateTripDates = async (tripUuid: string) => {
+    try {
+      const { data: days, error: daysErr } = await supabase
+        .from("trip_days")
+        .select("*")
+        .eq("trip_uuid", tripUuid)
+        .order("date", { ascending: true });
+
+      if (daysErr) {
+        console.warn("Failed to fetch days for resequence", daysErr.message);
+        return;
+      }
+
+      if (!Array.isArray(days)) return;
+
+      // Resequence day_number based on date order
+      for (let i = 0; i < days.length; i++) {
+        const d = days[i];
+        const desired = i + 1;
+        if (d.day_number !== desired) {
+          await supabase
+            .from("trip_days")
+            .update({ day_number: desired })
+            .eq("day_uuid", d.day_uuid);
+        }
+      }
+
+      // Update trip start_date and end_date
+      const startDate = days.length > 0 ? days[0].date : null;
+      const endDate = days.length > 0 ? days[days.length - 1].date : null;
+
+      if (startDate || endDate) {
+        const { error: tripErr } = await supabase
+          .from("trips")
+          .update({ start_date: startDate, end_date: endDate })
+          .eq("trip_uuid", tripUuid);
+        if (tripErr) console.warn("Failed to update trip dates", tripErr.message);
+      }
+
+      // Refresh trip record and local itinerary with latest days, activities and photos
+      const { data: refreshedTrip, error: tripFetchErr } = await supabase
+        .from("trips")
+        .select("*")
+        .eq("trip_uuid", tripUuid)
+        .single();
+      if (!tripFetchErr && refreshedTrip) {
+        setTripState(refreshedTrip as Trip);
+      }
+
+      const { data: refreshedDays, error: refreshErr } = await supabase
+        .from("trip_days")
+        .select(`*, activities:activities (*), tripDayPhotos:trip_photos (*)`)
+        .eq("trip_uuid", tripUuid)
+        .order("day_number", { ascending: true });
+      if (!refreshErr && Array.isArray(refreshedDays)) {
+        setItinerary(refreshedDays as ItineraryItem[]);
+      }
+    } catch (err) {
+      console.error("Resequence failed", err);
+    }
+  };
+
   const handleAddDay = async () => {
+    // Create a local editing item for the new day and open the edit dialog.
     const newDayNumber =
       itinerary.length > 0
         ? Math.max(...itinerary.map((i) => i.day_number)) + 1
@@ -1179,41 +1363,22 @@ export function TripPlanner({ trip }: TripPlannerProps) {
     }
     const newDateString = newDate.toISOString().split("T")[0];
 
-    const newDayData = {
+    const newEditingItem: EditableItineraryItem = {
+      day_uuid: uuidv4(),
       trip_uuid: trip.trip_uuid,
       day_number: newDayNumber,
       title: "New Destination",
       date: newDateString,
       cover_image_url: `https://picsum.photos/seed/${new Date().getTime()}/600/400`,
       cover_image_hint: "landscape",
-    };
+      activities: [],
+      tripDayPhotos: [],
+      isNew: true,
+      cover_image_preview: `https://picsum.photos/seed/${new Date().getTime()}/600/400`,
+    } as unknown as EditableItineraryItem;
 
-    const { data, error } = await supabase
-      .from("trip_days")
-      .insert(newDayData)
-      .select()
-      .single();
-
-    if (error) {
-      toast({
-        title: "Error adding day",
-        description: error.message,
-        variant: "destructive",
-      });
-    } else if (data) {
-      const newDay: ItineraryItem = {
-        ...data,
-        activities: [],
-        tripDayPhotos: [],
-      };
-      setItinerary((prev) =>
-        [...prev, newDay].sort((a, b) => a.day_number - b.day_number)
-      );
-      toast({
-        title: "Day Added!",
-        description: `Day ${newDayNumber} has been successfully added.`,
-      });
-    }
+    setEditingItem(newEditingItem);
+    setIsEditDialogOpen(true);
   };
 
   const activeItineraryItem = itinerary.find(
@@ -1232,9 +1397,16 @@ export function TripPlanner({ trip }: TripPlannerProps) {
           >
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <h1 className="text-2xl font-bold font-headline text-primary-foreground truncate">
-            {trip.name}
-          </h1>
+          <div className="flex flex-col">
+            <h1 className="text-2xl font-bold font-headline text-primary-foreground truncate">
+              {trip.name}
+            </h1>
+            {(tripState.start_date || tripState.end_date) && (
+              <div className="text-sm text-muted-foreground">
+                {formatMMDD(tripState.start_date)}{tripState.start_date && tripState.end_date ? " - " : ""}{formatMMDD(tripState.end_date)}
+              </div>
+            )}
+          </div>
         </div>
         <Button
           onClick={handleAddDay}
@@ -1625,11 +1797,36 @@ export function TripPlanner({ trip }: TripPlannerProps) {
                 </div>
               </div>
             </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={handleCancelEdit}>
-                Cancel
-              </Button>
-              <Button onClick={handleSave}>Save Changes</Button>
+            <DialogFooter className="flex items-center justify-between">
+              <div>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="destructive" size="sm">
+                      <Trash2 className="mr-2 h-4 w-4" /> Delete Day
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Delete Day</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This will permanently delete the day, its activities, and photos. This action cannot be undone.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={handleDeleteDay} className="bg-destructive hover:bg-destructive/90">
+                        Delete Day
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={handleCancelEdit}>
+                  Cancel
+                </Button>
+                <Button onClick={handleSave}>Save Changes</Button>
+              </div>
             </DialogFooter>
           </DialogContent>
         </Dialog>

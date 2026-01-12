@@ -19,6 +19,7 @@ import { createClient } from '@/lib/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import Compressor from 'compressorjs';
+import { v4 as uuidv4 } from "uuid";
 
 type EditableTrip = Partial<Pick<Trip, 'name' | 'destination' | 'country_code' | 'start_date' | 'end_date' | 'cover_image_url' | 'cover_image_hint'>> & {
   cover_image_file?: File | null;
@@ -163,7 +164,11 @@ export default function TripsPage() {
 
     if (newTrip.cover_image_file) {
       const file = newTrip.cover_image_file;
-      const filePath = `${user.id}/${newTrip.start_date}-${newTrip.country_code}`;
+      const fileExt = (file.name.split(".").pop() || "jpg").replace(
+        /[^a-z0-9]/gi,
+        ""
+      );
+      const filePath = `${user.id}/${newTrip.start_date}-${newTrip.country_code}-${uuidv4()}.${fileExt}`;
       const { error: uploadError } = await supabase.storage.from('trip_cover').upload(filePath, file, { upsert: true });
 
       if (uploadError) {
@@ -267,7 +272,11 @@ export default function TripsPage() {
 
     if (tripForm.cover_image_file) {
       const file = tripForm.cover_image_file;
-      const filePath = `${user.id}/${tripForm.start_date}-${tripForm.country_code}`;
+      const fileExt = (file.name.split(".").pop() || "jpg").replace(
+        /[^a-z0-9]/gi,
+        ""
+      );
+      const filePath = `${user.id}/${tripForm.start_date}-${tripForm.country_code}-${uuidv4()}.${fileExt}`;
       const { error: uploadError } = await supabase.storage.from('trip_cover').upload(filePath, file, {upsert: true});
 
       if (uploadError) {

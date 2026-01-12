@@ -55,13 +55,15 @@ export type Transaction = {
 };
 
 export type ShoppingItem = {
-  id: string;
-  name:string;
-  checked: boolean;
-  imageUrl?: string;
-  price?: number;
-  location?: string;
-  store?: string;
+  item_uuid: string;
+  item_id: number;
+  shopping_category: string | null;
+  name: string | null;
+  checked: boolean | null;
+  image_url: string | null;
+  price: number | null;
+  user_id: string | null;
+  created_at?: string | null;
 };
 
 export type ShoppingCategory = {
