@@ -1,5 +1,5 @@
 'use client';
-import React, { useRef, useState, useMemo } from 'react';
+import React, { useRef, useState, useMemo, useEffect } from 'react';
 import type { ShoppingItems, Trip } from '@/lib/types';
 import {
   Card,
@@ -21,6 +21,8 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from './ui/dropdown-menu';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { useRouter } from 'next/navigation';
+import { createClient } from "@/lib/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 interface ShoppingListProps {
     list: ShoppingItems[];
@@ -39,23 +41,15 @@ const iconMap: Record<string, LucideIcon> = {
   Luggage,
 };
 
-const iconOptions = [
-  { value: 'ShoppingBasket', label: 'General' },
-  { value: 'Gift', label: 'Souvenirs' },
-  { value: 'UtensilsCrossed', label: 'Food' },
-  { value: 'Shirt', label: 'Clothing' },
-  { value: 'Luggage', label: 'Essentials' },
-  { value: 'Home', label: 'Household' },
-  { value: 'Plane', label: 'Travel' },
-];
-
-
 type DisplayCurrency = 'trip' | 'home';
 
 export function ShoppingList({ list, setList, onCheckChange, trip }: ShoppingListProps) {
+    const [shoppingItems, setShoppingItems] = useState<ShoppingItems[]>([]);
     const { tripCurrency, tripRate, formatCurrency, homeCurrency, convertToHomeCurrency, formatHomeCurrency } = useCurrency();
     const router = useRouter();
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const supabase = createClient();
+    const { toast } = useToast();
 
     // State for main dialogs
     // State for editing items
@@ -65,6 +59,22 @@ export function ShoppingList({ list, setList, onCheckChange, trip }: ShoppingLis
     // Other state
     const [displayCurrency, setDisplayCurrency] = useState<DisplayCurrency>('trip');
 
+    useEffect(() => {
+        const fetchShoppingItems = async () => {
+            const { data, error } = await supabase
+                .from('shopping_items')
+                .select('*')
+                .eq('trip_uuid', trip.trip_uuid);
+
+            if (error) {
+                toast({ title: 'Error fetching shopping items', description: error.message, variant: 'destructive' });
+            } else if (data) {
+                setShoppingItems(data as ShoppingItems[]);
+            }
+        };
+        fetchShoppingItems();
+    }, [trip.trip_uuid]);
+    
 
     const itineraryLocations = useMemo(() => {
         if (!trip) return [];
@@ -106,6 +116,7 @@ export function ShoppingList({ list, setList, onCheckChange, trip }: ShoppingLis
             ...editingItem.item,
             ...editItemFormData,
             price: parseFloat(String(editItemFormData.price || 0)) || 0,
+            pcs: parseInt(String(editItemFormData.pcs ?? editingItem.item.pcs ?? 1)) || 1,
             image_url: editItemFormData.previewUrl || editingItem.item.image_url,
         } as ShoppingItems;
         delete (updatedItem as any).file;
@@ -139,11 +150,11 @@ export function ShoppingList({ list, setList, onCheckChange, trip }: ShoppingLis
 
 
     const calculateTotal = (items: ShoppingItems[]) => {
-        return items.reduce((total, item) => total + (item.price || 0), 0);
+        return items.reduce((total, item) => total + ((item.price || 0) * (item.pcs ?? 1)), 0);
     }
 
     const baseGrandTotal = (list ?? []).reduce(
-    (total, item) => total + (item.price || 0),
+    (total, item) => total + ((item.price || 0) * (item.pcs ?? 1)),
     0
     );
 
@@ -217,7 +228,8 @@ export function ShoppingList({ list, setList, onCheckChange, trip }: ShoppingLis
                     <div className="grid grid-cols-2 gap-4">
                         {group.items.map(item => {
                             const baseItemPrice = item.price || 0;
-                            const itemPriceInCurrent = displayCurrency === 'trip' ? baseItemPrice : convertToHomeCurrency(baseItemPrice);
+                            const qty = item.pcs ?? 1;
+                            const itemPriceInCurrent = displayCurrency === 'trip' ? baseItemPrice * qty : convertToHomeCurrency(baseItemPrice * qty);
                             return (
                                 <Card key={item.item_uuid} className={cn("overflow-hidden relative bg-card/80 backdrop-blur-sm border-white/20 shadow-lg", item.checked && "opacity-50")}>
                                      <div className="absolute top-2 left-2 z-10">
@@ -294,12 +306,20 @@ export function ShoppingList({ list, setList, onCheckChange, trip }: ShoppingLis
                                                 </div>
                                             )}
                                         </div>
-                                        <p className={cn(
-                                            "text-xs font-semibold pt-1 text-card-foreground",
-                                            item.checked ? 'text-muted-foreground line-through' : 'text-card-foreground'
-                                        )}>
-                                            {currentFormatter(itemPriceInCurrent)}
-                                        </p>
+                                                                                <div className="flex items-center justify-between">
+                                                                                    <p className={cn(
+                                                                                        "text-xs text-muted-foreground",
+                                                                                        item.checked ? 'text-muted-foreground line-through' : 'text-card-foreground'
+                                                                                    )}>
+                                                                                        {qty} pcs
+                                                                                    </p>
+                                                                                    <p className={cn(
+                                                                                        "text-xs font-semibold pt-1 text-card-foreground",
+                                                                                        item.checked ? 'text-muted-foreground line-through' : 'text-card-foreground'
+                                                                                    )}>
+                                                                                        {currentFormatter(itemPriceInCurrent)}
+                                                                                    </p>
+                                                                                </div>
                                     </div>
                                 </Card>
                             )
@@ -324,8 +344,12 @@ export function ShoppingList({ list, setList, onCheckChange, trip }: ShoppingLis
                       </div>
                       <div className="space-y-2">
                           <Label htmlFor="item-price">Price ({tripCurrency})</Label>
-                          <Input id="item-price" type="number" value={editItemFormData.price || ''} onChange={(e) => handleEditItemFormChange('price', e.target.value)} placeholder="e.g. 15.00" />
+                              <Input id="item-price" type="number" value={editItemFormData.price || ''} onChange={(e) => handleEditItemFormChange('price', e.target.value)} placeholder="e.g. 15.00" />
                       </div>
+                          <div className="space-y-2">
+                              <Label htmlFor="item-pcs">Quantity (pcs)</Label>
+                              <Input id="item-pcs" type="number" value={editItemFormData.pcs ?? 1} onChange={(e) => handleEditItemFormChange('pcs', e.target.value)} placeholder="1" />
+                          </div>
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                             <Label htmlFor="item-location">Location</Label>

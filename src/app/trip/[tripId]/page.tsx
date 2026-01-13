@@ -1,11 +1,10 @@
 
 'use client';
-import type { FC } from 'react';
+import React, { type FC } from 'react';
+// import type { FC } from 'react';
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
-import { PlusCircle, Camera } from 'lucide-react';
-
 import { BottomNav, type Tab } from '@/components/bottom-nav';
 import { ExpenseTracker } from '@/components/expense-tracker';
 import { MapView } from '@/components/map-view';
@@ -27,21 +26,31 @@ import { Button } from '@/components/ui/button';
 import Image from 'next/image';
 import { createClient } from '@/lib/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { debounce } from 'lodash'; 
+import { debounce, set } from 'lodash'; 
 import { v4 as uuidv4 } from "uuid";
+import Compressor from 'compressorjs';
+import {
+  Upload,
+  PlusCircle,
+  Camera,
+  type LucideIcon,
+  Luggage,
+  Plane,
+  Train,
+  BedDouble,
+  UtensilsCrossed,
+  Ticket,
+  Mountain,
+  Building,
+  Home,
+  ShoppingBag,
+  Gift,
+  Shirt,
+  ShoppingBasket,
+  Trash2
+} from "lucide-react";
 
-interface NewItemInput {
-  item_uuid: string;
-  item_id?: number;
-  shopping_category: string | null;
-  name: string;
-  store: string;
-  address?: string | null;
-  checked: boolean;
-  image_url: string | null;
-  price: number;
-  user_id: string | null;
-  created_at?: string | null;
+type NewItemInput = ShoppingItems & {
   item_image?: File | null; 
   item_image_preview?: string | null;
 }
@@ -51,7 +60,29 @@ interface TabContentProps {
   setTrip: React.Dispatch<React.SetStateAction<Trip | undefined>>;
   activeTab: Tab;
 }
-
+type shoppingCategoryOption = {
+  name: string;
+  icon_text: string;
+  color_code?: string| null;
+  description?: string | null;
+  shopping_categories_seq?: number | null;
+};
+const iconMap: Record<string, LucideIcon> = {
+  Luggage,
+  Plane,
+  Train,
+  BedDouble,
+  UtensilsCrossed,
+  Camera,
+  Ticket,
+  Mountain,
+  Building,
+  Home,
+  Gift,
+  ShoppingBag,
+  Shirt,
+  ShoppingBasket
+};
 const TabContent: FC<TabContentProps> = ({ trip, setTrip, activeTab }) => {
   const { tripCurrency } = useCurrency();
   const supabase = createClient();
@@ -116,6 +147,7 @@ const TabContent: FC<TabContentProps> = ({ trip, setTrip, activeTab }) => {
     });
   };
 
+
   const setShoppingList = (
     updater: React.SetStateAction<ShoppingItems[]>
   ) => {
@@ -129,6 +161,7 @@ const TabContent: FC<TabContentProps> = ({ trip, setTrip, activeTab }) => {
     });
   };
   
+
   const componentProps = {
     planner: {
       trip: trip,
@@ -170,17 +203,18 @@ const TabContent: FC<TabContentProps> = ({ trip, setTrip, activeTab }) => {
 export default function TripDetailsPage() {
   const router = useRouter();
   const pathname = usePathname();
-  const tripId = pathname.split('/').pop();
+  const tripUuId = pathname.split('/').pop();
   
   const [trip, setTrip] = useState<Trip | undefined>();
   const [activeTab, setActiveTab] = useState<Tab>('planner');
   const { setTripCurrencyFromCountry, tripCurrency } = useCurrency();
   const supabase = createClient();
   const { toast } = useToast();
-
+  const [ShoppingCategoryOption, setShoppingCategoryOption] = useState<shoppingCategoryOption[]>([]);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [newItem, setNewItem] = useState<NewItemInput>({
     item_uuid: uuidv4(),
+    trip_uuid: '',
     shopping_category: '',
     name: '',
     store: '',
@@ -188,6 +222,7 @@ export default function TripDetailsPage() {
     checked: false,
     image_url: null,
     price: 0,
+    pcs: 1,
     user_id: null,
     item_image: null,
     item_image_preview: null,
@@ -196,12 +231,12 @@ export default function TripDetailsPage() {
 
   useEffect(() => {
     const fetchTripData = async () => {
-      if (!tripId) return;
+      if (!tripUuId) return;
 
       const { data: tripData, error: tripError } = await supabase
         .from('trips')
         .select('*')
-        .eq('trip_uuid', tripId)
+        .eq('trip_uuid', tripUuId)
         .single();
       
       if (tripError) {
@@ -213,7 +248,7 @@ export default function TripDetailsPage() {
       const { data: daysData, error: daysError } = await supabase
         .from('trip_days')
         .select(`*, activities:activities (*), tripDayPhotos:trip_photos (*)`)
-        .eq('trip_uuid', tripId)
+        .eq('trip_uuid', tripUuId)
         .order('day_number', { ascending: true });
 
       if (daysError) {
@@ -223,7 +258,7 @@ export default function TripDetailsPage() {
       const { data: checklistData, error: checklistError } = await supabase
         .from('pre_trip_checklist')
         .select(`*`)
-        .eq('trip_uuid', tripId)
+        .eq('trip_uuid', tripUuId)
         .order('seq', { ascending: true});
 
       if(checklistError) {
@@ -252,10 +287,21 @@ export default function TripDetailsPage() {
       if (tripData.country_code) {
         setTripCurrencyFromCountry(tripData.country_code);
       }
+      // fetch shopping items for this trip and attach to trip state
+      const { data: shoppingData, error: shoppingError } = await supabase
+        .from('shopping_items')
+        .select('*')
+        .eq('trip_uuid', tripUuId);
+
+      if (shoppingError) {
+        toast({ title: 'Error fetching shopping items', description: shoppingError.message, variant: 'destructive' });
+      } else if (shoppingData) {
+        setTrip((prev) => prev ? { ...prev, shoppingItems: shoppingData } : prev);
+      }
     };
 
     fetchTripData();
-  }, [tripId, setTripCurrencyFromCountry, router, supabase, toast]);
+  }, [tripUuId, setTripCurrencyFromCountry, router, supabase, toast]);
 
   useEffect(() => {
     if (trip) {
@@ -264,7 +310,7 @@ export default function TripDetailsPage() {
           .from('trips')
           .update({
             transactions: trip.transactions,
-            shopping_list: trip.shoppingItems,
+            // shopping_list: trip.shoppingItems,
           })
           .eq('trip_uuid', trip.trip_uuid);
         
@@ -273,16 +319,27 @@ export default function TripDetailsPage() {
         }
       }, 1500);
 
+      const fetchShoppingCategoryOptions = async () => {
+        const { data, error } = await supabase
+          .from("shopping_categories_setup")
+          .select("name, icon_text, color_code, description, shopping_categories_seq");
+
+        if (error) {
+          toast({
+            title: "Error fetching shopping categories",
+            description: error.message,
+            variant: "destructive",
+          });
+        } else {
+          setShoppingCategoryOption(data as shoppingCategoryOption[]);
+        }
+      };
+
       debouncedUpdater();
+      fetchShoppingCategoryOptions();
       return () => debouncedUpdater.cancel();
     }
   }, [trip, supabase, toast]);
-
-
-  const itineraryLocations = useMemo(() => {
-      if (!trip) return [];
-      return [...new Set(trip.itinerary.map(i => i.title.replace(/arrival in |exploring |day trip to /i, '')))];
-  }, [trip]);
 
   const pointsOfInterest = useMemo(() => {
       if (!trip || !trip.itinerary) return [];
@@ -297,10 +354,6 @@ export default function TripDetailsPage() {
       );
   }, [trip, newItem.address]);
 
-    const shoppingCategories = useMemo(() => {
-    if (!trip?.shoppingItems) return ['General'];
-    return Array.from(new Set(trip.shoppingItems.map((i: ShoppingItems) => i.shopping_category || 'General')));
-    }, [trip]);
 
   if (!trip) {
     return (
@@ -322,9 +375,56 @@ export default function TripDetailsPage() {
       return { ...currentTrip, shoppingItems: newShoppingList };
     });
   };
+  const fetchShoppingItems = async () => {
+      const { data, error } = await supabase
+        .from('shopping_items')
+        .select('*')
+        .eq('trip_uuid', tripUuId);
 
+      if (error) {
+        toast({ title: 'Error fetching shopping items', description: error.message, variant: 'destructive' });
+      } else if (data) {
+        setShoppingList(data as ShoppingItems[]);
+      }
+  };
+  const handleDayCoverImageChange = (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    if (!e.target.files || !newItem) return;
+    const file = e.target.files[0];
+    if (file) {
+      new Compressor(file, {
+        quality: 0.6,
+        maxWidth: 1200,
+        success: (compressedResult) => {
+          setNewItem((prev) =>
+            prev
+              ? { ...prev, item_image: compressedResult as File }
+              : { ...newItem, item_image: compressedResult as File }
+          );
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            setNewItem((prev) =>
+              prev
+                ? { ...prev, item_image_preview: reader.result as string }
+                : { ...newItem, item_image_preview: reader.result as string }
+            );
+          };
+          reader.readAsDataURL(compressedResult);
+        },
+        error: (err) => {
+          toast({
+            title: "Image compression failed",
+            description: err.message,
+            variant: "destructive",
+          });
+        },
+      });
+    }
+  };
     const handleInputChange = (field: keyof NewItemInput, value: string | File | null) => {
     if (field === 'item_image' && value instanceof File) {
+      
         const reader = new FileReader();
         reader.onloadend = () => {
           setNewItem(prev => ({ ...prev, item_image: value, item_image_preview: reader.result as string }));
@@ -333,32 +433,89 @@ export default function TripDetailsPage() {
     } else {
         if (field === 'store') {
             setNewItem(prev => ({...prev, store: value as string, address: ''}));
-        } else {
-            setNewItem(prev => ({ ...prev, [field]: value as string }));
-        }
+      } else if (field === 'price' || field === 'pcs') {
+        setNewItem(prev => ({ ...prev, [field]: Number(value) }));
+      } else {
+        setNewItem(prev => ({ ...prev, [field]: value as string }));
+      }
     }
   };
 
-  const handleAddItem = () => {
+  const handleAddItem = async() => {
       if (!newItem.name.trim() || !newItem.price) return;
+
+      const { data: { user } } = await supabase.auth.getUser();
+      
+
+      if (!user) {
+          toast({ title: 'Not authenticated', 
+            description: 'You must be logged in to create a trip.', 
+            variant: 'destructive' });
+          return;
+      }
+      let newImageUrl: string | null = null;
+
+          if (newItem.item_image) {
+            const file = newItem.item_image;
+            const fileExt = (file.name.split(".").pop() || "jpg").replace(
+              /[^a-z0-9]/gi,
+              ""
+            );
+            const filePath = `${user.id}/${trip.trip_uuid}/${newItem.item_uuid}-${uuidv4()}.${fileExt}`;
+      
+            const { error: uploadError } = await supabase.storage
+              .from("shopping_item_photo")
+              .upload(filePath, file, { upsert: true });
+      
+            if (uploadError) {
+              toast({
+                title: "Error uploading day cover",
+                description: uploadError.message,
+                variant: "destructive",
+              });
+              return;
+            }
+      
+            const { data: urlData } = supabase.storage
+              .from("shopping_item_photo")
+              .getPublicUrl(filePath);
+            newImageUrl = urlData.publicUrl;
+          } else if (!newItem.item_image_preview) {
+            newImageUrl = null;
+          }
 
       const newItemData: ShoppingItems = {
           item_uuid: uuidv4(),
+          trip_uuid: trip.trip_uuid,
           name: newItem.name.trim(),
           shopping_category: newItem.shopping_category,
           checked: false,
           price: newItem.price || 0,
-          image_url: newItem.item_image_preview || `https://picsum.photos/seed/${newItem.name.trim()}/100/100`,
+          pcs: newItem.pcs || 1,
+          image_url: newImageUrl|| `https://picsum.photos/seed/${newItem.name.trim()}/100/100`,
           address: newItem.address,
           store: newItem.store,
-          user_id: null,
+          user_id: user.id,
       };
       // append flat shopping item list
-      setShoppingList(prev => [...prev, newItemData]);
+      // setShoppingList(prev => [...prev, newItemData]);
 
-      setNewItem({ item_uuid: uuidv4(), shopping_category: '', name: '', store: '', address: null, checked: false, image_url: null, price: 0, user_id: null, item_image: null, item_image_preview: null });
-      setIsAddDialogOpen(false);
+    const { data, error } = await supabase.from("shopping_items").insert(newItemData).select().single();
+    if (error) {
+        toast({ title: 'Error Adding Item', description: error.message, variant: 'destructive' });
+    } else if (data) {
+        fetchShoppingItems();
+        setNewItem({ item_uuid: uuidv4(), trip_uuid: trip.trip_uuid, shopping_category: '', name: '', store: '', address: null, checked: false, image_url: null, price: 0, pcs: 1,user_id: null, item_image: null, item_image_preview: null });
+        setIsAddDialogOpen(false);
+        toast({ title: 'Item Added!', description: `"${data.name}" has been added.` });
+    }
+
   }
+
+  const handleClearNewItemImage = () => {
+    setNewItem(prev => ({ ...prev, item_image: null, item_image_preview: null }));
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
 
 
   return (
@@ -395,22 +552,34 @@ export default function TripDetailsPage() {
                           <Label htmlFor="item-price">Price ({tripCurrency})</Label>
                           <Input id="item-price" type="number" value={newItem.price} onChange={(e) => handleInputChange('price', e.target.value)} placeholder="e.g. 15.00" />
                       </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="item-pcs">Quantity (pcs)</Label>
+                          <Input id="item-pcs" type="number" value={newItem.pcs || 1} onChange={(e) => handleInputChange('pcs', e.target.value)} placeholder="1" />
+                        </div>
                       <div className="space-y-2">
                           <Label htmlFor="item-category">Category</Label>
                           <Select value={newItem.shopping_category || ''} onValueChange={(value) => handleInputChange('shopping_category', value)}>
-                              <SelectTrigger id="item-category">
+                              <SelectTrigger id="item-category"> 
                                   <SelectValue placeholder="Select a category" />
                               </SelectTrigger>
                               <SelectContent>
-                              {shoppingCategories.map(cat => (
-                                <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-                              ))}
+                              {ShoppingCategoryOption.map(cat => (
+                                <SelectItem key={cat.name} value={cat.name}>
+                                  <div className="flex items-center gap-2">
+                                    {(() => {
+                                      const IconComp = iconMap[cat.icon_text as keyof typeof iconMap];
+                                      return IconComp ? <IconComp className="h-4 w-4" /> : <PlusCircle className="h-4 w-4" />;
+                                    })()}
+                                    <span>{cat.name}</span>
+                                  </div>
+                                </SelectItem>
+                            ))}
                               </SelectContent>
                           </Select>
                       </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                            <Label htmlFor="item-location">Location</Label>
+                      <div className="grid gap-4 py-4">
+                        {/* <div className="space-y-2">
+                            <Label htmlFor="item-location">Store</Label>
                           <Select value={newItem.address || ''} onValueChange={(value) => handleInputChange('address', value)}>
                                 <SelectTrigger id="item-location">
                                     <SelectValue placeholder="Select a location" />
@@ -421,10 +590,10 @@ export default function TripDetailsPage() {
                                     ))}
                                 </SelectContent>
                             </Select>
-                        </div>
+                        </div> */}
                          <div className="space-y-2">
                             <Label htmlFor="item-store">Store / POI</Label>
-                          <Select value={newItem.store} onValueChange={(value) => handleInputChange('store', value)} disabled={!newItem.address}>
+                          <Select value={newItem.store || ''} onValueChange={(value) => handleInputChange('store', value)} disabled={!pointsOfInterest|| pointsOfInterest.length === 0}>
                                 <SelectTrigger id="item-store">
                                     <SelectValue placeholder="Select a store" />
                                 </SelectTrigger>
@@ -434,22 +603,35 @@ export default function TripDetailsPage() {
                                     ))}
                                 </SelectContent>
                             </Select>
+                          {pointsOfInterest.find(p => p.name === newItem.store)?.address && (
+                            <p className="mt-1 text-xs text-muted-foreground">{pointsOfInterest.find(p => p.name === newItem.store)?.address}</p>
+                          )}
                         </div>
                       </div>
                       <div className="space-y-2">
                           <Label>Image (Optional)</Label>
                           <div className="flex items-center gap-4">
                             {newItem.item_image_preview && <Image src={newItem.item_image_preview} alt="preview" width={60} height={60} className="rounded-md object-cover" />}
-                              <Input 
-                                  type="file" 
-                                  accept="image/*" 
-                                  ref={fileInputRef} 
-                              onChange={(e) => handleInputChange('item_image', e.target.files ? e.target.files[0] : null)}
+                              <Input
+                                  type="file"
+                                  accept="image/*"
+                                  ref={fileInputRef}
+                                  onChange={handleDayCoverImageChange}
                                   className="hidden"
                               />
-                              <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
-                                  <Camera className="mr-2 h-4 w-4" />
-                                  Upload
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => fileInputRef.current?.click()}
+                              >
+                                <Upload className="mr-2 h-4 w-4" /> Upload
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={handleClearNewItemImage}
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" /> Clear
                               </Button>
                           </div>
                       </div>

@@ -57,6 +57,7 @@ export type Transaction = {
 
 export type ShoppingItems = {
   item_uuid: string;
+  trip_uuid: string;
   item_id?: number;
   shopping_category: string | null;
   name: string;
@@ -64,7 +65,8 @@ export type ShoppingItems = {
   address?: string | null;
   checked: boolean;
   image_url: string | null;
-  price: number | null;
+  price: number;
+  pcs: number;
   user_id: string | null;
   created_at?: string | null;
 
