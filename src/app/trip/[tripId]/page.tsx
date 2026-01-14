@@ -221,9 +221,7 @@ export default function TripDetailsPage() {
   const { setTripCurrencyFromCountry, tripCurrency } = useCurrency();
   const supabase = createClient();
   const { toast } = useToast();
-  const [ShoppingCategoryOption, setShoppingCategoryOption] = useState<
-    shoppingCategoryOption[]
-  >([]);
+  const [ShoppingCategoryOption, setShoppingCategoryOption] = useState<shoppingCategoryOption[]>([]);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [newItem, setNewItem] = useState<NewItemInput>({
     item_uuid: uuidv4(),
