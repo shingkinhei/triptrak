@@ -79,6 +79,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import Compressor from "compressorjs";
 import { v4 as uuidv4 } from "uuid";
+import { date } from "zod";
 
 interface ShoppingListProps {
   list: ShoppingItems[];
@@ -120,6 +121,7 @@ function getIconText(
   return match ? match.icon_text : fallback;
 }
 
+
 type DisplayCurrency = "trip" | "home";
 
 export function ShoppingList({
@@ -142,7 +144,7 @@ export function ShoppingList({
   const supabase = createClient();
   const { toast } = useToast();
   const [shoppingCategoryOption, setShoppingCategoryOption] = useState<shoppingCategoryOption[]>([]);
-
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   // State for main dialogs
   // State for editing items
   const [editingItem, setEditingItem] = useState<{
@@ -160,7 +162,7 @@ export function ShoppingList({
     const fetchShoppingItems = async () => {
       const { data, error } = await supabase
         .from("shopping_items")
-        .select("*")
+        .select("item_uuid, shopping_category, name, checked, image_url, price, user_id, store, address, trip_uuid, pcs")
         .eq("trip_uuid", trip.trip_uuid);
 
       if (error) {
@@ -211,6 +213,11 @@ const pointsOfInterest = useMemo(() => {
     );
 }, [trip]);
 
+  const getAddressForStore = (storeName: string) => {
+      const poi = pointsOfInterest.find((poi) => poi.name === storeName);
+      return poi ? poi.address : "";
+  };
+
   const currentFormatter =
     displayCurrency === "trip" ? formatCurrency : formatHomeCurrency;
   const currentCurrency =
@@ -220,40 +227,240 @@ const pointsOfInterest = useMemo(() => {
     setDisplayCurrency((prev) => (prev === "trip" ? "home" : "trip"));
   };
 
-  // Category operations removed: categories are derived from items' `shopping_category`
-
-  const handleEditItemClick = (item: ShoppingItems) => {
-    setEditingItem({ item });
-    setEditItemFormData({ ...item, previewUrl: item.image_url });
-  };
-
-  const handleUpdateItem = () => {
-    if (!editingItem) return;
-
-    const updatedItem = {
-      ...editingItem.item,
-      ...editItemFormData,
-      price: parseFloat(String(editItemFormData.price || 0)) || 0,
-      pcs:
-        parseInt(String(editItemFormData.pcs ?? editingItem.item.pcs ?? 1)) ||
-        1,
-      image_url: editItemFormData.previewUrl || editingItem.item.image_url,
-    } as ShoppingItems;
-    delete (updatedItem as any).file;
-    delete (updatedItem as any).previewUrl;
-
+  const handleCheckChange = async (item: ShoppingItems, checked: boolean) => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    const originalState = [...list];
     setList((prevList) =>
-      prevList.map((item) =>
-        item.item_uuid === editingItem.item.item_uuid ? updatedItem : item
+      prevList.map((i) =>
+        i.item_uuid === item.item_uuid ? { ...i, checked } : i
       )
     );
 
-    setEditingItem(null);
-    setEditItemFormData({});
+    const { error } = await supabase
+      .from("shopping_items")
+      .update({ checked: checked })
+      .eq("item_uuid", item.item_uuid);
+
+    if (error) {
+      toast({
+        title: "Error",
+        description: "Failed to update list item.",
+        variant: "destructive",
+      });
+      setList(originalState);
+    }
+
+
+    if (checked) {
+      const newExpense = {
+        name: item.name,
+        amount: item.price,
+        currency_code: tripCurrency,
+        trip_uuid: trip.trip_uuid,
+        user_id: user?.id ?? null,
+        item_uuid: item.item_uuid,
+        date: new Date(),
+        expense_category: item.shopping_category,
+      };
+      const { error } = await supabase.from("expenses").insert(newExpense);
+      if (error) {
+        toast({
+          title: "Error",
+          description: error.message,
+          variant: "destructive",
+        });
+      }
+    }else {
+      const { error } = await supabase.from("expenses").delete().eq("item_uuid", item.item_uuid);
+      if (error) {
+        toast({
+          title: "Error",
+          description: error.message,
+          variant: "destructive",
+        });
+      }
+    }
   };
 
-  const handleDeleteItem = (itemId: string) => {
-    setList((prevList) => prevList.filter((item) => item.item_uuid !== itemId));
+  // Category operations removed: categories are derived from items' `shopping_category`
+  const handleEditItemClick = (item: ShoppingItems) => {
+   setTimeout(() => {
+      setEditingItem({ item });
+      setEditItemFormData({ ...item, previewUrl: item.image_url });
+      setIsEditDialogOpen(true);
+    }, 150);
+  };
+
+  const handleUpdateItem = async() => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      toast({
+        title: "Not authenticated",
+        description: "You must be logged in to create a trip.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (!editingItem) return;
+
+    if (!editingItem.item.name.trim()) {
+      toast({ 
+        title: "Error",
+        description: "Item name is required.",
+        variant: "destructive",
+      }
+    )};
+
+    if (!editingItem.item.shopping_category){
+      toast({
+        title: "Error",
+        description: "Item category is required.",
+        variant: "destructive",
+    })};
+
+    try {
+      let newImageUrl: string | null = null;
+
+      if (editItemFormData.file) {
+        const file = editItemFormData.file;
+        const fileExt = (file.name.split(".").pop() || "jpg").replace(
+          /[^a-z0-9]/gi,
+          ""
+        );
+        const filePath = `${user.id}/${trip.trip_uuid}/${
+          editingItem.item.item_uuid
+        }-${uuidv4()}.${fileExt}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from("shopping_item_photo")
+          .upload(filePath, file, { upsert: true });
+
+        if (uploadError) {
+          toast({
+            title: "Error uploading day cover",
+            description: uploadError.message,
+            variant: "destructive",
+          });
+          return;
+        }
+
+        const { data: urlData } = supabase.storage
+          .from("shopping_item_photo")
+          .getPublicUrl(filePath);
+        newImageUrl = urlData.publicUrl;
+      } else if (!editItemFormData.previewUrl) {
+        newImageUrl = null;
+      }
+
+      const updatedItem = {
+        ...editingItem.item,
+        ...editItemFormData, 
+        price: parseFloat(String(editItemFormData.price || 0)) || 0,
+        pcs:
+          parseInt(String(editItemFormData.pcs ?? editingItem.item.pcs ?? 1)) ||
+          1,
+        image_url: editItemFormData.previewUrl || newImageUrl,
+      } as ShoppingItems;
+      delete (updatedItem as any).file;
+      delete (updatedItem as any).previewUrl;
+
+      setList((prevList) =>
+        prevList.map((item) =>
+          item.item_uuid === editingItem.item.item_uuid ? updatedItem : item
+        )
+      );
+      
+      console.log("updatedItem", updatedItem);
+
+      const { data, error } = await supabase
+        .from("shopping_items")
+        .update(updatedItem)
+        .eq("item_uuid", updatedItem.item_uuid)
+        .select()
+        .single();
+      if (error) {
+        toast({
+          title: "Error Updating Item",
+          description: error.message,
+          variant: "destructive",
+        });
+      } else if (data) {
+        toast({ title: "Item Updated", description: `${data.name} has been updated.` });
+      }
+
+    } catch (error) {
+      console.error("Item update failed", error);
+      toast({
+        title: "Error",
+        description: "Failed to update item.",
+        variant: "destructive",
+      })
+    }
+    setEditingItem(null);
+    setEditItemFormData({});
+    setIsEditDialogOpen(false);
+  };
+
+  const handleDeleteItem = async () => {
+    if (!editingItem) return;
+
+    const itemUuid = editItemFormData.item_uuid;
+
+    try {
+      const {
+        data: photo,
+        error: photosErr,
+      } = await supabase.from("shopping_items").select("image_url").eq("item_uuid", itemUuid)
+        .single();
+
+      if (photosErr) {
+        toast({ title: "Error", description: photosErr.message, variant: "destructive" });
+      }
+
+      // Remove storage objects for any photos that have been uploaded
+      if (photo?.image_url) {
+        const url = photo.image_url || "";
+        const key = url.split("/shopping_items/").pop();
+        if (key) {
+          const { error: delErr } = await supabase.storage.from("shopping_items").remove([key]);
+          if (delErr) console.warn("Storage delete error", delErr.message);
+        }
+      }
+
+      // Delete DB row: shopping_items
+      const { error: DelErr } = await supabase.from("shopping_items").delete().eq("item_uuid", itemUuid);
+      if (DelErr) {
+        toast({ title: "Error deleting day", description: DelErr.message, variant: "destructive" });
+        return;
+      }
+
+      // Update local UI
+      const newShoppingItems = shoppingItems.filter((d) => d.item_uuid !== itemUuid);
+      
+      setShoppingItems(newShoppingItems);
+      setIsEditDialogOpen(false);
+      setEditItemFormData({});
+
+
+    setList((shoppingItems) =>
+      shoppingItems.filter((d) => d.item_uuid !== itemUuid)
+    );
+
+    setEditingItem(null);
+    setIsEditDialogOpen(false);
+    setEditItemFormData({});
+
+    toast({ title: "Item deleted", description: `${editingItem.item.name} removed.` });
+
+    } catch (err: any) {
+      console.error("Item deletion failed", err);
+      toast({ title: "Error", description: err?.message || String(err), variant: "destructive" });
+    }
   };
 
   const handleEditItemFormChange = (
@@ -272,12 +479,59 @@ const pointsOfInterest = useMemo(() => {
       reader.readAsDataURL(value);
     } else if (typeof value === "string") {
       if (field === "store") {
-        setEditItemFormData((prev) => ({ ...prev, store: value, address: "" }));
+        setEditItemFormData((prev) => ({ ...prev, store: value, address: getAddressForStore(value)  }));
       } else {
         setEditItemFormData((prev) => ({ ...prev, [field]: value }));
       }
     }
   };
+
+  const handleEditImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      new Compressor(file, {
+        maxWidth: 1200,
+        success: (compressedResult) => {
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            setEditItemFormData((prev) => ({
+              ...prev,
+              file: compressedResult as File,
+              previewUrl: reader.result as string,
+            }));
+          };
+          reader.readAsDataURL(compressedResult);
+        },
+        error: (err) => {
+          toast({
+            title: "Image compression failed",
+            description: err.message,
+            variant: "destructive",
+          });
+          // Fallback to original file
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            setEditItemFormData((prev) => ({
+              ...prev,
+              file: file,
+              previewUrl: reader.result as string,
+            }));
+          };
+          reader.readAsDataURL(file);
+        },
+      });
+    }
+  };
+
+  const handleClearNewItemImage = () => {
+    setEditItemFormData((prev) => ({
+      ...prev,
+      item_image: null,
+      item_image_preview: null,
+    }));
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
 
   const calculateTotal = (items: ShoppingItems[]) => {
     return items.reduce(
@@ -311,6 +565,11 @@ const pointsOfInterest = useMemo(() => {
       ? `${tripCurrency} \u2194 ${homeCurrency}`
       : `${homeCurrency} \u2194 ${tripCurrency}`;
 
+  const handleCancelEdit = () => {
+    setIsEditDialogOpen(false);
+    setEditingItem(null);
+  };
+  
   return (
     <div className="space-y-4 pb-20">
       <header className="flex justify-between items-center">
@@ -396,11 +655,9 @@ const pointsOfInterest = useMemo(() => {
                       >
                         <div className="absolute top-2 left-2 z-10">
                           <Checkbox
-                            id={`${group.name}-${item.item_uuid}`}
+                            id={`${item.item_uuid}`}
                             checked={item.checked}
-                            onCheckedChange={(checked) =>
-                              onCheckChange(item.item_uuid, !!checked)
-                            }
+                            onCheckedChange={(checked) => handleCheckChange(item, !!checked)}
                             className="h-5 w-5 bg-background border-2"
                           />
                         </div>
@@ -421,38 +678,6 @@ const pointsOfInterest = useMemo(() => {
                               <Edit className="mr-2 h-4 w-4" />
                               Edit
                             </DropdownMenuItem>
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                <DropdownMenuItem
-                                  onSelect={(e) => e.preventDefault()}
-                                  className="text-destructive focus:text-destructive"
-                                >
-                                  <Trash2 className="mr-2 h-4 w-4" />
-                                  Delete
-                                </DropdownMenuItem>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent>
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>
-                                    Are you sure?
-                                  </AlertDialogTitle>
-                                  <AlertDialogDescription>
-                                    This will permanently delete "{item.name}".
-                                  </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                  <AlertDialogAction
-                                    onClick={() =>
-                                      handleDeleteItem(item.item_uuid)
-                                    }
-                                    className="bg-destructive hover:bg-destructive/90"
-                                  >
-                                    Delete
-                                  </AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
                           </DropdownMenuContent>
                         </DropdownMenu>
 
@@ -483,14 +708,14 @@ const pointsOfInterest = useMemo(() => {
                           <div className="space-y-1 text-xs text-muted-foreground">
                             {item.store && (
                               <div className="flex items-center gap-1">
-                                <MapPin className="h-3 w-3" />
+                                <Store className="h-3 w-3" />
                                 <span>{item.store}</span>
                               </div>
                             )}
-                            {item.store && (
+                            {item.address && (
                               <div className="flex items-center gap-1">
-                                <Store className="h-3 w-3" />
-                                <span className="truncate">{item.store}</span>
+                                <MapPin className="h-3 w-3" />
+                                <span className="truncate">{item.address}</span>
                               </div>
                             )}
                           </div>
@@ -529,8 +754,10 @@ const pointsOfInterest = useMemo(() => {
 
       {editingItem && (
         <Dialog
-          open={!!editingItem}
-          onOpenChange={(isOpen) => !isOpen && setEditingItem(null)}
+          open={isEditDialogOpen}
+          onOpenChange={(isOpen) => {
+            if (!isOpen) handleCancelEdit();
+          }}
         >
           <DialogContent>
             <DialogHeader>
@@ -572,26 +799,6 @@ const pointsOfInterest = useMemo(() => {
                   placeholder="1"
                 />
               </div>
-                {/* <div className="space-y-2">
-                  <Label htmlFor="item-location">Location</Label>
-                  <Select
-                    value={editItemFormData.store || ""}
-                    onValueChange={(value) =>
-                      handleEditItemFormChange("address", value)
-                    }
-                  >
-                    <SelectTrigger id="item-location">
-                      <SelectValue placeholder="Select a location" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {itineraryLocations.map((loc) => (
-                        <SelectItem key={loc} value={loc}>
-                          {loc}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div> */}
                  <div className="space-y-2">
                   <Label htmlFor="item-category">Category</Label>
                   <Select
@@ -652,32 +859,12 @@ const pointsOfInterest = useMemo(() => {
                           pointsOfInterest.find((p) => p.name === editItemFormData.store)
                             ?.address
                         }
+                        <input type="hidden" value={pointsOfInterest.find((p) => p.name === editItemFormData.store)
+                            ?.address}></input>
                       </p>
                     )}
                   </div> 
             </div>
-
-                {/* <div className="space-y-2">
-                  <Label htmlFor="item-store">Store / POI</Label>
-                  <Select
-                    value={editItemFormData.store || ""}
-                    onValueChange={(value) =>
-                      handleEditItemFormChange("store", value)
-                    }
-                    disabled={!editItemFormData.address}
-                  >
-                    <SelectTrigger id="item-store">
-                      <SelectValue placeholder="Select a store" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {pointsOfInterest.map((poi) => (
-                        <SelectItem key={poi.name} value={poi.name}>
-                          {poi.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div> */}
               <div className="space-y-2">
                 <Label>Image (Optional)</Label>
                 <div className="flex items-center gap-4">
@@ -694,12 +881,7 @@ const pointsOfInterest = useMemo(() => {
                     type="file"
                     accept="image/*"
                     ref={fileInputRef}
-                    onChange={(e) =>
-                      handleEditItemFormChange(
-                        "file",
-                        e.target.files ? e.target.files[0] : null
-                      )
-                    }
+                    onChange={handleEditImageChange}
                     className="hidden"
                   />
                   <Button
@@ -711,18 +893,45 @@ const pointsOfInterest = useMemo(() => {
                   </Button>
                   <Button
                     variant="outline"
-                    onClick={() => handleEditItemFormChange("previewUrl", null)}
+                    onClick={() => handleClearNewItemImage()}
                   >
                     <Trash2 className="mr-2 h-4 w-4" />
-                    Remove
+                    Clear
                   </Button>
                 </div>
               </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setEditingItem(null)}>
-                Cancel
-              </Button>
-              <Button onClick={handleUpdateItem}>Save Changes</Button>
+            <DialogFooter className="flex items-center justify-between">
+              <div>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="destructive" size="sm">
+                      <Trash2 className="mr-2 h-4 w-4" /> Delete
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Delete</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This will permanently delete this shopping item.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={handleDeleteItem} className="bg-destructive hover:bg-destructive/90">
+                        Delete
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => setEditingItem(null)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleUpdateItem}>
+                  Save Changes
+                </Button>
+              </div>
             </DialogFooter>
           </DialogContent>
         </Dialog>

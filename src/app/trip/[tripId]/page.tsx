@@ -10,7 +10,7 @@ import { MapView } from "@/components/map-view";
 import { ShoppingList } from "@/components/shopping-list";
 import { TripPlanner } from "@/components/trip-planner";
 import { useCurrency } from "@/context/CurrencyContext";
-import {
+import { 
   Select,
   SelectContent,
   SelectItem,
@@ -109,7 +109,7 @@ const TabContent: FC<TabContentProps> = ({ trip, setTrip, activeTab }) => {
 
     const newList = trip.shoppingItems.map((item) => {
       if (item.item_uuid === itemId) {
-        if (checked && item.price && item.price > 0) {
+        if (checked && item.price && item.price >= 0) {
           checkedItemName = item.name;
           checkedItemPrice = item.price;
         }
@@ -131,16 +131,16 @@ const TabContent: FC<TabContentProps> = ({ trip, setTrip, activeTab }) => {
         date: new Date().toISOString().split("T")[0],
       };
 
-      if (!trip.transactions.some((t) => t.id === newTransaction.id)) {
-        setTrip((currentTrip) =>
-          currentTrip
-            ? {
-                ...currentTrip,
-                transactions: [newTransaction, ...currentTrip.transactions],
-              }
-            : undefined
-        );
-      }
+      // if (!trip.transactions.some((t) => t.id === newTransaction.id)) {
+      //   setTrip((currentTrip) =>
+      //     currentTrip
+      //       ? {
+      //           ...currentTrip,
+      //           transactions: [newTransaction, ...currentTrip.transactions],
+      //         }
+      //       : undefined
+      //   );
+      // }
     }
   };
 
@@ -311,7 +311,7 @@ export default function TripDetailsPage() {
       // fetch shopping items for this trip and attach to trip state
       const { data: shoppingData, error: shoppingError } = await supabase
         .from("shopping_items")
-        .select("*")
+        .select("item_uuid, shopping_category, name, checked, image_url, price, user_id, store, address, trip_uuid, pcs")
         .eq("trip_uuid", tripUuId);
 
       if (shoppingError) {
@@ -486,12 +486,10 @@ export default function TripDetailsPage() {
   };
 
   const handleAddItem = async () => {
-    if (!newItem.name.trim() || !newItem.price) return;
 
     const {
       data: { user },
     } = await supabase.auth.getUser();
-
     if (!user) {
       toast({
         title: "Not authenticated",
@@ -500,6 +498,22 @@ export default function TripDetailsPage() {
       });
       return;
     }
+    
+    if (!newItem.name.trim()) {
+      toast({ 
+        title: "Error",
+        description: "Item name is required.",
+        variant: "destructive",
+      }
+    )};
+
+    if (!newItem.shopping_category){
+      toast({
+        title: "Error",
+        description: "Item category is required.",
+        variant: "destructive",
+    })};
+
     let newImageUrl: string | null = null;
 
     if (newItem.item_image) {

@@ -20,6 +20,7 @@ import { useToast } from '@/hooks/use-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import Compressor from 'compressorjs';
 import { v4 as uuidv4 } from "uuid";
+import { useCurrency } from "@/context/CurrencyContext";
 
 type EditableTrip = Partial<Pick<Trip, 'name' | 'destination' | 'country_code' | 'start_date' | 'end_date' | 'cover_image_url' | 'cover_image_hint'>> & {
   cover_image_file?: File | null;
@@ -32,6 +33,7 @@ type NewTripState = {
   name: string;
   destination: string;
   country_code: string;
+  currency_code: string;
   start_date: string;
   end_date: string;
   cover_image_file: File | null;
@@ -51,6 +53,7 @@ export default function TripsPage() {
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const editFileInputRef = useRef<HTMLInputElement>(null);
+  const { setTripCurrencyFromCountry, tripCurrency } = useCurrency();
 
   const fetchTrips = async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -117,6 +120,7 @@ export default function TripsPage() {
     name: '',
     destination: '',
     country_code: '',
+    currency_code: '',
     start_date: '',
     end_date: '',
     cover_image_file: null,
@@ -185,6 +189,7 @@ export default function TripsPage() {
       name: newTrip.name,
       destination: newTrip.destination,
       country_code: newTrip.country_code,
+      currency_code: useCurrency().tripCurrency,
       start_date: newTrip.start_date,
       end_date: newTrip.end_date,
       status: 'U' as TripStatus,
@@ -200,7 +205,7 @@ export default function TripsPage() {
         toast({ title: 'Error creating trip', description: error.message, variant: 'destructive' });
     } else if (data) {
         fetchTrips();
-        setNewTrip({ name: '', destination: '', country_code: '', start_date: '', end_date: '', cover_image_file: null, cover_image_preview: null });
+        setNewTrip({ name: '', destination: '', country_code: '', currency_code: '',start_date: '', end_date: '', cover_image_file: null, cover_image_preview: null });
         setIsAddDialogOpen(false);
         toast({ title: 'Trip Created!', description: `"${data.name}" has been added.` });
     }
@@ -336,7 +341,7 @@ export default function TripsPage() {
   };
 
   const handleEditImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+    const file = e.target.files?.[0]; 
     if (file) {
       new Compressor(file, {
         maxWidth: 1200,
