@@ -58,7 +58,6 @@ export type Transaction = {
 export type ShoppingItems = {
   item_uuid: string;
   trip_uuid: string;
-  item_id?: number;
   shopping_category: string | null;
   name: string;
   store?: string | null;
@@ -69,7 +68,6 @@ export type ShoppingItems = {
   pcs: number;
   user_id: string | null;
   created_at?: string | null;
-
 };
 
 export type Currency = string;
@@ -90,11 +88,12 @@ export type TripStatus = 'A' | 'U' | 'E'; // Active, Upcoming, Expried
 
 export type Trip = {
   trip_uuid: string;
-  trip_id: number;
+  trip_id?: number;
   user_id: string;
   name: string;
   destination: string;
   country_code: string;
+  currency_code: string;
   start_date: string;
   end_date: string;
   status: TripStatus;
