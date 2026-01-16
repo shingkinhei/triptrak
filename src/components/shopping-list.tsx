@@ -121,29 +121,35 @@ function getIconText(
   return match ? match.icon_text : fallback;
 }
 
-
-type DisplayCurrency = "trip" | "home";
-
 export function ShoppingList({
   list,
   setList,
   onCheckChange,
   trip,
 }: ShoppingListProps) {
-  const [shoppingItems, setShoppingItems] = useState<ShoppingItems[]>(trip.shoppingItems);
+  const [shoppingItems, setShoppingItems] = useState<ShoppingItems[]>(
+    trip.shoppingItems
+  );
   const {
     tripCurrency,
     tripRate,
     formatCurrency,
     homeCurrency,
-    convertToHomeCurrency,
+    homeRate,
+    convertCurrencyToUsd,
+    convertUsdToCurrency,
     formatHomeCurrency,
+    displayCurrency,
+    setDisplayCurrency,
   } = useCurrency();
   const router = useRouter();
+  const priceInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const supabase = createClient();
   const { toast } = useToast();
-  const [shoppingCategoryOption, setShoppingCategoryOption] = useState<shoppingCategoryOption[]>([]);
+  const [shoppingCategoryOption, setShoppingCategoryOption] = useState<
+    shoppingCategoryOption[]
+  >([]);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   // State for main dialogs
   // State for editing items
@@ -155,14 +161,17 @@ export function ShoppingList({
   >({});
 
   // Other state
-  const [displayCurrency, setDisplayCurrency] =
-    useState<DisplayCurrency>("trip");
+
+  // const [displayCurrency, setDisplayCurrency] =
+  //   useState<DisplayCurrency>("trip");
 
   useEffect(() => {
     const fetchShoppingItems = async () => {
       const { data, error } = await supabase
         .from("shopping_items")
-        .select("item_uuid, shopping_category, name, checked, image_url, price, user_id, store, address, trip_uuid, pcs")
+        .select(
+          "item_uuid, shopping_category, name, checked, image_url, price, user_id, store, address, trip_uuid, pcs"
+        )
         .eq("trip_uuid", trip.trip_uuid);
 
       if (error) {
@@ -176,46 +185,45 @@ export function ShoppingList({
       }
     };
 
-      const fetchShoppingCategoryOptions = async () => {
-        const { data, error } = await supabase
-          .from("shopping_categories_setup")
-          .select(
-            "name, icon_text, color_code, description, shopping_categories_seq"
-          );
+    const fetchShoppingCategoryOptions = async () => {
+      const { data, error } = await supabase
+        .from("shopping_categories_setup")
+        .select(
+          "name, icon_text, color_code, description, shopping_categories_seq"
+        );
 
-        if (error) {
-          toast({
-            title: "Error fetching shopping categories",
-            description: error.message,
-            variant: "destructive",
-          });
-        } else {
-          setShoppingCategoryOption(data as shoppingCategoryOption[]);
-        }
-      };
-
+      if (error) {
+        toast({
+          title: "Error fetching shopping categories",
+          description: error.message,
+          variant: "destructive",
+        });
+      } else {
+        setShoppingCategoryOption(data as shoppingCategoryOption[]);
+      }
+    };
 
     fetchShoppingItems();
     fetchShoppingCategoryOptions();
   }, [trip.trip_uuid]);
 
-const pointsOfInterest = useMemo(() => {
+  const pointsOfInterest = useMemo(() => {
     if (!trip || !trip.itinerary) return [];
     const allPois = trip.itinerary.flatMap((day) =>
-    day.activities.map((activity) => ({
+      day.activities.map((activity) => ({
         name: activity.description,
         address: activity.address || "",
-    }))
+      }))
     );
 
     return allPois.filter((poi) =>
-    editingItem ? poi.address ===  editingItem.item.address : true
+      editingItem ? poi.address === editingItem.item.address : true
     );
-}, [trip]);
+  }, [trip]);
 
   const getAddressForStore = (storeName: string) => {
-      const poi = pointsOfInterest.find((poi) => poi.name === storeName);
-      return poi ? poi.address : "";
+    const poi = pointsOfInterest.find((poi) => poi.name === storeName);
+    return poi ? poi.address : "";
   };
 
   const currentFormatter =
@@ -224,7 +232,23 @@ const pointsOfInterest = useMemo(() => {
     displayCurrency === "trip" ? tripCurrency : homeCurrency;
 
   const toggleCurrency = () => {
-    setDisplayCurrency((prev) => (prev === "trip" ? "home" : "trip"));
+    setDisplayCurrency(displayCurrency === "trip" ? "home" : "trip");
+  };
+  const toggleCurrencyForm = (number: number) => {
+    setDisplayCurrency(displayCurrency === "trip" ? "home" : "trip");
+    if (displayCurrency === "trip") {
+      setEditItemFormData((prev) => ({
+        ...prev,
+        price: parseFloat(convertUsdToCurrency(convertCurrencyToUsd(number, tripRate),
+        homeRate).toFixed(2)) || 0,
+      }));
+    } else {
+      setEditItemFormData((prev) => ({
+        ...prev,
+        price: parseFloat(convertUsdToCurrency(convertCurrencyToUsd(number, homeRate),
+        tripRate).toFixed(2)) || 0,
+      }));
+    }
   };
 
   const handleCheckChange = async (item: ShoppingItems, checked: boolean) => {
@@ -252,7 +276,6 @@ const pointsOfInterest = useMemo(() => {
       setList(originalState);
     }
 
-
     if (checked) {
       const newExpense = {
         name: item.name,
@@ -272,8 +295,11 @@ const pointsOfInterest = useMemo(() => {
           variant: "destructive",
         });
       }
-    }else {
-      const { error } = await supabase.from("expenses").delete().eq("item_uuid", item.item_uuid);
+    } else {
+      const { error } = await supabase
+        .from("expenses")
+        .delete()
+        .eq("item_uuid", item.item_uuid);
       if (error) {
         toast({
           title: "Error",
@@ -286,14 +312,21 @@ const pointsOfInterest = useMemo(() => {
 
   // Category operations removed: categories are derived from items' `shopping_category`
   const handleEditItemClick = (item: ShoppingItems) => {
-   setTimeout(() => {
+    setTimeout(() => {
       setEditingItem({ item });
-      setEditItemFormData({ ...item, previewUrl: item.image_url });
+      setEditItemFormData({
+        ...item,
+        price:
+          displayCurrency === "trip"
+            ? parseFloat((item.price * tripRate).toFixed(2))
+            : parseFloat((item.price * homeRate || 0).toFixed(2)),
+        previewUrl: item.image_url,
+      });
       setIsEditDialogOpen(true);
     }, 150);
   };
 
-  const handleUpdateItem = async() => {
+  const handleUpdateItem = async () => {
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -305,23 +338,24 @@ const pointsOfInterest = useMemo(() => {
       });
       return;
     }
-    
+
     if (!editingItem) return;
 
     if (!editingItem.item.name.trim()) {
-      toast({ 
+      toast({
         title: "Error",
         description: "Item name is required.",
         variant: "destructive",
-      }
-    )};
+      });
+    }
 
-    if (!editingItem.item.shopping_category){
+    if (!editingItem.item.shopping_category) {
       toast({
         title: "Error",
         description: "Item category is required.",
         variant: "destructive",
-    })};
+      });
+    }
 
     try {
       let newImageUrl: string | null = null;
@@ -359,8 +393,20 @@ const pointsOfInterest = useMemo(() => {
 
       const updatedItem = {
         ...editingItem.item,
-        ...editItemFormData, 
-        price: parseFloat(String(editItemFormData.price || 0)) || 0,
+        ...editItemFormData,
+        price:
+          parseFloat(
+            String(
+              displayCurrency === "trip"
+                ? convertCurrencyToUsd(editItemFormData.price || 0, tripRate)
+                : editItemFormData.price ||
+                    convertCurrencyToUsd(
+                      editItemFormData.price || 0,
+                      homeRate
+                    ) ||
+                    0
+            )
+          ) || 0,
         pcs:
           parseInt(String(editItemFormData.pcs ?? editingItem.item.pcs ?? 1)) ||
           1,
@@ -374,7 +420,7 @@ const pointsOfInterest = useMemo(() => {
           item.item_uuid === editingItem.item.item_uuid ? updatedItem : item
         )
       );
-      
+
       console.log("updatedItem", updatedItem);
 
       const { data, error } = await supabase
@@ -390,16 +436,18 @@ const pointsOfInterest = useMemo(() => {
           variant: "destructive",
         });
       } else if (data) {
-        toast({ title: "Item Updated", description: `${data.name} has been updated.` });
+        toast({
+          title: "Item Updated",
+          description: `${data.name} has been updated.`,
+        });
       }
-
     } catch (error) {
       console.error("Item update failed", error);
       toast({
         title: "Error",
         description: "Failed to update item.",
         variant: "destructive",
-      })
+      });
     }
     setEditingItem(null);
     setEditItemFormData({});
@@ -412,14 +460,18 @@ const pointsOfInterest = useMemo(() => {
     const itemUuid = editItemFormData.item_uuid;
 
     try {
-      const {
-        data: photo,
-        error: photosErr,
-      } = await supabase.from("shopping_items").select("image_url").eq("item_uuid", itemUuid)
+      const { data: photo, error: photosErr } = await supabase
+        .from("shopping_items")
+        .select("image_url")
+        .eq("item_uuid", itemUuid)
         .single();
 
       if (photosErr) {
-        toast({ title: "Error", description: photosErr.message, variant: "destructive" });
+        toast({
+          title: "Error",
+          description: photosErr.message,
+          variant: "destructive",
+        });
       }
 
       // Remove storage objects for any photos that have been uploaded
@@ -427,45 +479,61 @@ const pointsOfInterest = useMemo(() => {
         const url = photo.image_url || "";
         const key = url.split("/shopping_items/").pop();
         if (key) {
-          const { error: delErr } = await supabase.storage.from("shopping_items").remove([key]);
+          const { error: delErr } = await supabase.storage
+            .from("shopping_items")
+            .remove([key]);
           if (delErr) console.warn("Storage delete error", delErr.message);
         }
       }
 
       // Delete DB row: shopping_items
-      const { error: DelErr } = await supabase.from("shopping_items").delete().eq("item_uuid", itemUuid);
+      const { error: DelErr } = await supabase
+        .from("shopping_items")
+        .delete()
+        .eq("item_uuid", itemUuid);
       if (DelErr) {
-        toast({ title: "Error deleting day", description: DelErr.message, variant: "destructive" });
+        toast({
+          title: "Error deleting day",
+          description: DelErr.message,
+          variant: "destructive",
+        });
         return;
       }
 
       // Update local UI
-      const newShoppingItems = shoppingItems.filter((d) => d.item_uuid !== itemUuid);
-      
+      const newShoppingItems = shoppingItems.filter(
+        (d) => d.item_uuid !== itemUuid
+      );
+
       setShoppingItems(newShoppingItems);
       setIsEditDialogOpen(false);
       setEditItemFormData({});
 
+      setList((shoppingItems) =>
+        shoppingItems.filter((d) => d.item_uuid !== itemUuid)
+      );
 
-    setList((shoppingItems) =>
-      shoppingItems.filter((d) => d.item_uuid !== itemUuid)
-    );
+      setEditingItem(null);
+      setIsEditDialogOpen(false);
+      setEditItemFormData({});
 
-    setEditingItem(null);
-    setIsEditDialogOpen(false);
-    setEditItemFormData({});
-
-    toast({ title: "Item deleted", description: `${editingItem.item.name} removed.` });
-
+      toast({
+        title: "Item deleted",
+        description: `${editingItem.item.name} removed.`,
+      });
     } catch (err: any) {
       console.error("Item deletion failed", err);
-      toast({ title: "Error", description: err?.message || String(err), variant: "destructive" });
+      toast({
+        title: "Error",
+        description: err?.message || String(err),
+        variant: "destructive",
+      });
     }
   };
 
   const handleEditItemFormChange = (
     field: keyof typeof editItemFormData,
-    value: string | File | null
+    value: string | File | number | null
   ) => {
     if (field === "file" && value instanceof File) {
       const reader = new FileReader();
@@ -479,7 +547,11 @@ const pointsOfInterest = useMemo(() => {
       reader.readAsDataURL(value);
     } else if (typeof value === "string") {
       if (field === "store") {
-        setEditItemFormData((prev) => ({ ...prev, store: value, address: getAddressForStore(value)  }));
+        setEditItemFormData((prev) => ({
+          ...prev,
+          store: value,
+          address: getAddressForStore(value),
+        }));
       } else {
         setEditItemFormData((prev) => ({ ...prev, [field]: value }));
       }
@@ -532,7 +604,6 @@ const pointsOfInterest = useMemo(() => {
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-
   const calculateTotal = (items: ShoppingItems[]) => {
     return items.reduce(
       (total, item) => total + (item.price || 0) * (item.pcs ?? 1),
@@ -557,8 +628,8 @@ const pointsOfInterest = useMemo(() => {
 
   const grandTotalInCurrent =
     displayCurrency === "trip"
-      ? baseGrandTotal
-      : convertToHomeCurrency(baseGrandTotal);
+      ? convertUsdToCurrency(baseGrandTotal, tripRate)
+      : convertUsdToCurrency(baseGrandTotal, homeRate);
 
   const currencyButtonLabel =
     displayCurrency === "trip"
@@ -569,7 +640,7 @@ const pointsOfInterest = useMemo(() => {
     setIsEditDialogOpen(false);
     setEditingItem(null);
   };
-  
+
   return (
     <div className="space-y-4 pb-20">
       <header className="flex justify-between items-center">
@@ -600,7 +671,11 @@ const pointsOfInterest = useMemo(() => {
                 {currentFormatter(grandTotalInCurrent)}
               </CardTitle>
             </div>
-            <Button variant="outline" size="sm" onClick={toggleCurrency}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => toggleCurrency()}
+            >
               <Repeat className="h-4 w-4 mr-2" />
               <span>{currencyButtonLabel}</span>
             </Button>
@@ -613,9 +688,10 @@ const pointsOfInterest = useMemo(() => {
           const baseCategoryTotal = calculateTotal(group.items);
           const categoryTotalInCurrent =
             displayCurrency === "trip"
-              ? baseCategoryTotal
-              : convertToHomeCurrency(baseCategoryTotal);
-          const CategoryIcon = iconMap[getIconText(group.name, shoppingCategoryOption)];
+              ? convertUsdToCurrency(baseCategoryTotal, tripRate)
+              : convertUsdToCurrency(baseCategoryTotal, homeRate);
+          const CategoryIcon =
+            iconMap[getIconText(group.name, shoppingCategoryOption)];
           return (
             <Card
               key={group.name}
@@ -643,8 +719,8 @@ const pointsOfInterest = useMemo(() => {
                     const qty = item.pcs ?? 1;
                     const itemPriceInCurrent =
                       displayCurrency === "trip"
-                        ? baseItemPrice * qty
-                        : convertToHomeCurrency(baseItemPrice * qty);
+                        ? convertUsdToCurrency(baseItemPrice * qty, tripRate)
+                        : convertUsdToCurrency(baseItemPrice * qty, homeRate);
                     return (
                       <Card
                         key={item.item_uuid}
@@ -657,7 +733,9 @@ const pointsOfInterest = useMemo(() => {
                           <Checkbox
                             id={`${item.item_uuid}`}
                             checked={item.checked}
-                            onCheckedChange={(checked) => handleCheckChange(item, !!checked)}
+                            onCheckedChange={(checked) =>
+                              handleCheckChange(item, !!checked)
+                            }
                             className="h-5 w-5 bg-background border-2"
                           />
                         </div>
@@ -776,22 +854,48 @@ const pointsOfInterest = useMemo(() => {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="item-price">Price ({tripCurrency})</Label>
-                <Input
-                  id="item-price"
-                  type="number"
-                  value={editItemFormData.price || ""}
-                  onChange={(e) =>
-                    handleEditItemFormChange("price", e.target.value)
-                  }
-                  placeholder="e.g. 15.00"
-                />
+                <Label htmlFor="item-price">
+                  Price (
+                  {displayCurrency === "trip" ? tripCurrency : homeCurrency})
+                </Label>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Input
+                    id="item-price"
+                    type="number"
+                    step="0.01"
+                    ref={priceInputRef}
+                    value={editItemFormData.price || 0}
+                    onChange={(e) =>
+                      handleEditItemFormChange("price", e.target.value)
+                    }
+                    placeholder="e.g. 15.00"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                       const value = priceInputRef?.current?.value;
+                        if (value) {
+                          toggleCurrencyForm(parseFloat(value) || 0);
+                        }
+                      }
+                    }
+                  >
+                    <Repeat className="h-4 w-4 mr-2" />
+                    <span>{currencyButtonLabel}</span>
+                  </Button>
+                </div>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="item-pcs">Quantity (pcs)</Label>
                 <Input
                   id="item-pcs"
                   type="number"
+                  step="1"
                   value={editItemFormData.pcs ?? 1}
                   onChange={(e) =>
                     handleEditItemFormChange("pcs", e.target.value)
@@ -799,107 +903,112 @@ const pointsOfInterest = useMemo(() => {
                   placeholder="1"
                 />
               </div>
-                 <div className="space-y-2">
-                  <Label htmlFor="item-category">Category</Label>
-                  <Select
-                    value={editItemFormData.shopping_category || ""}
-                    onValueChange={(value) =>
-                      handleEditItemFormChange("shopping_category", value)
-                    }
-                  >
-                    <SelectTrigger id="item-category">
-                      <SelectValue placeholder="Select a category" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {shoppingCategoryOption.map((cat) => (
-                        <SelectItem key={cat.name} value={cat.name}>
-                          <div className="flex items-center gap-2">
-                            {(() => {
-                              const IconComp =
-                                iconMap[cat.icon_text as keyof typeof iconMap];
-                              return IconComp ? (
-                                <IconComp className="h-4 w-4" />
-                              ) : (
-                                <PlusCircle className="h-4 w-4" />
-                              );
-                            })()}
-                            <span>{cat.name}</span>
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                    <Label htmlFor="item-store">Store / POI</Label>
-                    <Select
-                      value={editItemFormData.store || ""}
-                      onValueChange={(value) =>
-                        handleEditItemFormChange("store", value)
-                      }
-                      disabled={
-                        !pointsOfInterest || pointsOfInterest.length === 0
-                      }
-                    >
-                      <SelectTrigger id="item-store">
-                        <SelectValue placeholder="Select a store" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {pointsOfInterest.map((poi) => (
-                          <SelectItem key={poi.name} value={poi.name}>
-                            {poi.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {pointsOfInterest.find((p) => p.name === editItemFormData.store)
-                      ?.address && (
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        {
-                          pointsOfInterest.find((p) => p.name === editItemFormData.store)
-                            ?.address
-                        }
-                        <input type="hidden" value={pointsOfInterest.find((p) => p.name === editItemFormData.store)
-                            ?.address}></input>
-                      </p>
-                    )}
-                  </div> 
-            </div>
               <div className="space-y-2">
-                <Label>Image (Optional)</Label>
-                <div className="flex items-center gap-4">
-                  {editItemFormData.previewUrl && (
-                    <Image
-                      src={editItemFormData.previewUrl}
-                      alt="preview"
-                      width={60}
-                      height={60}
-                      className="rounded-md object-cover"
-                    />
-                  )}
-                  <Input
-                    type="file"
-                    accept="image/*"
-                    ref={fileInputRef}
-                    onChange={handleEditImageChange}
-                    className="hidden"
-                  />
-                  <Button
-                    variant="outline"
-                    onClick={() => fileInputRef.current?.click()}
-                  >
-                    <Camera className="mr-2 h-4 w-4" />
-                    Change
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => handleClearNewItemImage()}
-                  >
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    Clear
-                  </Button>
-                </div>
+                <Label htmlFor="item-category">Category</Label>
+                <Select
+                  value={editItemFormData.shopping_category || ""}
+                  onValueChange={(value) =>
+                    handleEditItemFormChange("shopping_category", value)
+                  }
+                >
+                  <SelectTrigger id="item-category">
+                    <SelectValue placeholder="Select a category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {shoppingCategoryOption.map((cat) => (
+                      <SelectItem key={cat.name} value={cat.name}>
+                        <div className="flex items-center gap-2">
+                          {(() => {
+                            const IconComp =
+                              iconMap[cat.icon_text as keyof typeof iconMap];
+                            return IconComp ? (
+                              <IconComp className="h-4 w-4" />
+                            ) : (
+                              <PlusCircle className="h-4 w-4" />
+                            );
+                          })()}
+                          <span>{cat.name}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="item-store">Store / POI</Label>
+                <Select
+                  value={editItemFormData.store || ""}
+                  onValueChange={(value) =>
+                    handleEditItemFormChange("store", value)
+                  }
+                  disabled={!pointsOfInterest || pointsOfInterest.length === 0}
+                >
+                  <SelectTrigger id="item-store">
+                    <SelectValue placeholder="Select a store" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {pointsOfInterest.map((poi) => (
+                      <SelectItem key={poi.name} value={poi.name}>
+                        {poi.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {pointsOfInterest.find((p) => p.name === editItemFormData.store)
+                  ?.address && (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {
+                      pointsOfInterest.find(
+                        (p) => p.name === editItemFormData.store
+                      )?.address
+                    }
+                    <input
+                      type="hidden"
+                      value={
+                        pointsOfInterest.find(
+                          (p) => p.name === editItemFormData.store
+                        )?.address
+                      }
+                    ></input>
+                  </p>
+                )}
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Image (Optional)</Label>
+              <div className="flex items-center gap-4">
+                {editItemFormData.previewUrl && (
+                  <Image
+                    src={editItemFormData.previewUrl}
+                    alt="preview"
+                    width={60}
+                    height={60}
+                    className="rounded-md object-cover"
+                  />
+                )}
+                <Input
+                  type="file"
+                  accept="image/*"
+                  ref={fileInputRef}
+                  onChange={handleEditImageChange}
+                  className="hidden"
+                />
+                <Button
+                  variant="outline"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <Camera className="mr-2 h-4 w-4" />
+                  Change
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => handleClearNewItemImage()}
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Clear
+                </Button>
+              </div>
+            </div>
             <DialogFooter className="flex items-center justify-between">
               <div>
                 <AlertDialog>
@@ -917,7 +1026,10 @@ const pointsOfInterest = useMemo(() => {
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                       <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction onClick={handleDeleteItem} className="bg-destructive hover:bg-destructive/90">
+                      <AlertDialogAction
+                        onClick={handleDeleteItem}
+                        className="bg-destructive hover:bg-destructive/90"
+                      >
                         Delete
                       </AlertDialogAction>
                     </AlertDialogFooter>
@@ -928,9 +1040,7 @@ const pointsOfInterest = useMemo(() => {
                 <Button variant="outline" onClick={() => setEditingItem(null)}>
                   Cancel
                 </Button>
-                <Button onClick={handleUpdateItem}>
-                  Save Changes
-                </Button>
+                <Button onClick={handleUpdateItem}>Save Changes</Button>
               </div>
             </DialogFooter>
           </DialogContent>

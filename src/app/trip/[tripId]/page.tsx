@@ -124,11 +124,13 @@ const TabContent: FC<TabContentProps> = ({ trip, setTrip, activeTab }) => {
 
     if (checkedItemName && checkedItemPrice) {
       const newTransaction: Transaction = {
-        id: `shop-${itemId}`,
+        expense_uuid: uuidv4(),
         name: checkedItemName,
         category: "Shopping",
         amount: checkedItemPrice,
         date: new Date().toISOString().split("T")[0],
+        trip_uuid: trip.trip_uuid,
+        currency_code: tripCurrency,
       };
 
       // if (!trip.transactions.some((t) => t.id === newTransaction.id)) {
@@ -219,6 +221,7 @@ export default function TripDetailsPage() {
   const [trip, setTrip] = useState<Trip | undefined>();
   const [activeTab, setActiveTab] = useState<Tab>("planner");
   const { setTripCurrencyFromCountry, tripCurrency } = useCurrency();
+  const { setHomeCurrency, homeCurrency } = useCurrency();
   const supabase = createClient();
   const { toast } = useToast();
   const [ShoppingCategoryOption, setShoppingCategoryOption] = useState<shoppingCategoryOption[]>([]);
@@ -244,6 +247,15 @@ export default function TripDetailsPage() {
     const fetchTripData = async () => {
       if (!tripUuId) return;
 
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+         const { data, error } = await supabase.from('users_info').select('home_currency').eq('user_id', user?.id).single();
+         if (error) {
+          toast({ title: "Error fetching home currency", description: error.message, variant: "destructive" }); 
+        } else if (data?.home_currency) {
+           setHomeCurrency(data.home_currency);
+        }
+      }
       const { data: tripData, error: tripError } = await supabase
         .from("trips")
         .select("*")

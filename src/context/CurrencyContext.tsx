@@ -9,13 +9,18 @@ interface CurrencyContextType {
   setTripCurrency: (currency: Currency) => void;
   homeCurrency: Currency;
   setHomeCurrency: (currency: Currency) => void;
+  homeRate: number;
   tripRate: number;
   rates: ExchangeRates;
   currencies: CurrencySetup[];
   formatCurrency: (amount: number, minimumFractionDigits?: number) => string;
   formatHomeCurrency: (amount: number, minimumFractionDigits?: number) => string;
   setTripCurrencyFromCountry: (countryCode: string) => void;
-  convertToHomeCurrency: (amountInTripCurrency: number) => number;
+  convertCurrencyToUsd: (amountInCurrency: number, rate: number) => number;
+  convertUsdToCurrency: (amountInCurrency: number, rate: number) => number;
+  displayCurrency: 'trip' | 'home';
+  setDisplayCurrency: (currencyType: 'trip' | 'home') => void;
+  // convertToHomeCurrency: (amountInTripCurrency: number) => number;
 }
 
 const CurrencyContext = createContext<CurrencyContextType | undefined>(undefined);
@@ -30,7 +35,8 @@ export const CurrencyProvider = ({ children }: CurrencyProviderProps) => {
   const [currencies, setCurrencies] = useState<CurrencySetup[]>([]);
   const [rates, setRates] = useState<ExchangeRates>({});
   const [countryCurrencyMap, setCountryCurrencyMap] = useState<Record<string, Currency>>({});
-  
+  const [displayCurrency, setDisplayCurrency] = useState<'trip' | 'home'>('trip');
+
   const supabase = createClient();
 
   useEffect(() => {
@@ -57,6 +63,7 @@ export const CurrencyProvider = ({ children }: CurrencyProviderProps) => {
             setCountryCurrencyMap(newCountryMap);
         }
     };
+
     fetchCurrencies();
   }, [supabase]);
 
@@ -96,9 +103,12 @@ export const CurrencyProvider = ({ children }: CurrencyProviderProps) => {
     }
   };
 
-  const convertToHomeCurrency = (amountInTripCurrency: number) => {
-    const amountInUsd = amountInTripCurrency / tripRate;
-    return amountInUsd * homeRate;
+  const convertCurrencyToUsd = (amountInCurrency: number, rate: number) => {
+    return amountInCurrency / rate;
+  }
+
+  const convertUsdToCurrency = (amountInCurrency: number, rate: number) => {
+    return amountInCurrency * rate;
   }
 
   const value = {
@@ -106,13 +116,18 @@ export const CurrencyProvider = ({ children }: CurrencyProviderProps) => {
     setTripCurrency,
     homeCurrency,
     setHomeCurrency,
+    homeRate,
     tripRate,
     rates,
     currencies,
     formatCurrency,
     formatHomeCurrency,
     setTripCurrencyFromCountry,
-    convertToHomeCurrency
+    convertCurrencyToUsd,
+    convertUsdToCurrency,
+    displayCurrency,
+    setDisplayCurrency,
+    // convertToHomeCurrency
   };
 
   return (

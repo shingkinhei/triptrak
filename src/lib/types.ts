@@ -48,11 +48,13 @@ export type ItineraryItem = {
 export type TransactionCategory = 'Food' | 'Transport' | 'Shopping' | 'Accommodation' | 'Other';
 
 export type Transaction = {
-  id: string;
+  expense_uuid: string;
+  trip_uuid: string;
   name: string;
   category: TransactionCategory;
   amount: number;
   date: string;
+  currency_code: string;
 };
 
 export type ShoppingItems = {
