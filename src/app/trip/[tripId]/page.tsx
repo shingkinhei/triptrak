@@ -10,7 +10,7 @@ import { MapView } from "@/components/map-view";
 import { ShoppingList } from "@/components/shopping-list";
 import { TripPlanner } from "@/components/trip-planner";
 import { useCurrency } from "@/context/CurrencyContext";
-import { 
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -29,7 +29,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type {
   Currency,
-  Transaction,
+  Expenses,
   Trip,
   ShoppingItems,
   ItineraryItem,
@@ -45,6 +45,7 @@ import { debounce, set } from "lodash";
 import { v4 as uuidv4 } from "uuid";
 import Compressor from "compressorjs";
 import {
+  Repeat,
   Upload,
   PlusCircle,
   Camera,
@@ -97,11 +98,12 @@ const iconMap: Record<string, LucideIcon> = {
   ShoppingBag,
   Shirt,
   ShoppingBasket,
+  
 };
 const TabContent: FC<TabContentProps> = ({ trip, setTrip, activeTab }) => {
-  const { tripCurrency } = useCurrency();
   const supabase = createClient();
   const { toast } = useToast();
+  const { tripCurrency } = useCurrency();
 
   const handleShoppingItemCheck = (itemId: string, checked: boolean) => {
     let checkedItemName: string | undefined;
@@ -123,26 +125,15 @@ const TabContent: FC<TabContentProps> = ({ trip, setTrip, activeTab }) => {
     );
 
     if (checkedItemName && checkedItemPrice) {
-      const newTransaction: Transaction = {
+      const newExpense: Expenses = {
         expense_uuid: uuidv4(),
         name: checkedItemName,
-        category: "Shopping",
+        expense_category: "Shopping",
         amount: checkedItemPrice,
         date: new Date().toISOString().split("T")[0],
         trip_uuid: trip.trip_uuid,
         currency_code: tripCurrency,
       };
-
-      // if (!trip.transactions.some((t) => t.id === newTransaction.id)) {
-      //   setTrip((currentTrip) =>
-      //     currentTrip
-      //       ? {
-      //           ...currentTrip,
-      //           transactions: [newTransaction, ...currentTrip.transactions],
-      //         }
-      //       : undefined
-      //   );
-      // }
     }
   };
 
@@ -153,14 +144,14 @@ const TabContent: FC<TabContentProps> = ({ trip, setTrip, activeTab }) => {
     shopping: ShoppingList,
   };
 
-  const setTransactions = (updater: React.SetStateAction<Transaction[]>) => {
+  const setExpenses = (updater: React.SetStateAction<Expenses[]>) => {
     setTrip((currentTrip) => {
       if (!currentTrip) return undefined;
-      const newTransactions =
+      const newExpenses =
         typeof updater === "function"
-          ? updater(currentTrip.transactions)
+          ? updater(currentTrip.expenses)
           : updater;
-      return { ...currentTrip, transactions: newTransactions };
+      return { ...currentTrip, expenses: newExpenses };
     });
   };
 
@@ -175,6 +166,8 @@ const TabContent: FC<TabContentProps> = ({ trip, setTrip, activeTab }) => {
     });
   };
 
+
+
   const componentProps = {
     planner: {
       trip: trip,
@@ -186,7 +179,7 @@ const TabContent: FC<TabContentProps> = ({ trip, setTrip, activeTab }) => {
         name: i.title,
       })),
     },
-    expenses: { transactions: trip.transactions, setTransactions, trip },
+    expenses: { expenses: trip.expenses, setExpenses, trip },
     shopping: {
       list: trip.shoppingItems,
       setList: setShoppingList,
@@ -220,11 +213,25 @@ export default function TripDetailsPage() {
 
   const [trip, setTrip] = useState<Trip | undefined>();
   const [activeTab, setActiveTab] = useState<Tab>("planner");
-  const { setTripCurrencyFromCountry, tripCurrency } = useCurrency();
-  const { setHomeCurrency, homeCurrency } = useCurrency();
+  const {
+    tripRate,
+    setTripCurrencyFromCountry,
+    setHomeCurrency,
+    tripCurrency,
+    formatCurrency,
+    homeCurrency,
+    homeRate,
+    convertCurrencyToUsd,
+    convertUsdToCurrency,
+    formatHomeCurrency,
+    displayCurrency,
+    setDisplayCurrency,
+  } = useCurrency();
   const supabase = createClient();
   const { toast } = useToast();
-  const [ShoppingCategoryOption, setShoppingCategoryOption] = useState<shoppingCategoryOption[]>([]);
+  const [ShoppingCategoryOption, setShoppingCategoryOption] = useState<
+    shoppingCategoryOption[]
+  >([]);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [newItem, setNewItem] = useState<NewItemInput>({
     item_uuid: uuidv4(),
@@ -242,18 +249,29 @@ export default function TripDetailsPage() {
     item_image_preview: null,
   });
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const priceInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const fetchTripData = async () => {
       if (!tripUuId) return;
 
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (user) {
-         const { data, error } = await supabase.from('users_info').select('home_currency').eq('user_id', user?.id).single();
-         if (error) {
-          toast({ title: "Error fetching home currency", description: error.message, variant: "destructive" }); 
+        const { data, error } = await supabase
+          .from("users_info")
+          .select("home_currency")
+          .eq("user_id", user?.id)
+          .single();
+        if (error) {
+          toast({
+            title: "Error fetching home currency",
+            description: error.message,
+            variant: "destructive",
+          });
         } else if (data?.home_currency) {
-           setHomeCurrency(data.home_currency);
+          setHomeCurrency(data.home_currency);
         }
       }
       const { data: tripData, error: tripError } = await supabase
@@ -323,7 +341,9 @@ export default function TripDetailsPage() {
       // fetch shopping items for this trip and attach to trip state
       const { data: shoppingData, error: shoppingError } = await supabase
         .from("shopping_items")
-        .select("item_uuid, shopping_category, name, checked, image_url, price, user_id, store, address, trip_uuid, pcs")
+        .select(
+          "item_uuid, shopping_category, name, checked, image_url, price, user_id, store, address, trip_uuid, pcs"
+        )
         .eq("trip_uuid", tripUuId);
 
       if (shoppingError) {
@@ -337,30 +357,44 @@ export default function TripDetailsPage() {
           prev ? { ...prev, shoppingItems: shoppingData } : prev
         );
       }
+      //fetch expense categories for the trip and attach to trip state
+      const { data: expenseDate, error: expenseError } = await supabase
+        .from("expenses")
+        .select("*")
+        .eq("trip_uuid", tripUuId);
+      if (expenseError) {
+        toast({
+          title: "Error fetching expenses",
+          description: expenseError.message,
+          variant: "destructive",
+        });
+      } else if (expenseDate) {
+        setTrip((prev) =>
+          prev ? { ...prev, expenses: expenseDate } : prev
+        );
+      }
     };
-
     fetchTripData();
   }, [tripUuId, setTripCurrencyFromCountry, router, supabase, toast]);
 
   useEffect(() => {
     if (trip) {
-      const debouncedUpdater = debounce(async () => {
-        const { error } = await supabase
-          .from("trips")
-          .update({
-            transactions: trip.transactions,
-            // shopping_list: trip.shoppingItems,
-          })
-          .eq("trip_uuid", trip.trip_uuid);
+      // const debouncedUpdater = debounce(async () => {
+      //   const { error } = await supabase
+      //     .from("shopping_items")
+      //     .update({
+      //       trip.shoppingItems,
+      //     })
+      //     .eq("trip_uuid", trip.trip_uuid);
 
-        if (error) {
-          toast({
-            title: "Error saving trip data",
-            description: error.message,
-            variant: "destructive",
-          });
-        }
-      }, 1500);
+      //   if (error) {
+      //     toast({
+      //       title: "Error saving trip data",
+      //       description: error.message,
+      //       variant: "destructive",
+      //     });
+      //   }
+      // }, 1500);
 
       const fetchShoppingCategoryOptions = async () => {
         const { data, error } = await supabase
@@ -380,9 +414,9 @@ export default function TripDetailsPage() {
         }
       };
 
-      debouncedUpdater();
+      // debouncedUpdater();
       fetchShoppingCategoryOptions();
-      return () => debouncedUpdater.cancel();
+      // return () => debouncedUpdater.cancel();
     }
   }, [trip, supabase, toast]);
 
@@ -406,6 +440,36 @@ export default function TripDetailsPage() {
       </main>
     );
   }
+
+  const currentFormatter =
+    displayCurrency === "trip" ? formatCurrency : formatHomeCurrency;
+  const currentCurrency =
+    displayCurrency === "trip" ? tripCurrency : homeCurrency;
+
+  const toggleCurrency = () => {
+    setDisplayCurrency(displayCurrency === "trip" ? "home" : "trip");
+  };
+  const toggleCurrencyForm = (number: number) => {
+    setDisplayCurrency(displayCurrency === "trip" ? "home" : "trip");
+    if (displayCurrency === "trip") {
+      setNewItem((prev) => ({
+        ...prev,
+        price: parseFloat(convertUsdToCurrency(convertCurrencyToUsd(number, tripRate),
+        homeRate).toFixed(2)) || 0,
+      }));
+    } else {
+      setNewItem((prev) => ({
+        ...prev,
+        price: parseFloat(convertUsdToCurrency(convertCurrencyToUsd(number, homeRate),
+        tripRate).toFixed(2)) || 0,
+      }));
+    }
+  };
+
+  const currencyButtonLabel =
+    displayCurrency === "trip"
+      ? `${tripCurrency} \u2194 ${homeCurrency}`
+      : `${homeCurrency} \u2194 ${tripCurrency}`;
 
   const setShoppingList = (updater: React.SetStateAction<ShoppingItems[]>) => {
     setTrip((currentTrip) => {
@@ -498,7 +562,6 @@ export default function TripDetailsPage() {
   };
 
   const handleAddItem = async () => {
-
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -510,21 +573,22 @@ export default function TripDetailsPage() {
       });
       return;
     }
-    
+
     if (!newItem.name.trim()) {
-      toast({ 
+      toast({
         title: "Error",
         description: "Item name is required.",
         variant: "destructive",
-      }
-    )};
+      });
+    }
 
-    if (!newItem.shopping_category){
+    if (!newItem.shopping_category) {
       toast({
         title: "Error",
         description: "Item category is required.",
         variant: "destructive",
-    })};
+      });
+    }
 
     let newImageUrl: string | null = null;
 
@@ -565,7 +629,18 @@ export default function TripDetailsPage() {
       name: newItem.name.trim(),
       shopping_category: newItem.shopping_category,
       checked: false,
-      price: newItem.price || 0,
+      price: parseFloat(
+            String(
+              displayCurrency === "trip"
+                ? convertCurrencyToUsd(newItem.price || 0, tripRate)
+                : newItem.price ||
+                    convertCurrencyToUsd(
+                      newItem.price || 0,
+                      homeRate
+                    ) ||
+                    0
+            )
+          ) || 0,
       pcs: newItem.pcs || 1,
       image_url:
         newImageUrl ||
@@ -658,14 +733,41 @@ export default function TripDetailsPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="item-price">Price ({tripCurrency})</Label>
-                  <Input
-                    id="item-price"
-                    type="number"
-                    value={newItem.price}
-                    onChange={(e) => handleInputChange("price", e.target.value)}
-                    placeholder="e.g. 15.00"
-                  />
+                  <Label htmlFor="item-price">
+                    Price (
+                    {displayCurrency === "trip" ? tripCurrency : homeCurrency})
+                  </Label>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Input
+                      id="item-price"
+                      type="number"
+                      step="0.01"
+                      ref={priceInputRef}
+                      value={newItem.price  || 0}
+                      onChange={(e) =>
+                        handleInputChange("price", e.target.value)
+                      }
+                      placeholder="e.g. 15.00"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                       const value = priceInputRef?.current?.value;
+                        if (value) {
+                          toggleCurrencyForm(parseFloat(value) || 0);
+                        }
+                      }
+                    }
+                  >
+                    <Repeat className="h-4 w-4 mr-2" />
+                    <span>{currencyButtonLabel}</span>
+                  </Button>
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="item-pcs">Quantity (pcs)</Label>
