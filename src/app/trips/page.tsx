@@ -21,6 +21,8 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import Compressor from 'compressorjs';
 import { v4 as uuidv4 } from "uuid";
 import { useCurrency } from "@/context/CurrencyContext";
+import useLongPress from '@/hooks/use-long-press';
+import { on } from 'events';
 
 type EditableTrip = Partial<
   Pick<
@@ -51,6 +53,7 @@ type NewTripState = {
   cover_image_preview: string | null;
 };
 
+
 export default function TripsPage() {
   const [trips, setTrips] = useState<Trip[]>([]);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -65,7 +68,14 @@ export default function TripsPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const editFileInputRef = useRef<HTMLInputElement>(null);
   const { getCurrencyByCountryCode, tripCurrency } = useCurrency();
+  // const { action, handlers } = useLongPress(
+  //   handleOnClick
+  // );
+  // const { action: otherAction, handlers: otherHandlers } = useLongPress();
 
+  function handleOnClick() {
+    console.log('handleOnClick long press triggered');
+  }
   const fetchTrips = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
@@ -437,6 +447,9 @@ export default function TripsPage() {
                 </h1>
                 <p className="text-sm text-muted-foreground">
                 All your adventures in one place.
+                          {/* <Button {...handlers}>
+            Click or Press Me
+          </Button> */}
                 </p>
             </div>
             <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
@@ -510,8 +523,8 @@ export default function TripsPage() {
             {trips.map(trip => (
                 <Card key={trip.trip_uuid} className={cn("overflow-hidden transition-all hover:shadow-lg relative", {'border-primary border-2': trip.status === 'A'})}>
                     <CardContent className="p-0">
-                        <div className="flex">
-                            <div className="relative h-32 w-28 shrink-0">
+                        <div className="flex flex-col">
+                            <div className="relative h-48 w-full shrink-0 object-fill">
                                 <Image
                                     src={trip.cover_image_url || ''}
                                     alt={trip.name || ''}
@@ -520,7 +533,7 @@ export default function TripsPage() {
                                     data-ai-hint={trip.cover_image_hint || ''}
                                 />
                             </div>
-                            <div className="flex flex-col justify-between p-3 flex-grow">
+                            <div className="absolute bottom-0 w-full flex flex-col justify-between p-3 flex-grow">
                                 <div>
                                   <h2 className="text-lg font-bold font-headline leading-tight">{trip.name}</h2>
                                   <p className="text-sm text-muted-foreground">{trip.destination}</p>

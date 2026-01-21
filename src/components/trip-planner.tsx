@@ -1360,13 +1360,16 @@ export function TripPlanner({ trip }: TripPlannerProps) {
           >
             <ArrowLeft className="h-5 w-5" />
           </Button>
+
           <div className="flex flex-col">
             <h1 className="text-2xl font-bold font-headline text-primary-foreground truncate">
               {trip.name}
             </h1>
             {(tripState.start_date || tripState.end_date) && (
-              <div className="text-sm text-muted-foreground">
-                {formatMMDD(tripState.start_date)}{tripState.start_date && tripState.end_date ? " - " : ""}{formatMMDD(tripState.end_date)}
+              <div className="text-sm text-primary-foreground">
+                {formatMMDD(tripState.start_date)}
+                {tripState.start_date && tripState.end_date ? " - " : ""}
+                {formatMMDD(tripState.end_date)}
               </div>
             )}
           </div>
@@ -1380,6 +1383,22 @@ export function TripPlanner({ trip }: TripPlannerProps) {
         </Button>
       </header>
 
+      {/* <div className="flex items-end gap-2 h-80">
+        <div className="flex flex-col gap-5">
+          <span className="box-decoration-clone text-5xl font-semibold text-primary-foreground bg-gradient-to-r from-cyan-500 to-blue-500 rounded-lg px-4 py-2 ">
+            {trip.name}
+          </span>
+          <span className="text-3xl text-primary-foreground">
+            {(tripState.start_date || tripState.end_date) && (
+              <div className="text-sm text-primary-foreground">
+                {formatMMDD(tripState.start_date)}
+                {tripState.start_date && tripState.end_date ? " - " : ""}
+                {formatMMDD(tripState.end_date)}
+              </div>
+            )}
+          </span>
+        </div>
+      </div> */}
       <ScrollArea className="w-full whitespace-nowrap">
         <div className="flex space-x-2 pb-2">
           <Button
@@ -1483,20 +1502,22 @@ export function TripPlanner({ trip }: TripPlannerProps) {
 
               {item.tripDayPhotos && item.tripDayPhotos.length > 0 && (
                 <div className="grid grid-cols-3 gap-2">
-                  {item.tripDayPhotos.filter((p) => !p.pending_delete).map((photo) => (
-                    <button
-                      key={photo.photo_uuid}
-                      onClick={() => setViewingPhoto(photo)}
-                      className="relative block w-full aspect-square rounded-md overflow-hidden cursor-pointer"
-                    >
-                      <Image
-                        src={photo.trip_day_photo_preview ?? photo.url}
-                        alt="User photo"
-                        fill
-                        className="object-cover"
-                      />
-                    </button>
-                  ))}
+                  {item.tripDayPhotos
+                    .filter((p) => !p.pending_delete)
+                    .map((photo) => (
+                      <button
+                        key={photo.photo_uuid}
+                        onClick={() => setViewingPhoto(photo)}
+                        className="relative block w-full aspect-square rounded-md overflow-hidden cursor-pointer"
+                      >
+                        <Image
+                          src={photo.trip_day_photo_preview ?? photo.url}
+                          alt="User photo"
+                          fill
+                          className="object-cover"
+                        />
+                      </button>
+                    ))}
                 </div>
               )}
               <ul className="space-y-4">
@@ -1631,18 +1652,28 @@ export function TripPlanner({ trip }: TripPlannerProps) {
                 />
                 <div className="grid grid-cols-3 gap-2">
                   {(editingItem.tripDayPhotos || []).map((photo) => (
-                    <div key={photo.photo_uuid} className="relative aspect-square">
+                    <div
+                      key={photo.photo_uuid}
+                      className="relative aspect-square"
+                    >
                       <Image
                         src={photo.trip_day_photo_preview ?? photo.url}
                         alt="User upload"
                         fill
-                        className={cn("rounded-md object-cover", photo.pending_delete && "opacity-40")}
+                        className={cn(
+                          "rounded-md object-cover",
+                          photo.pending_delete && "opacity-40"
+                        )}
                       />
                       {photo.pending_delete && (
-                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center text-white text-sm z-10">Marked for deletion</div>
+                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center text-white text-sm z-10">
+                          Marked for deletion
+                        </div>
                       )}
                       <Button
-                        variant={photo.pending_delete ? "outline" : "destructive"}
+                        variant={
+                          photo.pending_delete ? "outline" : "destructive"
+                        }
                         size="icon"
                         className="absolute top-1 right-1 h-6 w-6 z-20"
                         onClick={() => handleDeletePhoto(photo.photo_uuid)}
@@ -1750,7 +1781,7 @@ export function TripPlanner({ trip }: TripPlannerProps) {
                           className="h-8"
                         />
                         <Input
-                          value={act.address||""}
+                          value={act.address || ""}
                           onChange={(e) =>
                             handleActivityChange(
                               act.activity_uuid,
@@ -1787,12 +1818,16 @@ export function TripPlanner({ trip }: TripPlannerProps) {
                     <AlertDialogHeader>
                       <AlertDialogTitle>Delete Day</AlertDialogTitle>
                       <AlertDialogDescription>
-                        This will permanently delete the day, its activities, and photos. This action cannot be undone.
+                        This will permanently delete the day, its activities,
+                        and photos. This action cannot be undone.
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                       <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction onClick={handleDeleteDay} className="bg-destructive hover:bg-destructive/90">
+                      <AlertDialogAction
+                        onClick={handleDeleteDay}
+                        className="bg-destructive hover:bg-destructive/90"
+                      >
                         Delete Day
                       </AlertDialogAction>
                     </AlertDialogFooter>
