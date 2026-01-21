@@ -45,16 +45,18 @@ export type ItineraryItem = {
   tripDayPhotos: TripDayPhotos[];
 };
 
-export type TransactionCategory = 'Food' | 'Transport' | 'Shopping' | 'Accommodation' | 'Other';
+// export type ExpenseCategory = 'Food' | 'Transport' | 'Shopping' | 'Accommodation' | 'Other';
 
-export type Transaction = {
+export type Expenses = {
   expense_uuid: string;
   trip_uuid: string;
   name: string;
-  category: TransactionCategory;
+  expense_category: string;
   amount: number;
   date: string;
   currency_code: string;
+  user_id: string | null;
+  created_at?: string | null;
 };
 
 export type ShoppingItems = {
@@ -104,7 +106,7 @@ export type Trip = {
   created_at: string;
   // These are now handled separately
   itinerary: ItineraryItem[];
-  transactions: Transaction[];
+  expenses: Expenses[];
   shoppingItems: ShoppingItems[];
   checklist: ChecklistItem[];
 };

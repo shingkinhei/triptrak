@@ -133,6 +133,7 @@ const TabContent: FC<TabContentProps> = ({ trip, setTrip, activeTab }) => {
         date: new Date().toISOString().split("T")[0],
         trip_uuid: trip.trip_uuid,
         currency_code: tripCurrency,
+        user_id: trip.user_id || null,
       };
     }
   };
@@ -140,7 +141,7 @@ const TabContent: FC<TabContentProps> = ({ trip, setTrip, activeTab }) => {
   const tabComponents: Record<Tab, React.ComponentType<any>> = {
     planner: TripPlanner,
     map: MapView,
-    expenses: ExpenseTracker,
+    expenses: ExpenseTracker, 
     shopping: ShoppingList,
   };
 
@@ -179,7 +180,8 @@ const TabContent: FC<TabContentProps> = ({ trip, setTrip, activeTab }) => {
         name: i.title,
       })),
     },
-    expenses: { expenses: trip.expenses, setExpenses, trip },
+    expenses: {
+      trip: trip },
     shopping: {
       list: trip.shoppingItems,
       setList: setShoppingList,
@@ -215,9 +217,9 @@ export default function TripDetailsPage() {
   const [activeTab, setActiveTab] = useState<Tab>("planner");
   const {
     tripRate,
-    setTripCurrencyFromCountry,
     setHomeCurrency,
     tripCurrency,
+    setTripCurrency,
     formatCurrency,
     homeCurrency,
     homeRate,
@@ -336,7 +338,8 @@ export default function TripDetailsPage() {
 
       setTrip(enrichedTrip);
       if (tripData.country_code) {
-        setTripCurrencyFromCountry(tripData.country_code);
+        setTripCurrency(tripData.currency_code);
+        //setTripCurrencyFromCountry(tripData.country_code);
       }
       // fetch shopping items for this trip and attach to trip state
       const { data: shoppingData, error: shoppingError } = await supabase
@@ -358,9 +361,9 @@ export default function TripDetailsPage() {
         );
       }
       //fetch expense categories for the trip and attach to trip state
-      const { data: expenseDate, error: expenseError } = await supabase
+      const { data: expenseData, error: expenseError } = await supabase
         .from("expenses")
-        .select("*")
+        .select("expense_uuid, trip_uuid, name, expense_category, amount, date, currency_code,user_id")
         .eq("trip_uuid", tripUuId);
       if (expenseError) {
         toast({
@@ -368,14 +371,14 @@ export default function TripDetailsPage() {
           description: expenseError.message,
           variant: "destructive",
         });
-      } else if (expenseDate) {
+      } else if (expenseData) {
         setTrip((prev) =>
-          prev ? { ...prev, expenses: expenseDate } : prev
+          prev ? { ...prev, expenses: expenseData } : prev
         );
       }
     };
     fetchTripData();
-  }, [tripUuId, setTripCurrencyFromCountry, router, supabase, toast]);
+  }, [tripUuId, router, supabase, toast]);
 
   useEffect(() => {
     if (trip) {

@@ -160,11 +160,6 @@ export function ShoppingList({
     Partial<ShoppingItems> & { file?: File | null; previewUrl?: string | null }
   >({});
 
-  // Other state
-
-  // const [displayCurrency, setDisplayCurrency] =
-  //   useState<DisplayCurrency>("trip");
-
   useEffect(() => {
     const fetchShoppingItems = async () => {
       const { data, error } = await supabase
@@ -420,8 +415,6 @@ export function ShoppingList({
           item.item_uuid === editingItem.item.item_uuid ? updatedItem : item
         )
       );
-
-      console.log("updatedItem", updatedItem);
 
       const { data, error } = await supabase
         .from("shopping_items")

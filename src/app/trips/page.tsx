@@ -22,7 +22,18 @@ import Compressor from 'compressorjs';
 import { v4 as uuidv4 } from "uuid";
 import { useCurrency } from "@/context/CurrencyContext";
 
-type EditableTrip = Partial<Pick<Trip, 'name' | 'destination' | 'country_code' | 'start_date' | 'end_date' | 'cover_image_url' | 'cover_image_hint'>> & {
+type EditableTrip = Partial<
+  Pick<
+    Trip,
+    | "name"
+    | "destination"
+    | "country_code"
+    | "start_date"
+    | "end_date"
+    | "cover_image_url"
+    | "cover_image_hint"
+  >
+> & {
   cover_image_file?: File | null;
   cover_image_preview?: string | null;
 };
@@ -53,7 +64,7 @@ export default function TripsPage() {
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const editFileInputRef = useRef<HTMLInputElement>(null);
-  const { setTripCurrencyFromCountry, tripCurrency } = useCurrency();
+  const { getCurrencyByCountryCode, tripCurrency } = useCurrency();
 
   const fetchTrips = async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -189,14 +200,12 @@ export default function TripsPage() {
       name: newTrip.name,
       destination: newTrip.destination,
       country_code: newTrip.country_code,
-      currency_code: useCurrency().tripCurrency,
+      currency_code: getCurrencyByCountryCode(newTrip.country_code),
       start_date: newTrip.start_date,
       end_date: newTrip.end_date,
       status: 'U' as TripStatus,
       cover_image_url: coverImageUrl,
       cover_image_hint: coverImageHint,
-      transactions: [],
-      shopping_list: [],
     };
     
     const { data, error } = await supabase.from('trips').insert([newTripData]).select().single();
@@ -317,23 +326,71 @@ export default function TripsPage() {
     }
   };
 
-  const handleDeleteTrip = async (trip: Trip) => {
-    const { error } = await supabase.from('trips').delete().eq('trip_uuid', trip.trip_uuid);
-    if (error) {
-      toast({ title: 'Error deleting trip', description: error.message, variant: 'destructive' });
+  const handleDeleteTrip = async (trip: EditableTrip) => {
+    if (!trip.start_date || !trip.country_code) return;
+
+    //prende trip uuid based on unique fields    
+    const { data } = await supabase.from('trips').select('trip_uuid').eq('start_date', trip.start_date).eq('country_code', trip.country_code).single();
+
+    if (!data) {
+      toast({ title: 'Error', description: 'Trip not found.', variant: 'destructive' });
     } else {
-      if (trip.cover_image_url) {
-        const imageKey = trip.cover_image_url.split('/trip_cover/').pop();
-        if (imageKey) {
-          const { error: deleteImageError } = await supabase.storage.from('trip_cover').remove([imageKey]);
-          if (deleteImageError) {
-            toast({ title: 'Trip deleted, but failed to remove image.', description: deleteImageError.message, variant: 'destructive' });
+      //delete records
+
+      const { data:dayUuidData , error: dayUuidErr } = await supabase.from("trip_days").select('day_uuid').eq("trip_uuid", data.trip_uuid);
+      if (dayUuidErr) {
+        toast({ title: "Error fetching trip days", description: dayUuidErr.message, variant: "destructive" });
+      }else{
+        for (const day of dayUuidData) { 
+          const { error: activityDelErr } = await supabase.from("activities").delete().eq("day_uuid", day.day_uuid);
+          if (activityDelErr) {
+            toast({ title: "Error deleting activities", description: activityDelErr.message, variant: "destructive" });
+            return;
           }
         }
       }
-      setTrips(prev => prev.filter(t => t.trip_uuid !== trip.trip_uuid));
-      toast({ title: 'Trip Deleted', description: 'The trip has been successfully removed.' });
+
+      const { error: dayDelErr } = await supabase.from("trip_days").delete().eq("trip_uuid", data.trip_uuid);
+      if (dayDelErr) {
+        toast({ title: "Error deleting day", description: dayDelErr.message, variant: "destructive" });
+        return;
+      }
+
+      const { error: shoppingDelErr } = await supabase.from("shopping_items").delete().eq("trip_uuid", data.trip_uuid);
+      if (shoppingDelErr) {
+        toast({ title: "Error deleting shopping items", description: shoppingDelErr.message, variant: "destructive" });
+        return;
+      }
+
+      const { error: expenseDelErr } = await supabase.from("expenses").delete().eq("trip_uuid", data.trip_uuid);
+      if (expenseDelErr) {
+        toast({ title: "Error deleting expenses", description: expenseDelErr.message, variant: "destructive" });
+        return;
+      }
+      
+      const { error: deleteRecordsError } = await supabase.from('trip_days').delete().eq('trip_uuid', data.trip_uuid);
+      if (deleteRecordsError) {
+        toast({ title: 'Error deleting records', description: deleteRecordsError.message, variant: 'destructive' });
+      }
+
+      const { error } = await supabase.from('trips').delete().eq('start_date', trip.start_date).eq('country_code', trip.country_code);
+      if (error) {
+        toast({ title: 'Error deleting trip', description: error.message, variant: 'destructive' });
+      } else {
+        if (trip.cover_image_url) {
+          const imageKey = trip.cover_image_url.split('/trip_cover/').pop();
+          if (imageKey) {
+            const { error: deleteImageError } = await supabase.storage.from('trip_cover').remove([imageKey]);
+            if (deleteImageError) {
+              toast({ title: 'Trip deleted, but failed to remove image.', description: deleteImageError.message, variant: 'destructive' });
+            }
+          }
+        }
+        setTrips(prev => prev.filter(t =>  t.country_code !== trip.country_code && t.start_date !== trip.start_date));
+        toast({ title: 'Trip Deleted', description: 'The trip has been successfully removed.' });
+      }
     }
+      
   };
 
   const handleFormChange = (field: keyof EditableTrip, value: string) => {
@@ -485,30 +542,6 @@ export default function TripsPage() {
                                       <Edit className="h-4 w-4" />
                                       <span className="sr-only">Edit Trip</span>
                                     </Button>
-                                    <AlertDialog>
-                                      <AlertDialogTrigger asChild>
-                                        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={(e) => e.preventDefault()}>
-                                          <Trash2 className="h-4 w-4" />
-                                          <span className="sr-only">Delete Trip</span>
-                                        </Button>
-                                      </AlertDialogTrigger>
-                                      <AlertDialogContent>
-                                        <AlertDialogHeader>
-                                          <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                                          <AlertDialogDescription>
-                                            This action cannot be undone. This will permanently delete your trip "{trip.name}" and all of its data.
-                                          </AlertDialogDescription>
-                                        </AlertDialogHeader>
-                                        <AlertDialogFooter>
-                                          <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                          <AlertDialogAction
-                                            className="bg-destructive hover:bg-destructive/90"
-                                            onClick={() => handleDeleteTrip(trip)}>
-                                            Delete
-                                          </AlertDialogAction>
-                                        </AlertDialogFooter>
-                                      </AlertDialogContent>
-                                    </AlertDialog>
                                   </div>
                                 </div>
                             </div>
@@ -581,6 +614,30 @@ export default function TripsPage() {
               </div>
             </div>
             <DialogFooter>
+                              <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={(e) => e.preventDefault()}>
+                      <Trash2 className="h-4 w-4" />
+                      <span className="sr-only">Delete Trip</span>
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This action cannot be undone. This will permanently delete your trip "{tripForm.name}" and all of its data.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction
+                        className="bg-destructive hover:bg-destructive/90"
+                        onClick={() => handleDeleteTrip(tripForm)}>
+                        Delete
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
                 <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>Cancel</Button>
               <Button onClick={handleUpdateTrip}>Save Changes</Button>
             </DialogFooter>

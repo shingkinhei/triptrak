@@ -15,7 +15,8 @@ interface CurrencyContextType {
   currencies: CurrencySetup[];
   formatCurrency: (amount: number, minimumFractionDigits?: number) => string;
   formatHomeCurrency: (amount: number, minimumFractionDigits?: number) => string;
-  setTripCurrencyFromCountry: (countryCode: string) => void;
+  getCurrencyByCountryCode: (countryCode: string) => Currency;
+  // setTripCurrencyFromCountry: (countryCode: string) => void;
   convertCurrencyToUsd: (amountInCurrency: number, rate: number) => number;
   convertUsdToCurrency: (amountInCurrency: number, rate: number) => number;
   displayCurrency: 'trip' | 'home';
@@ -60,19 +61,41 @@ export const CurrencyProvider = ({ children }: CurrencyProviderProps) => {
                 }
                 return acc;
             }, {} as Record<string, Currency>);
-            setCountryCurrencyMap(newCountryMap);
+            const normalizedMap = normalizeCountryCurrencyMap(newCountryMap);
+            setCountryCurrencyMap(normalizedMap);
         }
     };
 
     fetchCurrencies();
   }, [supabase]);
 
-  const setTripCurrencyFromCountry = useCallback((countryCode: string) => {
+  function normalizeCountryCurrencyMap(
+    rawMap: Record<string, string>
+  ): Record<string, string> {
+    const normalized: Record<string, string> = {};
+    for (const [key, currency] of Object.entries(rawMap)) {
+      const codes = key.split(",").map((c) => c.trim().toUpperCase());
+      for (const code of codes) {
+        normalized[code] = currency;
+      }
+    }
+    return normalized;
+  }
+ 
+  function getCurrencyByCountryCode(countryCode: string): Currency {
     if (Object.keys(countryCurrencyMap).length > 0) {
       const newDefaultCurrency = (countryCode && countryCurrencyMap[countryCode.toUpperCase()]) || 'USD';
-      setTripCurrency(newDefaultCurrency);
+      return newDefaultCurrency;
     }
-  }, [countryCurrencyMap]);
+     return 'USD';
+  }
+
+  // const setTripCurrencyFromCountry = useCallback((countryCode: string) => {
+  //   if (Object.keys(countryCurrencyMap).length > 0) {
+  //     const newDefaultCurrency = (countryCode && countryCurrencyMap[countryCode.toUpperCase()]) || 'USD';
+  //     setTripCurrency(newDefaultCurrency);
+  //   }
+  // }, [countryCurrencyMap]);
 
   const tripRate = useMemo(() => rates[tripCurrency] || 1, [rates, tripCurrency]);
   const homeRate = useMemo(() => rates[homeCurrency] || 1, [rates, homeCurrency]);
@@ -122,7 +145,8 @@ export const CurrencyProvider = ({ children }: CurrencyProviderProps) => {
     currencies,
     formatCurrency,
     formatHomeCurrency,
-    setTripCurrencyFromCountry,
+    getCurrencyByCountryCode,
+    // setTripCurrencyFromCountry,
     convertCurrencyToUsd,
     convertUsdToCurrency,
     displayCurrency,
