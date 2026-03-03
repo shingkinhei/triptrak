@@ -59,7 +59,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "./ui/select";
-import { WeatherCard } from "./weather-card";
+// import { WeatherCard } from "./weather-card";
 import { Textarea } from "./ui/textarea";
 import { useRouter } from "next/navigation";
 import { Checkbox } from "./ui/checkbox";
@@ -157,8 +157,6 @@ const PreTripChecklist = ({
   tripId: string;
 }) => {
   const [checklist, setChecklist] = useState(initialChecklist);
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [editingChecklist, setEditingChecklist] = useState<ChecklistItem[]>([]);
   const [newItemLabel, setNewItemLabel] = useState("");
   const supabase = createClient();
   const { toast } = useToast();
@@ -190,96 +188,9 @@ const PreTripChecklist = ({
     }
   };
 
-
-  const handleEditClick = () => {
-    setEditingChecklist(
-      [...checklist].sort((a, b) => (a.seq ?? 0) - (b.seq ?? 0))
-    );
-    setIsEditDialogOpen(true);
-  };
-
-  const handleSave = async () => {
-    const originalChecklist = [...checklist];
-    setChecklist(editingChecklist);
-    setIsEditDialogOpen(false);
-
-    const itemsToUpsert = editingChecklist.map((item, index) => ({
-      ...item,
-      seq: index,
-    }));
-
-    for (const item of itemsToUpsert) {
-      const { checklist_uuid, trip_uuid, ...rest } = item;
-
-      const { error } = await supabase
-        .from("pre_trip_checklist")
-        .update({
-          ...rest,
-          trip_uuid: tripId, // keep trip reference consistent
-        })
-        .eq("checklist_uuid", checklist_uuid); // WHERE clause
-
-      if (error) {
-        toast({
-          title: "Error Updating Checklist",
-          description: error.message,
-          variant: "destructive",
-        });
-        setChecklist(originalChecklist);
-        return;
-      }
-    }
-
-    const deletedItems = originalChecklist.filter(
-      (item) =>
-        !editingChecklist.some((i) => i.checklist_uuid === item.checklist_uuid)
-    );
-    if (deletedItems.length > 0) {
-      const { error: deleteError } = await supabase
-        .from("pre_trip_checklist")
-        .delete()
-        .in(
-          "checklist_uuid",
-          deletedItems.map((i) => i.checklist_uuid)
-        );
-      if (deleteError)
-        toast({
-          title: "Error Deleting Items",
-          description: deleteError.message,
-          variant: "destructive",
-        });
-    }
-
-    const { data, error: fetchError } = await supabase
-      .from("pre_trip_checklist")
-      .select("*")
-      .eq("trip_uuid", tripId)
-      .order("seq", { ascending: true });
-    if (!fetchError && data) {
-      setChecklist(data as ChecklistItem[]);
-    } else {
-      toast({
-        title: "Error",
-        description: "Failed to refresh checklist.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleItemLabelChange = (id: string, label: string) => {
-    setEditingChecklist((prev) =>
-      prev.map((item) =>
-        item.checklist_uuid === id ? { ...item, label } : item
-      )
-    );
-  };
-
-
-
   const handleAddItem = async () => {
     if (newItemLabel.trim()) {
-      // const maxId = (checkListIdCount ?? 0) + 1;
-      const maxSeq = editingChecklist.reduce(
+      const maxSeq = checklist.reduce(
         (max, item) => Math.max(item.seq ?? 0, max),
         0
       );
@@ -301,7 +212,7 @@ const PreTripChecklist = ({
       };
 
       // Update local state
-      setEditingChecklist((prev) => [...prev, newItem]);
+      setChecklist((prev) => [...prev, newItem]);
       setNewItemLabel("");
 
       // Insert into Supabase
@@ -316,169 +227,201 @@ const PreTripChecklist = ({
   };
 
   const handleDeleteItem = (id: string) => {
-    setEditingChecklist((prev) =>
+    const originalChecklist = [...checklist];
+    setChecklist((prev) =>
       prev.filter((item) => item.checklist_uuid !== id)
     );
+
+    supabase
+      .from("pre_trip_checklist")
+      .delete()
+      .eq("checklist_uuid", id)
+      .then(({ error }) => {
+        if (error) {
+          toast({
+            title: "Error Deleting Item",
+            description: error.message,
+            variant: "destructive",
+          });
+          setChecklist(originalChecklist);
+        }
+      });
   };
 
-  const onDragEnd = (result: DropResult) => {
+  const handleLabelBlur = async (item: ChecklistItem, label: string) => {
+    if (label.trim() === item.label) return;
+
+    const { error } = await supabase
+      .from("pre_trip_checklist")
+      .update({ label: label.trim() })
+      .eq("checklist_uuid", item.checklist_uuid);
+
+    if (error) {
+      toast({
+        title: "Error Updating Label",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const onDragEnd = async (result: DropResult) => {
     if (!result.destination) return;
-    const items = Array.from(editingChecklist);
+
+    const originalChecklist = [...checklist];
+    const items = Array.from(checklist);
     const [reorderedItem] = items.splice(result.source.index, 1);
     items.splice(result.destination.index, 0, reorderedItem);
-    setEditingChecklist(items);
+    setChecklist(items);
+
+    // Persist new order
+    const updates = items.map((item, index) => ({
+      checklist_uuid: item.checklist_uuid,
+      seq: index,
+    }));
+
+    for (const u of updates) {
+      const { error } = await supabase
+        .from("pre_trip_checklist")
+        .update({ seq: u.seq })
+        .eq("checklist_uuid", u.checklist_uuid);
+
+      if (error) {
+        toast({
+          title: "Error Updating Order",
+          description: error.message,
+          variant: "destructive",
+        });
+        setChecklist(originalChecklist);
+        break;
+      }
+    }
   };
 
   return (
-    <Card className="bg-card/80 backdrop-blur-sm border-white/20 shadow-lg">
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-2 text-lg font-headline text-card-foreground">
-            <CheckCircle2 className="h-5 w-5 text-primary" />
-            Pre-Trip Checklist
-          </CardTitle>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 text-card-foreground"
-            onClick={handleEditClick}
-          >
-            <Edit className="h-4 w-4" />
-            <span className="sr-only">Edit Checklist</span>
+    <div className="bg-card/80 backdrop-blur-sm border-white/20 shadow-lg">
+      <div className="flex items-center justify-between px-4 pt-4">
+        <CardTitle className="flex items-center gap-2 text-lg font-headline text-card-foreground">
+          <CheckCircle2 className="h-5 w-5 text-primary" />
+          Pre-Trip Checklist
+        </CardTitle>
+      </div>
+      <CardContent>
+        <DragDropContext onDragEnd={onDragEnd}>
+          <Droppable droppableId="checklist-main">
+            {(provided) => (
+              <div
+                {...provided.droppableProps}
+                ref={provided.innerRef}
+                className="space-y-3"
+              >
+                {checklist.map((item, index) => (
+                  <Draggable
+                    key={item.checklist_uuid}
+                    draggableId={item.checklist_uuid}
+                    index={index}
+                  >
+                    {(provided) => (
+                      <div
+                        ref={provided.innerRef}
+                        {...provided.draggableProps}
+                        className="flex items-center gap-3 p-2 bg-background/60 rounded-md"
+                      >
+                        <div
+                          {...provided.dragHandleProps}
+                          className="cursor-grab text-muted-foreground"
+                        >
+                          <GripVertical className="h-4 w-4" />
+                        </div>
+                        <Checkbox
+                          id={item.checklist_uuid}
+                          onCheckedChange={(checked) =>
+                            handleCheckChange(item, !!checked)
+                          }
+                          checked={item.checked}
+                        />
+                        <Input
+                          value={item.label}
+                          onChange={(e) =>
+                            setChecklist((prev) =>
+                              prev.map((i) =>
+                                i.checklist_uuid === item.checklist_uuid
+                                  ? { ...i, label: e.target.value }
+                                  : i
+                              )
+                            )
+                          }
+                          onBlur={(e) =>
+                            handleLabelBlur(item, e.target.value)
+                          }
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.currentTarget.blur();
+                            }
+                          }}
+                          className={cn(
+                            "flex-grow h-8 text-sm",
+                            item.checked &&
+                              "text-muted-foreground line-through"
+                          )}
+                        />
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 shrink-0"
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>
+                                Delete checklist item?
+                              </AlertDialogTitle>
+                              <AlertDialogDescription>
+                                This will permanently delete "
+                                {item.label}" from your pre-trip checklist.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() =>
+                                  handleDeleteItem(item.checklist_uuid)
+                                }
+                                className="bg-destructive hover:bg-destructive/90"
+                              >
+                                Delete
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
+                    )}
+                  </Draggable>
+                ))}
+                {provided.placeholder}
+              </div>
+            )}
+          </Droppable>
+        </DragDropContext>
+
+        <div className="flex items-center gap-2 pt-4 border-t mt-4">
+          <Input
+            placeholder="Add new item..."
+            value={newItemLabel}
+            onChange={(e) => setNewItemLabel(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleAddItem()}
+          />
+          <Button onClick={handleAddItem} className="shrink-0">
+            <PlusCircle className="mr-2 h-4 w-4" />
+            Add
           </Button>
         </div>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-3">
-          {checklist.map((item) => (
-            <div key={item.checklist_uuid} className="flex items-center gap-3">
-              <Checkbox
-                id={item.checklist_uuid}
-                onCheckedChange={(checked) =>
-                  handleCheckChange(item, !!checked)
-                }
-                checked={item.checked}
-              />
-              <Label
-                htmlFor={item.checklist_uuid}
-                className={cn(
-                  "text-sm font-normal text-card-foreground transition-colors",
-                  item.checked && "text-muted-foreground line-through"
-                )}
-              >
-                {item.label}
-              </Label>
-            </div>
-          ))}
-        </div>
       </CardContent>
-
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="shadow-lg">
-          <DialogHeader>
-            <DialogTitle>Edit Pre-Trip Checklist</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 max-h-[60vh] overflow-y-auto py-4 pr-2">
-            <DragDropContext onDragEnd={onDragEnd}>
-              <Droppable droppableId="checklist">
-                {(provided) => (
-                  <div {...provided.droppableProps} ref={provided.innerRef}>
-                    {editingChecklist.map((item, index) => (
-                      <Draggable
-                        key={item.checklist_uuid}
-                        draggableId={item.checklist_uuid}
-                        index={index}
-                      >
-                        {(provided) => (
-                          <div
-                            ref={provided.innerRef}
-                            {...provided.draggableProps}
-                            className="flex items-center gap-2 mb-2 p-2 bg-background rounded-md"
-                          >
-                            <div
-                              {...provided.dragHandleProps}
-                              className="cursor-grab"
-                            >
-                              <GripVertical className="h-5 w-5 text-muted-foreground" />
-                            </div>
-                            <Input
-                              value={item.label}
-                              onChange={(e) =>
-                                handleItemLabelChange(
-                                  item.checklist_uuid,
-                                  e.target.value
-                                )
-                              }
-                              className="flex-grow"
-                            />
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-9 w-9 shrink-0"
-                                >
-                                  <Trash2 className="h-4 w-4 text-destructive" />
-                                </Button>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent>
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>
-                                    Are you sure?
-                                  </AlertDialogTitle>
-                                  <AlertDialogDescription>
-                                    This will permanently delete the item "
-                                    {item.label}".
-                                  </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                  <AlertDialogAction
-                                    onClick={() =>
-                                      handleDeleteItem(item.checklist_uuid)
-                                    }
-                                    className="bg-destructive hover:bg-destructive/90"
-                                  >
-                                    Delete
-                                  </AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
-                          </div>
-                        )}
-                      </Draggable>
-                    ))}
-                    {provided.placeholder}
-                  </div>
-                )}
-              </Droppable>
-            </DragDropContext>
-
-            <div className="flex items-center gap-2 pt-4 border-t">
-              <Input
-                placeholder="Add new item..."
-                value={newItemLabel}
-                onChange={(e) => setNewItemLabel(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleAddItem()}
-              />
-              <Button onClick={handleAddItem} className="shrink-0">
-                <PlusCircle className="mr-2 h-4 w-4" />
-                Add
-              </Button>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setIsEditDialogOpen(false)}
-            >
-              Cancel
-            </Button>
-            <Button onClick={handleSave}>Save</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </Card>
+    </div>
   );
 };
 
@@ -490,7 +433,9 @@ export function TripPlanner({ trip }: TripPlannerProps) {
     null
   );
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [activeView, setActiveView] = useState<string>("checklist");
+  const [activeView, setActiveView] = useState<string>("");
+  const [checklistOpen, setChecklistOpen] = useState(false);
+
   const [viewingPhoto, setViewingPhoto] = useState<TripDayPhotos | null>(null);
   const [activityOptions, setActivityOptions] = useState<ActivityOptions[]>([]);
   const photoInputRef = useRef<HTMLInputElement>(null);
@@ -1222,7 +1167,7 @@ export function TripPlanner({ trip }: TripPlannerProps) {
       if (newItinerary.length > 0) {
         setActiveView(`day-${newItinerary[0].day_number}`);
       } else {
-        setActiveView("checklist");
+        setActiveView("day-1");
       }
 
       toast({ title: "Day deleted", description: `Day ${editingItem.day_number} removed.` });
@@ -1349,7 +1294,7 @@ export function TripPlanner({ trip }: TripPlannerProps) {
   );
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 pb-20">
       <header className="flex justify-between items-center">
         <div className="flex items-center gap-2">
           <Button
@@ -1399,9 +1344,7 @@ export function TripPlanner({ trip }: TripPlannerProps) {
           </span>
         </div>
       </div> */}
-      <ScrollArea className="w-full whitespace-nowrap">
-        <div className="flex space-x-2 pb-2">
-          <Button
+                {/* <Button
             variant={activeView === "checklist" ? "default" : "outline"}
             onClick={() => setActiveView("checklist")}
             className={cn(
@@ -1411,7 +1354,22 @@ export function TripPlanner({ trip }: TripPlannerProps) {
             )}
           >
             Checklist
-          </Button>
+          </Button> */}
+          <div
+            onClick={() => setChecklistOpen(!checklistOpen)}
+            className="p-2 flex items-center justify-between border-white/20 border-b text-white hover:bg-white/20 hover:text-white"
+          >
+            <div className="flex items-center gap-2 text-lg font-headline text-card-foreground">
+              <CheckCircle2 className="h-5 w-5 text-primary" />
+              <p className="font-semibold text-white">Pre-Trip Checklist</p>
+            </div>
+            <ChevronDown className="h-4 w-4" />
+          </div>
+                      {checklistOpen && (
+              <PreTripChecklist checklist={checklist} tripId={trip.trip_uuid} />
+            )}
+      <ScrollArea className="w-full whitespace-nowrap">
+        <div className="flex space-x-2 pb-2">
           {itinerary.map((item) => (
             <Button
               key={item.day_uuid}
@@ -1420,30 +1378,28 @@ export function TripPlanner({ trip }: TripPlannerProps) {
               }
               onClick={() => setActiveView(`day-${item.day_number}`)}
               className={cn(
-                "shrink-0",
+                "shrink-0 w-16 h-16 rounded-full flex flex-col items-center justify-center text-center gap-0",
                 activeView !== `day-${item.day_number}` &&
                   "bg-white/10 border-white/20 text-white hover:bg-white/20 hover:text-white"
               )}
             >
-              Day {item.day_number}
+              <span className={cn("font-medium")}>{formatMMDD(item.date)}</span>
+              <span className={cn("font-bold")}>Day {item.day_number}</span>
             </Button>
           ))}
         </div>
         <ScrollBar orientation="horizontal" />
       </ScrollArea>
 
-      {activeView === "checklist" && (
-        <PreTripChecklist checklist={checklist} tripId={trip.trip_uuid} />
-      )}
 
-      {activeItineraryItem && (
+      {/* {activeItineraryItem && (
         <WeatherCard
           location={activeItineraryItem.title.replace(
             /arrival in |exploring |day trip to /i,
             ""
           )}
         />
-      )}
+      )} */}
 
       {itinerary.map((item) => (
         <div
