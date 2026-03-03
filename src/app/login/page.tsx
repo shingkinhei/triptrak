@@ -10,6 +10,7 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { Facebook } from 'lucide-react';
 
 export default function LoginPage() {
     const router = useRouter();
@@ -34,7 +35,26 @@ export default function LoginPage() {
             router.push('/trips');
             router.refresh();
         }
-    }
+    };
+
+    // const handleFacebookLogin = async () => {
+    //     const { error } = await supabase.auth.signInWithOAuth({
+    //         provider: 'facebook',
+    //         options: {
+    //             redirectTo: `${window.location.origin}/auth/callback`,
+    //         },
+    //     });
+
+    //     if (error) {
+    //         toast({
+    //             title: 'Error logging in with Facebook',
+    //             description: error.message,
+    //             variant: 'destructive',
+    //         });
+    //     }
+    //     console.log('Facebook login initiated');
+    //     // Don't redirect manually - the OAuth callback will handle it
+    //};
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-background p-4 font-body">
@@ -77,11 +97,13 @@ export default function LoginPage() {
                 />
             </div>
             <Button type="submit" className="w-full" onClick={handleLogin}>
+                
                 Login
             </Button>
-            <Button variant="outline" className="w-full" disabled>
-                Login with Google
-            </Button>
+            {/* <Button variant="outline" className="w-full" onClick={handleFacebookLogin}>
+                <Facebook className="mr-2 h-4 w-4" />
+                Login with Facebook
+            </Button> */}
             </div>
             <div className="mt-4 text-center text-sm">
             Don&apos;t have an account?{' '}

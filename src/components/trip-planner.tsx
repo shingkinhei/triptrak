@@ -18,6 +18,7 @@ import type {
 import {
   BedDouble,
   Camera,
+  ChevronUp,
   ChevronDown,
   Plane,
   Train,
@@ -299,13 +300,15 @@ const PreTripChecklist = ({
   };
 
   return (
-    <div className="bg-card/80 backdrop-blur-sm border-white/20 shadow-lg">
-      <div className="flex items-center justify-between px-4 pt-4">
+    // <div className=" bg-white/20 backdrop-blur-sm border-white/20 shadow-lg">
+    <div className="mt-2">
+
+      {/* <div className="flex items-center justify-between px-4 pt-4">
         <CardTitle className="flex items-center gap-2 text-lg font-headline text-card-foreground">
           <CheckCircle2 className="h-5 w-5 text-primary" />
           Pre-Trip Checklist
         </CardTitle>
-      </div>
+      </div> */}
       <CardContent>
         <DragDropContext onDragEnd={onDragEnd}>
           <Droppable droppableId="checklist-main">
@@ -325,7 +328,7 @@ const PreTripChecklist = ({
                       <div
                         ref={provided.innerRef}
                         {...provided.draggableProps}
-                        className="flex items-center gap-3 p-2 bg-background/60 rounded-md"
+                        className="flex items-center gap-3 p-2 bg-background/40 rounded-md"
                       >
                         <div
                           {...provided.dragHandleProps}
@@ -1355,19 +1358,24 @@ export function TripPlanner({ trip }: TripPlannerProps) {
           >
             Checklist
           </Button> */}
+          <div className={`border-b border-white/20 ${checklistOpen ? "bg-white/80 rounded-lg border-b-0" : ""}`}>
           <div
             onClick={() => setChecklistOpen(!checklistOpen)}
-            className="p-2 flex items-center justify-between border-white/20 border-b text-white hover:bg-white/20 hover:text-white"
+            className={`p-2 flex items-center justify-between text-white hover:bg-white/20 hover:text-white ${checklistOpen ? " rounded-lg " : ""}`}
           >
             <div className="flex items-center gap-2 text-lg font-headline text-card-foreground">
               <CheckCircle2 className="h-5 w-5 text-primary" />
-              <p className="font-semibold text-white">Pre-Trip Checklist</p>
+              <p className={`font-semibold ${checklistOpen ? "text-black" : "text-white"}`}>Pre-Trip Checklist</p>
             </div>
-            <ChevronDown className="h-4 w-4" />
+            {checklistOpen ? (
+              <ChevronUp className="h-4 w-4" />
+            ) : (<ChevronDown className="h-4 w-4" />)}
+            
           </div>
-                      {checklistOpen && (
-              <PreTripChecklist checklist={checklist} tripId={trip.trip_uuid} />
-            )}
+          {checklistOpen && (
+            <PreTripChecklist checklist={checklist} tripId={trip.trip_uuid} />
+          )}
+          </div>
       <ScrollArea className="w-full whitespace-nowrap">
         <div className="flex space-x-2 pb-2">
           {itinerary.map((item) => (

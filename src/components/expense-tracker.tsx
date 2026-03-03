@@ -627,7 +627,7 @@ export function ExpenseTracker({ expensesInfo, trip }: ExpenseTrackerProps) {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 pb-20">
       <header className="flex items-center gap-2">
         <Button
           variant="ghost"
