@@ -256,7 +256,7 @@ export function ExpenseTracker({ expensesInfo, trip }: ExpenseTrackerProps) {
 
   const totalExpensesInCurrent =
     displayCurrency === "trip"
-      ? totalExpenses
+      ? convertUsdToCurrency(totalExpenses, tripRate)
       : convertUsdToCurrency(totalExpenses, homeRate);
   const amountInputRef = useRef<HTMLInputElement>(null);
 
