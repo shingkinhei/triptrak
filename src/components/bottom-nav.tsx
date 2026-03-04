@@ -2,7 +2,7 @@
 import type { Dispatch, SetStateAction } from 'react';
 import {
   ClipboardList,
-  Map,
+  Camera,
   ShoppingCart,
   Wallet,
   Home,
@@ -12,7 +12,7 @@ import {
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 
-export type Tab = 'planner' | 'map' | 'expenses' | 'shopping';
+export type Tab = 'planner' | 'memories' | 'expenses' | 'shopping';
 export type NavItemIds = Tab | 'trips' | 'settings';
 
 interface NavItem {
@@ -33,7 +33,7 @@ export function BottomNav({ activeItem, setActiveTab }: BottomNavProps) {
   const navItems: NavItem[] = [
     { id: 'trips', label: 'Trips', icon: Home, action: () => router.push('/trips') },
     { id: 'planner', label: 'Planner', icon: ClipboardList },
-    { id: 'map', label: 'Map', icon: Map },
+  { id: 'memories', label: 'Photos & Memories', icon: Camera },
     { id: 'expenses', label: 'Expenses', icon: Wallet },
     { id: 'shopping', label: 'Shopping', icon: ShoppingCart },
     { id: 'settings', label: 'Settings', icon: Settings, action: () => router.push('/settings') },
