@@ -110,9 +110,9 @@ export default function SignupPage() {
             <Button type="submit" className="w-full" onClick={handleSignup}>
                 Create an account
             </Button>
-            <Button variant="outline" className="w-full" disabled>
+            {/* <Button variant="outline" className="w-full" disabled>
                 Sign up with Google
-            </Button>
+            </Button> */}
             </div>
             <div className="mt-4 text-center text-sm">
             Already have an account?{' '}

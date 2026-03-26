@@ -37,24 +37,24 @@ export default function LoginPage() {
         }
     };
 
-    // const handleFacebookLogin = async () => {
-    //     const { error } = await supabase.auth.signInWithOAuth({
-    //         provider: 'facebook',
-    //         options: {
-    //             redirectTo: `${window.location.origin}/auth/callback`,
-    //         },
-    //     });
+    const handleFacebookLogin = async () => {
+        const { error } = await supabase.auth.signInWithOAuth({
+            provider: 'facebook',
+            options: {
+                redirectTo: `${window.location.origin}/auth/callback`,
+            },
+        });
 
-    //     if (error) {
-    //         toast({
-    //             title: 'Error logging in with Facebook',
-    //             description: error.message,
-    //             variant: 'destructive',
-    //         });
-    //     }
-    //     console.log('Facebook login initiated');
-    //     // Don't redirect manually - the OAuth callback will handle it
-    //};
+        if (error) {
+            toast({
+                title: 'Error logging in with Facebook',
+                description: error.message,
+                variant: 'destructive',
+            });
+        }
+        console.log('Facebook login initiated');
+        // Don't redirect manually - the OAuth callback will handle it
+    };
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-background p-4 font-body">
@@ -100,10 +100,10 @@ export default function LoginPage() {
                 
                 Login
             </Button>
-            {/* <Button variant="outline" className="w-full" onClick={handleFacebookLogin}>
+            <Button variant="outline" className="w-full" onClick={handleFacebookLogin}>
                 <Facebook className="mr-2 h-4 w-4" />
                 Login with Facebook
-            </Button> */}
+            </Button>
             </div>
             <div className="mt-4 text-center text-sm">
             Don&apos;t have an account?{' '}
