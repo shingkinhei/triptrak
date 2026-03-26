@@ -439,7 +439,7 @@ export function TripPlanner({ trip }: TripPlannerProps) {
   const [activeView, setActiveView] = useState<string>("");
   const [checklistOpen, setChecklistOpen] = useState(false);
 
-  const [viewingPhoto, setViewingPhoto] = useState<TripDayPhotos | null>(null);
+  // const [viewingPhoto, setViewingPhoto] = useState<TripDayPhotos | null>(null);
   const [activityOptions, setActivityOptions] = useState<ActivityOptions[]>([]);
   const photoInputRef = useRef<HTMLInputElement>(null);
   const dayCoverInputRef = useRef<HTMLInputElement>(null);
@@ -1464,7 +1464,7 @@ export function TripPlanner({ trip }: TripPlannerProps) {
                 </div>
               )}
 
-              {item.tripDayPhotos && item.tripDayPhotos.length > 0 && (
+              {/* {item.tripDayPhotos && item.tripDayPhotos.length > 0 && (
                 <div className="grid grid-cols-3 gap-2">
                   {item.tripDayPhotos
                     .filter((p) => !p.pending_delete)
@@ -1483,7 +1483,7 @@ export function TripPlanner({ trip }: TripPlannerProps) {
                       </button>
                     ))}
                 </div>
-              )}
+              )} */}
               <ul className="space-y-4">
                 {item.activities.map((activity, actIndex) => {
                   const icon = getIconText(
@@ -1604,7 +1604,7 @@ export function TripPlanner({ trip }: TripPlannerProps) {
                 />
               </div>
 
-              <div className="space-y-2">
+              {/* <div className="space-y-2">
                 <Label>Your Photos</Label>
                 <Input
                   type="file"
@@ -1655,7 +1655,7 @@ export function TripPlanner({ trip }: TripPlannerProps) {
                     <span className="text-xs">Upload</span>
                   </Button>
                 </div>
-              </div>
+              </div> */}
 
               <div className="space-y-2">
                 <div className="flex justify-between items-center">
@@ -1809,7 +1809,7 @@ export function TripPlanner({ trip }: TripPlannerProps) {
         </Dialog>
       )}
 
-      {viewingPhoto && (
+      {/* {viewingPhoto && (
         <Dialog
           open={!!viewingPhoto}
           onOpenChange={() => setViewingPhoto(null)}
@@ -1831,7 +1831,7 @@ export function TripPlanner({ trip }: TripPlannerProps) {
             </div>
           </DialogContent>
         </Dialog>
-      )}
+      )} */}
     </div>
   );
 }

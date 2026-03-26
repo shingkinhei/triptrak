@@ -18,7 +18,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Camera, Upload } from "lucide-react";
 import Image from "next/image";
-import { FC, useMemo, useRef, useState } from "react";
+import { FC, useMemo, useRef, useState,useEffect, use } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { useRouter } from "next/navigation";
 import {
@@ -38,30 +38,67 @@ export const MemoriesView: FC<MemoriesViewProps> = ({ trip, setTrip }) => {
   const [selectedDayId, setSelectedDayId] = useState<string>(
     trip.itinerary[0]?.day_uuid || ""
   );
+  const [allPhotos, setAllPhotos] = useState<TripDayPhotos[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [viewingPhoto, setViewingPhoto] = useState<TripDayPhotos | null>(null);
   const router = useRouter();
 
-  const allPhotos = useMemo(() => {
-    const photos: Array<
-      TripDayPhotos & { day_title: string; day_date: string | null }
-    > = [];
-    trip.itinerary.forEach((day) => {
-      (day.tripDayPhotos || []).forEach((p) => {
-        photos.push({
-          ...(p as TripDayPhotos),
-          day_title: day.title,
-          day_date: day.date,
-        });
-      });
-    });
-    return photos.sort((a, b) => {
-      const da = a.day_date || "";
-      const db = b.day_date || "";
-      return da.localeCompare(db);
-    });
-  }, [trip]);
+//   const allPhotos = useMemo(() => {
+//     const photos: Array<
+//       TripDayPhotos & { day_title: string; day_date: string | null }
+//     > = [];
+//     trip.itinerary.forEach((day) => {
+//       (day.tripDayPhotos || []).forEach((p) => {
+//         photos.push({
+//           ...(p as TripDayPhotos),
+//           day_title: day.title,
+//           day_date: day.date,
+//         });
+//       });
+//     });
+//     return photos.sort((a, b) => {
+//       const da = a.day_date || "";
+//       const db = b.day_date || "";
+//       return da.localeCompare(db);
+//     });
+//   }, [trip]);
 
+  useEffect(() => {
+    const fetchPhotes = async () => {
+        // if (!selectedDayId) return;
+        const { data: photos, error } = await supabase
+            .from("trip_photos")
+            .select("*")
+            .eq("day_uuid", selectedDayId)
+            .order("seq", { ascending: true });
+        if (error) {
+            toast({
+                title: "Error fetching photos",
+                description: error.message,
+                variant: "destructive",
+            });
+        } else if (photos) {
+            setAllPhotos(photos as TripDayPhotos[]);
+             setTrip((prev) =>
+                prev
+                    ? {
+                          ...prev,
+                          itinerary: prev.itinerary.map((day) =>
+                              day.day_uuid === selectedDayId
+                                  ? { ...day, tripDayPhotos: photos as TripDayPhotos[] }
+                                  : day
+                          ),
+                      }
+                    : prev
+            );
+        }
+    };
+    fetchPhotes();
+  }, [selectedDayId, supabase, toast, setTrip]);
+
+  if (!trip) {
+    return null;
+    }
   const handleUploadChange = async (
     e: React.ChangeEvent<HTMLInputElement>
   ) => {
@@ -192,16 +229,10 @@ export const MemoriesView: FC<MemoriesViewProps> = ({ trip, setTrip }) => {
           <h1 className="text-2xl font-bold font-headline text-primary-foreground">
             Photos & Memories
           </h1>
-          <p className="text-sm text-primary-foreground/80">
-            All photos from this trip in one place.
-          </p>
         </div>
       </header>
       <div className="flex items-center gap-3">
         <div className="flex-1">
-          <Label htmlFor="memories-day" className="text-xs text-primary-foreground/80">
-            Add photos to day
-          </Label>
           <Select
             value={selectedDayId}
             onValueChange={setSelectedDayId}
@@ -264,11 +295,11 @@ export const MemoriesView: FC<MemoriesViewProps> = ({ trip, setTrip }) => {
                   fill
                   className="object-cover"
                 />
-                <div className="absolute bottom-0 left-0 right-0 bg-black/40 px-1 py-0.5">
+                {/* <div className="absolute bottom-0 left-0 right-0 bg-black/40 px-1 py-0.5">
                   <p className="truncate text-[10px] text-white">
                     {photo.day_title}
                   </p>
-                </div>
+                </div> */}
               </button>
             ))}
           </div>
