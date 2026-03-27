@@ -21,8 +21,8 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import Compressor from 'compressorjs';
 import { v4 as uuidv4 } from "uuid";
 import { useCurrency } from "@/context/CurrencyContext";
-import useLongPress from '@/hooks/use-long-press';
-import { on } from 'events';
+// import useLongPress from '@/hooks/use-long-press';
+// import { on } from 'events';
 
 type EditableTrip = Partial<
   Pick<

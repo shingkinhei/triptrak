@@ -21,7 +21,7 @@ import {
   ChevronUp,
   ChevronDown,
   Plane,
-  Train,
+  Train, 
   UtensilsCrossed,
   MoreVertical,
   PlusCircle,
@@ -36,6 +36,7 @@ import {
   CheckCircle2,
   Edit,
   GripVertical,
+  Brain,
 } from "lucide-react";
 import { Button } from "./ui/button";
 import {
@@ -87,6 +88,8 @@ import {
   type DropResult,
 } from "@hello-pangea/dnd";
 import { v4 as uuidv4 } from "uuid";
+import { Description } from "@radix-ui/react-toast";
+import { match } from "assert/strict";
 
 const iconMap: Record<string, LucideIcon> = {
   Plane,
@@ -120,6 +123,7 @@ type ActivityOptions = {
   icon_text: string;
   color_code: string;
   description: string;
+  ai_preference: boolean;
 };
 
 function getIconText(
@@ -436,6 +440,13 @@ export function TripPlanner({ trip }: TripPlannerProps) {
     null
   );
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isAIPlanDialogOpen, setIsAIPlanDialogOpen] = useState(false);
+  const [aiPreferences, setAIPreferences] = useState({
+    preferences: null,
+    suggestions: null,
+  });
+  const [AIPreferencesOptions, setAIPreferencesOptions] = useState<ActivityOptions[]>([]);
+
   const [activeView, setActiveView] = useState<string>("");
   const [checklistOpen, setChecklistOpen] = useState(false);
 
@@ -467,7 +478,7 @@ export function TripPlanner({ trip }: TripPlannerProps) {
     const fetchActivityOptions = async () => {
       const { data, error } = await supabase
         .from("activities_option_setup")
-        .select("activity_type, icon_text, color_code, description");
+        .select("activity_type, icon_text, color_code, description, ai_preference");
       if (error) {
         toast({
           title: "Error fetching statuses",
@@ -476,6 +487,9 @@ export function TripPlanner({ trip }: TripPlannerProps) {
         });
       } else {
         setActivityOptions(data as ActivityOptions[]);
+        setAIPreferencesOptions(
+          (data as ActivityOptions[]).filter(opt => opt.ai_preference === true)
+        );
       }
     };
 
@@ -868,6 +882,46 @@ export function TripPlanner({ trip }: TripPlannerProps) {
   const handleCancelEdit = () => {
     setIsEditDialogOpen(false);
     setEditingItem(null);
+  };
+
+  const handleAIPlanChange = (field: "preferences" | "suggestions", value: string | null) => {
+    setAIPreferences(prev => ({ ...prev, [field]: value }));
+  }
+
+  const handleOpenAIPlan = () => {
+    setIsAIPlanDialogOpen(true);
+  };
+
+  const handleCancelAIPlan = () => {
+    setIsAIPlanDialogOpen(false);
+    setAIPreferences({
+      preferences: null,
+      suggestions: null,
+    });
+  }
+  const handleApplyAIPlan = () => {
+                    console.log("Applying AI Plan with preferences:", aiPreferences);
+    // const preferences = Object.entries(aiPreferences)
+    //   .filter(([, value]) => value)
+    //   .map(([key]) => key.charAt(0).toUpperCase() + key.slice(1))
+    //   .join(", ");
+
+    // if (editingItem) {
+    //   setEditingItem({
+    //     ...editingItem,
+    //     feedback: `AI preferences set: ${preferences || "None"}`,
+    //   });
+    // }
+
+    // toast({
+    //   title: "AI Plan set",
+    //   description: preferences
+    //     ? `Preferences: ${preferences}`
+    //     : "No preference selected",
+    //   variant: "default",
+    // });
+
+    setIsAIPlanDialogOpen(false);
   };
 
   const handleFieldChange = (
@@ -1770,7 +1824,13 @@ export function TripPlanner({ trip }: TripPlannerProps) {
                 </div>
               </div>
             </div>
-            <DialogFooter className="flex items-center justify-between">
+            <DialogFooter className="flex items-center justify-between gap-2">
+              <div>
+                <Button variant="outline" onClick={handleOpenAIPlan}>
+                  <Brain className="mr-2 h-4 w-4" />
+                  AI Plan
+                </Button>
+              </div>
               <div>
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
@@ -1798,16 +1858,88 @@ export function TripPlanner({ trip }: TripPlannerProps) {
                   </AlertDialogContent>
                 </AlertDialog>
               </div>
-              <div className="flex gap-2">
+              <div>
                 <Button variant="outline" onClick={handleCancelEdit}>
                   Cancel
                 </Button>
+              </div>
+              <div>
                 <Button onClick={handleSave}>Save Changes</Button>
               </div>
             </DialogFooter>
           </DialogContent>
         </Dialog>
       )}
+
+      <Dialog
+        open={isAIPlanDialogOpen}
+        onOpenChange={(isOpen) => setIsAIPlanDialogOpen(isOpen)}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>AI Trip Preferences</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <p className="text-sm text-muted-foreground">
+              Choose the preferences to guide the AI itinerary suggestions.
+            </p>
+            <div className="flex items-center gap-2">
+              <div className="flex flex-col gap-4 w-full">
+                <div className="flex items-center gap-2 justify-center">
+                  <div className="grid grid-cols-2 gap-4 p-2 ">
+                  {AIPreferencesOptions.map((opt) => (
+                    <Button
+                      className="flex items-center gap-2 h-[8rem] w-[8rem]"
+                      key={opt.icon_text}
+                      variant={
+                        aiPreferences.preferences === opt.activity_type
+                          ? "default"
+                          : "outline"
+                      }
+                      onClick={() =>
+                        handleAIPlanChange("preferences", opt.activity_type)
+                      }
+                    >
+                      <div className="flex flex-col items-center justify-center gap-2 h-[8rem] w-full">
+                        {React.createElement(
+                          iconMap[opt.icon_text],
+                          { className: "h-8 w-8" }
+                        )}
+                        <span>{opt.activity_type}</span>
+                      </div>
+                    </Button>
+                  ))}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Label>Suggestion</Label>
+                  <Input
+                    id="ai-suggestions"
+                    type="text"
+                    value= {aiPreferences.suggestions || ""}
+                    onChange={(e) =>
+                      handleAIPlanChange("suggestions", e.target.value)
+                    }
+                  />
+                </div>
+              </div>
+            </div>
+                
+          </div>
+          <DialogFooter className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={(e) => {
+                e.preventDefault();
+                handleCancelAIPlan();
+              }}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleApplyAIPlan}>Apply</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* {viewingPhoto && (
         <Dialog
