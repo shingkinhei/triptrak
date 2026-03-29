@@ -90,6 +90,7 @@ import {
 import { v4 as uuidv4 } from "uuid";
 import { Description } from "@radix-ui/react-toast";
 import { match } from "assert/strict";
+import { getAIPlan } from "@/api/generateDayActivities";
 
 const iconMap: Record<string, LucideIcon> = {
   Plane,
@@ -107,10 +108,6 @@ interface TripPlannerProps {
 }
 
 type EditableTripDayPhoto = TripDayPhotos;
-// & {
-//   trip_day_photo?: File | null;
-//   trip_day_photo_preview?: string | null;
-// }
 
 type EditableItineraryItem = ItineraryItem & {
   cover_image_file?: File | null;
@@ -441,6 +438,7 @@ export function TripPlanner({ trip }: TripPlannerProps) {
   );
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isAIPlanDialogOpen, setIsAIPlanDialogOpen] = useState(false);
+  const [isAIPlanLoading, setIsAIPlanLoading] = useState(false);
   const [aiPreferences, setAIPreferences] = useState({
     preferences: null,
     suggestions: null,
@@ -899,29 +897,107 @@ export function TripPlanner({ trip }: TripPlannerProps) {
       suggestions: null,
     });
   }
-  const handleApplyAIPlan = () => {
-                    console.log("Applying AI Plan with preferences:", aiPreferences);
-    // const preferences = Object.entries(aiPreferences)
-    //   .filter(([, value]) => value)
-    //   .map(([key]) => key.charAt(0).toUpperCase() + key.slice(1))
-    //   .join(", ");
+  const handleApplyAIPlan = async () => {
+    if (!editingItem?.day_uuid) {
+      toast({
+        title: "Error",
+        description: "No day selected.",
+        variant: "destructive",
+      });
+      return;
+    }
 
-    // if (editingItem) {
-    //   setEditingItem({
-    //     ...editingItem,
-    //     feedback: `AI preferences set: ${preferences || "None"}`,
-    //   });
-    // }
+    if (!aiPreferences.preferences) {
+      toast({
+        title: "Incomplete Input",
+        description: "Please provide your preferences.",
+        variant: "destructive",
+      });
+      return;
+    }
 
-    // toast({
-    //   title: "AI Plan set",
-    //   description: preferences
-    //     ? `Preferences: ${preferences}`
-    //     : "No preference selected",
-    //   variant: "default",
-    // });
+    if (editingItem?.activities?.length > 0) {
+      // the exist acitivites will be replaced by AI
+      const existingActivities = editingItem.activities;
 
-    setIsAIPlanDialogOpen(false);
+      //confirm the existing activities will be replaced by AI suggestions
+
+      // Clear existing activities
+      setEditingItem({
+        ...editingItem,
+        activities: [],
+        feedback: `Existing activities will be replaced by AI suggestions.`,
+      })
+    }
+    setIsAIPlanLoading(true);
+    const loadingToastId = toast({
+      title: "Generating AI plan...",
+      description: "Please wait while we generate your itinerary suggestions.",
+    });
+
+    try {
+      const result = await getAIPlan(
+        editingItem.day_uuid,
+        aiPreferences.preferences,
+        aiPreferences.suggestions
+      );
+
+      if (!result) {
+        toast({
+          title: "AI Plan Failed",
+          description: "Failed to generate AI plan.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      console.log("AI Plan Result:", result);
+
+      // Convert AI response to Activity objects
+      // result should be an array of activities with: time, description, activity_type, address
+      const aiActivities: Activity[] = Array.isArray(result)
+        ? result.map((activity: any) => ({
+            activity_uuid: uuidv4(),
+            day_uuid: editingItem.day_uuid,
+            name: activity.name || "",
+            time: activity.time || "00:00",
+            description: activity.description || "",
+            activity_type: activity.activity_type || "Sightseeing",
+            address: activity.address || null,
+          }))
+        : [];
+
+      // Update editingItem with new activities
+      setEditingItem((prev) =>
+        prev
+          ? {
+              ...prev,
+              activities: [...prev.activities, ...aiActivities],
+              feedback: `AI Plan Applied (${aiActivities.length} activities suggested)`,
+            }
+          : prev
+      );
+
+      toast({
+        title: "AI Plan Applied",
+        description: `${aiActivities.length} activity(ies) added to your day.`,
+      });
+
+      setIsAIPlanDialogOpen(false);
+      setAIPreferences({
+        preferences: null,
+        suggestions: null,
+      });
+    } catch (error) {
+      console.error("Error applying AI plan:", error);
+      toast({
+        title: "Error",
+        description: "Failed to process AI plan.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsAIPlanLoading(false);
+    }
   };
 
   const handleFieldChange = (
@@ -954,6 +1030,7 @@ export function TripPlanner({ trip }: TripPlannerProps) {
       const newActivity: Activity = {
         activity_uuid: uuidv4(),
         day_uuid: editingItem.day_uuid,
+        name: "",
         time: "00:00",
         description: "New Activity",
         address: null,
@@ -1562,6 +1639,9 @@ export function TripPlanner({ trip }: TripPlannerProps) {
                         <p className="font-semibold text-card-foreground">
                           {activity.time}
                         </p>
+                         <p className="font-semibold text-card-foreground">
+                          {activity.name}
+                        </p>
                         <p className="text-muted-foreground">
                           {activity.description}
                         </p>
@@ -1787,6 +1867,18 @@ export function TripPlanner({ trip }: TripPlannerProps) {
                           />
                         </div>
                         <Input
+                          value={act.name}
+                          onChange={(e) =>
+                            handleActivityChange(
+                              act.activity_uuid,
+                              "name",
+                              e.target.value
+                            )
+                          }
+                          placeholder="Activity name"
+                          className="h-8"
+                        />
+                        <Input
                           value={act.description}
                           onChange={(e) =>
                             handleActivityChange(
@@ -1824,9 +1916,9 @@ export function TripPlanner({ trip }: TripPlannerProps) {
                 </div>
               </div>
             </div>
-            <DialogFooter className="flex items-center justify-between gap-2">
+            <DialogFooter className="grid grid-cols-3 grid-rows-2 gap-2">
               <div>
-                <Button variant="outline" onClick={handleOpenAIPlan}>
+                <Button variant="outline" onClick={handleOpenAIPlan} className="w-full">
                   <Brain className="mr-2 h-4 w-4" />
                   AI Plan
                 </Button>
@@ -1834,7 +1926,7 @@ export function TripPlanner({ trip }: TripPlannerProps) {
               <div>
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
-                    <Button variant="destructive" size="sm">
+                    <Button variant="destructive" size="sm" className="w-full">
                       <Trash2 className="mr-2 h-4 w-4" /> Delete Day
                     </Button>
                   </AlertDialogTrigger>
@@ -1858,13 +1950,13 @@ export function TripPlanner({ trip }: TripPlannerProps) {
                   </AlertDialogContent>
                 </AlertDialog>
               </div>
-              <div>
-                <Button variant="outline" onClick={handleCancelEdit}>
+              <div >
+                <Button variant="outline" onClick={handleCancelEdit} className="w-full">
                   Cancel
                 </Button>
               </div>
-              <div>
-                <Button onClick={handleSave}>Save Changes</Button>
+              <div className="col-span-3">
+                <Button onClick={handleSave} className="w-full">Save Changes</Button>
               </div>
             </DialogFooter>
           </DialogContent>
@@ -1916,6 +2008,7 @@ export function TripPlanner({ trip }: TripPlannerProps) {
                   <Input
                     id="ai-suggestions"
                     type="text"
+                    placeholder="Add more local food spots?"
                     value= {aiPreferences.suggestions || ""}
                     onChange={(e) =>
                       handleAIPlanChange("suggestions", e.target.value)
@@ -1933,10 +2026,16 @@ export function TripPlanner({ trip }: TripPlannerProps) {
                 e.preventDefault();
                 handleCancelAIPlan();
               }}
+              disabled={isAIPlanLoading}
             >
               Cancel
             </Button>
-            <Button onClick={handleApplyAIPlan}>Apply</Button>
+            <Button 
+              onClick={handleApplyAIPlan}
+              disabled={isAIPlanLoading}
+            >
+              {isAIPlanLoading ? "Generating..." : "Apply"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -4,7 +4,7 @@ import React, { type FC } from "react";
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
-import { BottomNav, type Tab } from "@/components/bottom-nav";
+import { BottomNav, type Tab } from "@/components/ui/bottom-nav";
 import { ExpenseTracker } from "@/components/expense-tracker";
 import { ShoppingList } from "@/components/shopping-list";
 import MemoriesView from "@/components/memories-view";

@@ -6,9 +6,11 @@ export type Activity = {
   activity_uuid: string;
   day_uuid: string;
   time: string;
+  name: string;
   description: string;
   address?: string | null;
   activity_type: string;
+  
 };
 
 export type TripDayPhotos = {

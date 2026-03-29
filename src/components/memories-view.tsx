@@ -18,7 +18,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Camera, Upload } from "lucide-react";
 import Image from "next/image";
-import { FC, useMemo, useRef, useState,useEffect, use } from "react";
+import { FC, useRef, useState, useEffect } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { useRouter } from "next/navigation";
 import {
