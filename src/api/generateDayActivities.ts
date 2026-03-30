@@ -55,7 +55,6 @@ export async function getAIPlan(day_uuid: string, user_preference: string,user_s
   }
   
   const cleanJsonString = aiContent.replace(/```json|```/g, "").trim();
-  // console.log(NextResponse.json(JSON.parse(cleanJsonString)));
   console.log("Cleaned AI Content:", JSON.parse(cleanJsonString));
   return JSON.parse(cleanJsonString);
 }

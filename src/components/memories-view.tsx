@@ -9,6 +9,16 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -16,7 +26,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Camera, Upload } from "lucide-react";
+import { Camera, Upload, Trash2 } from "lucide-react";
 import Image from "next/image";
 import { FC, useRef, useState, useEffect } from "react";
 import { v4 as uuidv4 } from "uuid";
@@ -41,6 +51,8 @@ export const MemoriesView: FC<MemoriesViewProps> = ({ trip, setTrip }) => {
   const [allPhotos, setAllPhotos] = useState<TripDayPhotos[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [viewingPhoto, setViewingPhoto] = useState<TripDayPhotos | null>(null);
+  const [photoToDelete, setPhotoToDelete] = useState<TripDayPhotos | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const router = useRouter();
 
 //   const allPhotos = useMemo(() => {
@@ -213,6 +225,100 @@ export const MemoriesView: FC<MemoriesViewProps> = ({ trip, setTrip }) => {
     setIsUploading(false);
   };
 
+  const handleDeletePhoto = async () => {
+    if (!photoToDelete) return;
+
+    setIsDeleting(true);
+    try {
+      // Delete from storage
+      const storageKey = photoToDelete.url.split("/day_feedback/").pop();
+      if (storageKey) {
+        const { error: storageError } = await supabase.storage
+          .from("day_feedback")
+          .remove([storageKey]);
+
+        if (storageError) {
+          console.warn("Storage delete error:", storageError.message);
+        }
+      }
+
+      // Delete from database
+      const { error: dbError } = await supabase
+        .from("trip_photos")
+        .delete()
+        .eq("photo_uuid", photoToDelete.photo_uuid);
+
+      if (dbError) {
+        toast({
+          title: "Error deleting photo",
+          description: dbError.message,
+          variant: "destructive",
+        });
+        setIsDeleting(false);
+        return;
+      }
+
+      // Resequence remaining photos
+      const { data: remainingPhotos } = await supabase
+        .from("trip_photos")
+        .select("*")
+        .eq("day_uuid", selectedDayId)
+        .order("seq", { ascending: true });
+
+      if (Array.isArray(remainingPhotos)) {
+        for (let idx = 0; idx < remainingPhotos.length; idx++) {
+          const p = remainingPhotos[idx];
+          if (p.seq !== idx) {
+            await supabase
+              .from("trip_photos")
+              .update({ seq: idx })
+              .eq("photo_uuid", p.photo_uuid);
+          }
+        }
+      }
+
+      // Update local state
+      setAllPhotos((prev) =>
+        prev.filter((p) => p.photo_uuid !== photoToDelete.photo_uuid)
+      );
+
+      setTrip((prev) =>
+        prev
+          ? {
+              ...prev,
+              itinerary: prev.itinerary.map((day) =>
+                day.day_uuid === selectedDayId
+                  ? {
+                      ...day,
+                      tripDayPhotos: day.tripDayPhotos?.filter(
+                        (p) => p.photo_uuid !== photoToDelete.photo_uuid
+                      ),
+                    }
+                  : day
+              ),
+            }
+          : prev
+      );
+
+      setViewingPhoto(null);
+      setPhotoToDelete(null);
+
+      toast({
+        title: "Photo deleted",
+        description: "The photo has been removed from your memories.",
+      });
+    } catch (error) {
+      console.error("Error deleting photo:", error);
+      toast({
+        title: "Error",
+        description: "Failed to delete photo.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   return (
     <div className="space-y-4 h-full flex flex-col">
       <header className="flex items-center gap-2">
@@ -283,24 +389,35 @@ export const MemoriesView: FC<MemoriesViewProps> = ({ trip, setTrip }) => {
         <div className="flex-1 overflow-y-auto">
           <div className="grid grid-cols-3 gap-2 pb-4">
             {allPhotos.map((photo) => (
-              <button
+              <div
                 key={photo.photo_uuid}
-                type="button"
-                onClick={() => setViewingPhoto(photo)}
-                className="relative block aspect-square overflow-hidden rounded-md bg-black/20"
+                className="relative group aspect-square overflow-hidden rounded-md bg-black/20"
               >
-                <Image
-                  src={photo.url}
-                  alt="Trip memory"
-                  fill
-                  className="object-cover"
-                />
-                {/* <div className="absolute bottom-0 left-0 right-0 bg-black/40 px-1 py-0.5">
-                  <p className="truncate text-[10px] text-white">
-                    {photo.day_title}
-                  </p>
-                </div> */}
-              </button>
+                <button
+                  type="button"
+                  onClick={() => setViewingPhoto(photo)}
+                  className="w-full h-full"
+                >
+                  <Image
+                    src={photo.url}
+                    alt="Trip memory"
+                    fill
+                    className="object-cover"
+                  />
+                </button>
+                {/* Delete button - visible on hover */}
+                <Button
+                  size="icon"
+                  variant="destructive"
+                  className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setPhotoToDelete(photo);
+                  }}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
             ))}
           </div>
         </div>
@@ -325,10 +442,45 @@ export const MemoriesView: FC<MemoriesViewProps> = ({ trip, setTrip }) => {
                 height={1080}
                 className="rounded-lg object-contain w-full h-auto max-h-[80vh]"
               />
+              {/* Delete button in full screen view */}
+              <Button
+                size="icon"
+                variant="destructive"
+                className="absolute top-4 right-4 h-10 w-10"
+                onClick={() => {
+                  setPhotoToDelete(viewingPhoto);
+                  setViewingPhoto(null);
+                }}
+                title="Delete photo"
+              >
+                <Trash2 className="h-5 w-5" />
+              </Button>
             </div>
           </DialogContent>
         </Dialog>
       )}
+
+      {/* Delete confirmation dialog */}
+      <AlertDialog open={!!photoToDelete} onOpenChange={(open) => !open && setPhotoToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Photo?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this photo? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeletePhoto}
+              disabled={isDeleting}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              {isDeleting ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
