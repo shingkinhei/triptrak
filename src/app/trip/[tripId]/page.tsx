@@ -716,7 +716,7 @@ export default function TripDetailsPage() {
         style={{ backgroundImage: `url(${trip.cover_image_url})` }}
       >
         <div className="absolute inset-0 bg-black/60 z-0 backdrop-blur-sm" />
-        <div className="relative z-10 h-full flex flex-col">
+        <div className="relative z-10 h-full mx-0 lg:mx-24 flex flex-col">
           <div className="flex-grow overflow-hidden">
             <TabContent trip={trip} setTrip={setTrip} activeTab={activeTab} aiRate={aiRate} aiRateLimit={aiRateLimit} />
           </div>

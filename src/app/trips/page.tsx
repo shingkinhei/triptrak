@@ -514,17 +514,17 @@ export default function TripsPage() {
         </header>
 
         <ScrollArea className="flex-grow">
-            <div className="space-y-4 px-4 pb-4">
+            <div className="flex flex-col lg:flex-row px-4 pb-4 gap-4">
             {trips.length === 0 && (
               <div className="text-center text-muted-foreground py-10">
-                <p>No trips yet. Plan your first adventure!</p>
+                <p>No trips yet. Planyour first adventure!</p>
               </div>
             )}
             {trips.map(trip => (
-                <Card key={trip.trip_uuid} className={cn("overflow-hidden transition-all hover:shadow-lg relative", {'border-primary border-2': trip.status === 'A'})}>
+                <Card key={trip.trip_uuid} className={cn("overflow-hidden w-full transition-all hover:shadow-lg relative", {'border-primary border-2': trip.status === 'A'})}>
                     <CardContent className="p-0">
                         <div className="flex flex-col">
-                            <div className="relative h-48 w-full shrink-0 object-fill">
+                            <div className="relative h-56 w-full shrink-0 object-fill">
                                 <Image
                                     src={trip.cover_image_url || ''}
                                     alt={trip.name || ''}
@@ -533,7 +533,7 @@ export default function TripsPage() {
                                     data-ai-hint={trip.cover_image_hint || ''}
                                 />
                             </div>
-                            <div className="absolute bottom-0 w-full flex flex-col justify-between p-3 flex-grow">
+                            <div className="absolute bottom-0 w-full flex flex-col justify-between p-3 flex-grow bg-gradient-to-t from-background to-transparent backdrop-blur-sm">
                                 <div>
                                   <h2 className="text-lg font-bold font-headline leading-tight">{trip.name}</h2>
                                   <p className="text-sm text-muted-foreground">{trip.destination}</p>
