@@ -75,6 +75,8 @@ interface TabContentProps {
   trip: Trip;
   setTrip: React.Dispatch<React.SetStateAction<Trip | undefined>>;
   activeTab: Tab;
+  aiRate?: number;
+  aiRateLimit?: number;
 }
 type shoppingCategoryOption = {
   name: string;
@@ -101,7 +103,7 @@ const iconMap: Record<string, LucideIcon> = {
 };
 
 
-const TabContent: FC<TabContentProps> = ({ trip, setTrip, activeTab }) => {
+const TabContent: FC<TabContentProps> = ({ trip, setTrip, activeTab, aiRate, aiRateLimit }) => {
   const supabase = createClient();
   const { toast } = useToast();
   const { tripCurrency } = useCurrency();
@@ -173,6 +175,8 @@ const TabContent: FC<TabContentProps> = ({ trip, setTrip, activeTab }) => {
   const componentProps = {
     planner: {
       trip: trip,
+      aiRate: aiRate,
+      aiRateLimit: aiRateLimit,
     },
     memories: {
       trip: trip,
@@ -249,20 +253,24 @@ export default function TripDetailsPage() {
     item_image: null,
     item_image_preview: null,
   });
+  const [aiRate, setAiRate] = useState<number>(0);
+  const [aiRateLimit, setAiRateLimit] = useState<number>(0);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const priceInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
+
     const fetchTripData = async () => {
       if (!tripUuId) return;
 
       const {
         data: { user },
       } = await supabase.auth.getUser();
+      
       if (user) {
         const { data, error } = await supabase
           .from("users_info")
-          .select("home_currency")
+          .select("home_currency,ai_rate_count,ai_rate_limit")
           .eq("user_id", user?.id)
           .single();
         if (error) {
@@ -273,6 +281,8 @@ export default function TripDetailsPage() {
           });
         } else if (data?.home_currency) {
           setHomeCurrency(data.home_currency);
+          setAiRate(data.ai_rate_count || 0);
+          setAiRateLimit(data.ai_rate_limit || 0);
         }
       }
       const { data: tripData, error: tripError } = await supabase
@@ -708,7 +718,7 @@ export default function TripDetailsPage() {
         <div className="absolute inset-0 bg-black/60 z-0 backdrop-blur-sm" />
         <div className="relative z-10 h-full flex flex-col">
           <div className="flex-grow overflow-hidden">
-            <TabContent trip={trip} setTrip={setTrip} activeTab={activeTab} />
+            <TabContent trip={trip} setTrip={setTrip} activeTab={activeTab} aiRate={aiRate} aiRateLimit={aiRateLimit} />
           </div>
           <BottomNav activeItem={activeTab} setActiveTab={setActiveTab} />
         </div>

@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, use } from "react";
 import Image from "next/image";
 import {
   Accordion,
@@ -105,6 +105,8 @@ const iconMap: Record<string, LucideIcon> = {
 
 interface TripPlannerProps {
   trip: Trip;
+  aiRate?: number;
+  aiRateLimit?: number;
 }
 
 type EditableTripDayPhoto = TripDayPhotos;
@@ -429,7 +431,7 @@ const PreTripChecklist = ({
   );
 };
 
-export function TripPlanner({ trip }: TripPlannerProps) {
+export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
   const [itinerary, setItinerary] = useState<ItineraryItem[]>(trip.itinerary);
   const [tripState, setTripState] = useState<Trip>(trip);
   const [checklist, setChecklist] = useState<ChecklistItem[]>(trip.checklist);
@@ -437,13 +439,15 @@ export function TripPlanner({ trip }: TripPlannerProps) {
     null
   );
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [isAIPlanDialogOpen, setIsAIPlanDialogOpen] = useState(false);
-  const [isAIPlanLoading, setIsAIPlanLoading] = useState(false);
-  const [aiPreferences, setAIPreferences] = useState({
+  const [isAiPlanDialogOpen, setIsAiPlanDialogOpen] = useState(false);
+  const [isAiPlanLoading, setIsAiPlanLoading] = useState(false);
+  const [localAiRate, setAiRate] = useState(aiRate);
+  const [localAiRateLimit, setAiRateLimit] = useState(aiRateLimit);
+  const [aiPreferences, setAiPreferences] = useState({
     preferences: null,
     suggestions: null,
   });
-  const [AIPreferencesOptions, setAIPreferencesOptions] = useState<ActivityOptions[]>([]);
+  const [aiPreferencesOptions, setAIPreferencesOptions] = useState<ActivityOptions[]>([]);
 
   const [activeView, setActiveView] = useState<string>("");
   const [checklistOpen, setChecklistOpen] = useState(false);
@@ -495,6 +499,12 @@ export function TripPlanner({ trip }: TripPlannerProps) {
     fetchActivityOptions();
     setItinerary(trip.itinerary);
   }, [trip, supabase, toast]);
+
+  useEffect(() => {
+    // Sync local AI rate state with props
+    setAiRate(aiRate);
+    setAiRateLimit(aiRateLimit);
+  }, [aiRate, aiRateLimit]);
 
   const handleEditClick = (item: ItineraryItem) => {
     setTimeout(() => {
@@ -647,7 +657,8 @@ export function TripPlanner({ trip }: TripPlannerProps) {
         act.time !== original.time ||
         act.description !== original.description ||
         act.activity_type !== original.activity_type ||
-        act.address !== original.address
+        act.address !== original.address ||
+        act.name !== original.name
       );
     });
 
@@ -680,6 +691,7 @@ export function TripPlanner({ trip }: TripPlannerProps) {
           .from("activities")
           .update({
             time: act.time,
+            name: act.name,
             description: act.description,
             activity_type: act.activity_type,
             address: act.address,
@@ -703,6 +715,7 @@ export function TripPlanner({ trip }: TripPlannerProps) {
         .insert(
           newActivities.map((act) => ({
             day_uuid: itemToSave.day_uuid,
+            name: act.name,
             time: act.time,
             description: act.description,
             address: act.address,
@@ -719,96 +732,96 @@ export function TripPlanner({ trip }: TripPlannerProps) {
 
     // Upload any pending (new) trip day photos that were added during editing
 
-    try {
-      const photos = (itemToSave.tripDayPhotos || []) as any[];
+    // try {
+    //   const photos = (itemToSave.tripDayPhotos || []) as any[];
 
-      // 1) Delete photos marked pending_delete
-      const photosToDelete = photos.filter((p) => p.pending_delete && !p.trip_day_photo);
-      if (photosToDelete.length > 0) {
-        for (const dp of photosToDelete) {
-          try {
-            const url: string = dp.url || "";
-            const key = url.split("/day_feedback/").pop();
-            if (key) {
-              const { error: delErr } = await supabase.storage.from("day_feedback").remove([key]);
-              if (delErr) console.warn("Storage delete error", delErr.message);
-            }
-            const { error: dbErr } = await supabase.from("trip_photos").delete().eq("photo_uuid", dp.photo_uuid);
-            if (dbErr) console.warn("DB delete error", dbErr.message);
-          } catch (innerErr) {
-            console.error("Error deleting photo", innerErr);
-          }
-        }
-      }
+    //   // 1) Delete photos marked pending_delete
+    //   const photosToDelete = photos.filter((p) => p.pending_delete && !p.trip_day_photo);
+    //   if (photosToDelete.length > 0) {
+    //     for (const dp of photosToDelete) {
+    //       try {
+    //         const url: string = dp.url || "";
+    //         const key = url.split("/day_feedback/").pop();
+    //         if (key) {
+    //           const { error: delErr } = await supabase.storage.from("day_feedback").remove([key]);
+    //           if (delErr) console.warn("Storage delete error", delErr.message);
+    //         }
+    //         const { error: dbErr } = await supabase.from("trip_photos").delete().eq("photo_uuid", dp.photo_uuid);
+    //         if (dbErr) console.warn("DB delete error", dbErr.message);
+    //       } catch (innerErr) {
+    //         console.error("Error deleting photo", innerErr);
+    //       }
+    //     }
+    //   }
 
-      // 2) Upload new pending previews (trip_day_photo)
-      const pendingPhotos = photos.filter((p) => !!p.trip_day_photo) as Array<any>;
-      if (pendingPhotos.length > 0) {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-        if (!user) {
-          toast({ title: "Not Authenticated", description: "You must be logged in to save changes.", variant: "destructive" });
-          return;
-        }
+    //   // 2) Upload new pending previews (trip_day_photo)
+    //   const pendingPhotos = photos.filter((p) => !!p.trip_day_photo) as Array<any>;
+    //   if (pendingPhotos.length > 0) {
+    //     const {
+    //       data: { user },
+    //     } = await supabase.auth.getUser();
+    //     if (!user) {
+    //       toast({ title: "Not Authenticated", description: "You must be logged in to save changes.", variant: "destructive" });
+    //       return;
+    //     }
 
-        // find current count after deletions
-        const { data: existing } = await supabase.from("trip_photos").select("seq").eq("day_uuid", itemToSave.day_uuid);
-        let startSeq = Array.isArray(existing) ? existing.length : 0;
+    //     // find current count after deletions
+    //     const { data: existing } = await supabase.from("trip_photos").select("seq").eq("day_uuid", itemToSave.day_uuid);
+    //     let startSeq = Array.isArray(existing) ? existing.length : 0;
 
-        for (let i = 0; i < pendingPhotos.length; i++) {
-          const p = pendingPhotos[i];
-          const file: File = p.trip_day_photo as File;
-          const fileExt = (file.name.split(".").pop() || "jpg").replace(/[^a-z0-9]/gi, "");
-          const filePath = `${user.id}/${trip.trip_uuid}/${itemToSave.day_uuid}/${itemToSave.date}-${itemToSave.day_number}-${uuidv4}-${i + 1}.${fileExt}`;
+    //     for (let i = 0; i < pendingPhotos.length; i++) {
+    //       const p = pendingPhotos[i];
+    //       const file: File = p.trip_day_photo as File;
+    //       const fileExt = (file.name.split(".").pop() || "jpg").replace(/[^a-z0-9]/gi, "");
+    //       const filePath = `${user.id}/${trip.trip_uuid}/${itemToSave.day_uuid}/${itemToSave.date}-${itemToSave.day_number}-${uuidv4}-${i + 1}.${fileExt}`;
 
-          const { error: uploadError } = await supabase.storage.from("day_feedback").upload(filePath, file, { upsert: false });
-          if (uploadError) {
-            toast({ title: "Photo upload failed", description: uploadError.message, variant: "destructive" });
-            continue;
-          }
+    //       const { error: uploadError } = await supabase.storage.from("day_feedback").upload(filePath, file, { upsert: false });
+    //       if (uploadError) {
+    //         toast({ title: "Photo upload failed", description: uploadError.message, variant: "destructive" });
+    //         continue;
+    //       }
 
-          const { data: urlData } = supabase.storage.from("day_feedback").getPublicUrl(filePath);
-          const publicUrl = urlData.publicUrl;
+    //       const { data: urlData } = supabase.storage.from("day_feedback").getPublicUrl(filePath);
+    //       const publicUrl = urlData.publicUrl;
 
-          const photoRow = {
-            photo_uuid: p.photo_uuid || uuidv4(),
-            day_uuid: itemToSave.day_uuid,
-            seq: startSeq,
-            url: publicUrl,
-            user_id: user.id,
-          };
+    //       const photoRow = {
+    //         photo_uuid: p.photo_uuid || uuidv4(),
+    //         day_uuid: itemToSave.day_uuid,
+    //         seq: startSeq,
+    //         url: publicUrl,
+    //         user_id: user.id,
+    //       };
 
-          const { error: insertError } = await supabase.from("trip_photos").insert(photoRow);
-          if (insertError) {
-            toast({ title: "DB insert failed", description: insertError.message, variant: "destructive" });
-            console.log(insertError.message);
-          } else {
-            startSeq += 1;
-          }
-        }
-      }
+    //       const { error: insertError } = await supabase.from("trip_photos").insert(photoRow);
+    //       if (insertError) {
+    //         toast({ title: "DB insert failed", description: insertError.message, variant: "destructive" });
+    //         console.log(insertError.message);
+    //       } else {
+    //         startSeq += 1;
+    //       }
+    //     }
+    //   }
 
-      // 3) Resequence remaining photos to be contiguous
-      const { data: remainingPhotos } = await supabase.from("trip_photos").select("*").eq("day_uuid", itemToSave.day_uuid).order("seq", { ascending: true });
-      if (Array.isArray(remainingPhotos)) {
-        for (let idx = 0; idx < remainingPhotos.length; idx++) {
-          const p = remainingPhotos[idx];
-          if (p.seq !== idx) {
-            await supabase.from("trip_photos").update({ seq: idx }).eq("photo_uuid", p.photo_uuid);
-          }
-        }
-      }
+    //   // 3) Resequence remaining photos to be contiguous
+    //   const { data: remainingPhotos } = await supabase.from("trip_photos").select("*").eq("day_uuid", itemToSave.day_uuid).order("seq", { ascending: true });
+    //   if (Array.isArray(remainingPhotos)) {
+    //     for (let idx = 0; idx < remainingPhotos.length; idx++) {
+    //       const p = remainingPhotos[idx];
+    //       if (p.seq !== idx) {
+    //         await supabase.from("trip_photos").update({ seq: idx }).eq("photo_uuid", p.photo_uuid);
+    //       }
+    //     }
+    //   }
 
-      // 4) Refresh local photos
-      const { data: freshPhotos } = await supabase.from("trip_photos").select("*").eq("day_uuid", itemToSave.day_uuid).order("seq", { ascending: true });
-      if (freshPhotos) {
-        setItinerary((prev) => prev.map((d) => (d.day_uuid === itemToSave.day_uuid ? ({ ...d, tripDayPhotos: freshPhotos } as ItineraryItem) : d)));
-      }
-    } catch (err: any) {
-      console.error("Error processing photo changes", err);
-      toast({ title: "Error", description: "One or more photo operations failed.", variant: "destructive" });
-    }
+    //   // 4) Refresh local photos
+    //   const { data: freshPhotos } = await supabase.from("trip_photos").select("*").eq("day_uuid", itemToSave.day_uuid).order("seq", { ascending: true });
+    //   if (freshPhotos) {
+    //     setItinerary((prev) => prev.map((d) => (d.day_uuid === itemToSave.day_uuid ? ({ ...d, tripDayPhotos: freshPhotos } as ItineraryItem) : d)));
+    //   }
+    // } catch (err: any) {
+    //   console.error("Error processing photo changes", err);
+    //   toast({ title: "Error", description: "One or more photo operations failed.", variant: "destructive" });
+    // }
 
     toast({
       title: "Day Saved!",
@@ -819,7 +832,7 @@ export function TripPlanner({ trip }: TripPlannerProps) {
 
     const { data: refreshedDay, error: refreshError } = await supabase
       .from("trip_days")
-      .select(`*, activities:activities (*), tripDayPhotos:trip_photos (*)`)
+      .select(`*, activities:activities (*)`)
       .eq("day_uuid", itemToSave.day_uuid)
       .single();
 
@@ -883,25 +896,73 @@ export function TripPlanner({ trip }: TripPlannerProps) {
   };
 
   const handleAIPlanChange = (field: "preferences" | "suggestions", value: string | null) => {
-    setAIPreferences(prev => ({ ...prev, [field]: value }));
+    setAiPreferences(prev => ({ ...prev, [field]: value }));
   }
 
-  const handleOpenAIPlan = () => {
-    setIsAIPlanDialogOpen(true);
+  const handleOpenAIPlan = async () => {
+    // Refresh AI rate from database
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (user) {
+      const { data, error } = await supabase
+        .from("users_info")
+        .select("ai_rate_count, ai_rate_limit")
+        .eq("user_id", user.id)
+        .single();
+
+      if (error) {
+        toast({
+          title: "Error refreshing AI rate",
+          description: error.message,
+          variant: "destructive",
+        });
+      } else if (data) {
+        // Update parent component props by triggering a callback
+        // Note: Since props are read-only, we'll show the updated info in the dialog
+        setAiRate(data.ai_rate_count || 0);
+        setAiRateLimit(data.ai_rate_limit || 10);
+      }
+    }
+
+    setIsAiPlanDialogOpen(true);
   };
 
   const handleCancelAIPlan = () => {
-    setIsAIPlanDialogOpen(false);
-    setAIPreferences({
+    setIsAiPlanDialogOpen(false);
+    setAiPreferences({
       preferences: null,
       suggestions: null,
     });
   }
   const handleApplyAIPlan = async () => {
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      toast({
+        title: "Not Authenticated",
+        description: "You must be logged in to upload photos.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (!editingItem?.day_uuid) {
       toast({
         title: "Error",
         description: "No day selected.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (aiRate >= aiRateLimit) {
+      toast({
+        title: "AI Rate Limit Reached",
+        description: `You have reached the AI rate limit of ${aiRateLimit}.`,
         variant: "destructive",
       });
       return;
@@ -919,7 +980,6 @@ export function TripPlanner({ trip }: TripPlannerProps) {
     if (editingItem?.activities?.length > 0) {
       // the exist acitivites will be replaced by AI
       const existingActivities = editingItem.activities;
-
       //confirm the existing activities will be replaced by AI suggestions
 
       // Clear existing activities
@@ -929,7 +989,7 @@ export function TripPlanner({ trip }: TripPlannerProps) {
         feedback: `Existing activities will be replaced by AI suggestions.`,
       })
     }
-    setIsAIPlanLoading(true);
+    setIsAiPlanLoading(true);
     const loadingToastId = toast({
       title: "Generating AI plan...",
       description: "Please wait while we generate your itinerary suggestions.",
@@ -951,7 +1011,14 @@ export function TripPlanner({ trip }: TripPlannerProps) {
         return;
       }
 
-      console.log("AI Plan Result:", result);
+      //AI Rate limit handling - this is a fallback in case the backend doesn't enforce it
+      const { error: rateLimitError } = await supabase
+        .from("users_info")
+        .update({ ai_rate_count: aiRate + 1 })
+        .eq("user_id", user?.id);
+      if (rateLimitError) {
+        console.warn("Failed to update AI rate", rateLimitError.message);
+      }
 
       // Convert AI response to Activity objects
       // result should be an array of activities with: time, description, activity_type, address
@@ -983,8 +1050,8 @@ export function TripPlanner({ trip }: TripPlannerProps) {
         description: `${aiActivities.length} activity(ies) added to your day.`,
       });
 
-      setIsAIPlanDialogOpen(false);
-      setAIPreferences({
+      setIsAiPlanDialogOpen(false);
+      setAiPreferences({
         preferences: null,
         suggestions: null,
       });
@@ -996,7 +1063,7 @@ export function TripPlanner({ trip }: TripPlannerProps) {
         variant: "destructive",
       });
     } finally {
-      setIsAIPlanLoading(false);
+      setIsAiPlanLoading(false);
     }
   };
 
@@ -1875,7 +1942,7 @@ export function TripPlanner({ trip }: TripPlannerProps) {
                               e.target.value
                             )
                           }
-                          placeholder="Activity name"
+                          placeholder="Activity Name"
                           className="h-8"
                         />
                         <Input
@@ -1964,8 +2031,8 @@ export function TripPlanner({ trip }: TripPlannerProps) {
       )}
 
       <Dialog
-        open={isAIPlanDialogOpen}
-        onOpenChange={(isOpen) => setIsAIPlanDialogOpen(isOpen)}
+        open={isAiPlanDialogOpen}
+        onOpenChange={(isOpen) => setIsAiPlanDialogOpen(isOpen)}
       >
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -1973,13 +2040,21 @@ export function TripPlanner({ trip }: TripPlannerProps) {
           </DialogHeader>
           <div className="space-y-3 py-2">
             <p className="text-sm text-muted-foreground">
-              Choose the preferences to guide the AI itinerary suggestions.
+              Choose the preferences to guide the AI itinerary suggestions. 
             </p>
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+              <p className="text-sm font-semibold text-blue-900">
+                Remaining AI Requests: <span className="text-lg font-bold text-blue-600">{Math.max(0, localAiRateLimit - localAiRate)}/{localAiRateLimit}</span>
+              </p>
+              {localAiRateLimit - localAiRate <= 0 && (
+                <p className="text-xs text-red-600 mt-1">You have reached your daily AI limit. Try again tomorrow.</p>
+              )}
+            </div>
             <div className="flex items-center gap-2">
               <div className="flex flex-col gap-4 w-full">
                 <div className="flex items-center gap-2 justify-center">
                   <div className="grid grid-cols-2 gap-4 p-2 ">
-                  {AIPreferencesOptions.map((opt) => (
+                  {aiPreferencesOptions.map((opt) => (
                     <Button
                       className="flex items-center gap-2 h-[8rem] w-[8rem]"
                       key={opt.icon_text}
@@ -2026,15 +2101,16 @@ export function TripPlanner({ trip }: TripPlannerProps) {
                 e.preventDefault();
                 handleCancelAIPlan();
               }}
-              disabled={isAIPlanLoading}
+              disabled={isAiPlanLoading}
             >
               Cancel
             </Button>
             <Button 
               onClick={handleApplyAIPlan}
-              disabled={isAIPlanLoading}
+              disabled={isAiPlanLoading || (localAiRateLimit - localAiRate <= 0)}
+              title={localAiRateLimit - localAiRate <= 0 ? "You have reached your daily AI limit" : ""}
             >
-              {isAIPlanLoading ? "Generating..." : "Apply"}
+              {isAiPlanLoading ? "Generating..." : localAiRateLimit - localAiRate <= 0 ? "Limit Reached" : "Apply"}
             </Button>
           </DialogFooter>
         </DialogContent>
