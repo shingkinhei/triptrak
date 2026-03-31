@@ -1099,7 +1099,7 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
         day_uuid: editingItem.day_uuid,
         name: "",
         time: "00:00",
-        description: "New Activity",
+        description: "",
         address: null,
         activity_type: "Sightseeing",
       };
@@ -1528,7 +1528,7 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
           <PlusCircle className="mr-2 h-4 w-4" /> Add Day
         </Button>
       </header>
-
+      
       {/* <div className="flex items-end gap-2 h-80">
         <div className="flex flex-col gap-5">
           <span className="box-decoration-clone text-5xl font-semibold text-primary-foreground bg-gradient-to-r from-cyan-500 to-blue-500 rounded-lg px-4 py-2 ">
@@ -1636,7 +1636,9 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
                 </div>
               </div>
               <div className="absolute top-2 right-2 z-10">
-                <Button variant="ghost" size="icon" className="h-7 w-7 pointer-events-auto" onClick={() => handleEditClick(item)}>
+                <Button variant="ghost" 
+                  size="icon" 
+                  className="h-7 w-7 pointer-events-auto" onClick={() => handleEditClick(item)}>
                   <Edit className="h-4 w-4" color="white"/>
                   <span className="sr-only">Edit Trip</span>
                 </Button>
@@ -1677,31 +1679,22 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
                   );
                   const ActivityIcon = iconMap[icon];
                   return (
-                    <li
-                      key={activity.activity_uuid}
-                      className="flex items-start gap-4"
-                    >
+                    <li key={activity.activity_uuid} className="flex items-stretch gap-4"> 
                       <div className="flex flex-col items-center">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary">
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
                           {ActivityIcon && <ActivityIcon className="h-4 w-4" />}
                         </div>
+                        
                         {actIndex < item.activities.length - 1 && (
-                          <div className="w-px h-6 bg-primary/30 mt-1"></div>
+                          <div className="w-[2px] flex-1 bg-primary/30 my-1 translate-y-1"></div>
                         )}
                       </div>
+
                       <div>
-                        <p className="font-semibold text-card-foreground">
-                          {activity.time}
-                        </p>
-                         <p className="font-semibold text-card-foreground">
-                          {activity.name}
-                        </p>
-                        <p className="text-muted-foreground">
-                          {activity.description}
-                        </p>
-                        <p className="text-muted-foreground">
-                          {activity.address}
-                        </p>
+                        <p className="font-semibold text-card-foreground">{activity.time}</p>
+                        <p className="font-semibold text-card-foreground">{activity.name}</p>
+                        <p className="text-muted-foreground">{activity.description}</p>
+                        <p className="text-muted-foreground">{activity.address}</p>
                       </div>
                     </li>
                   );
@@ -1779,18 +1772,6 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
                   </Button>
                 </div>
               </div> */}
-
-              <div className="space-y-2">
-                <Label htmlFor="remarks">Feedback</Label>
-                <Textarea
-                  id="remarks"
-                  value={editingItem.feedback || ""}
-                  onChange={(e) =>
-                    handleFieldChange("feedback", e.target.value)
-                  }
-                  placeholder="Write your feelings or reflections..."
-                />
-              </div>
 
               {/* <div className="space-y-2">
                 <Label>Your Photos</Label>
@@ -1929,7 +1910,7 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
                               e.target.value
                             )
                           }
-                          placeholder="Activity Name"
+                          placeholder="Name"
                           className="h-8"
                         />
                         <Input
@@ -1941,7 +1922,7 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
                               e.target.value
                             )
                           }
-                          placeholder="Activity description"
+                          placeholder="Description"
                           className="h-8"
                         />
                         <Input
@@ -1953,7 +1934,7 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
                               e.target.value
                             )
                           }
-                          placeholder="Activity Address"
+                          placeholder="Address"
                           className="h-8"
                         />
                       </div>
@@ -1967,6 +1948,17 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
                       </Button>
                     </div>
                   ))}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="remarks">Feedback</Label>
+                  <Textarea
+                    id="remarks"
+                    value={editingItem.feedback || ""}
+                    onChange={(e) =>
+                      handleFieldChange("feedback", e.target.value)
+                    }
+                    placeholder="Write your feelings or reflections..."
+                  />
                 </div>
               </div>
             </div>

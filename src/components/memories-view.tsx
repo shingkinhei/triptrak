@@ -507,17 +507,20 @@ export const MemoriesView: FC<MemoriesViewProps> = ({ trip, setTrip }) => {
                   />
                 </button>
                 {/* Delete button - visible on hover */}
-                <Button
-                  size="icon"
-                  variant="destructive"
-                  className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setPhotoToDelete(photo);
-                  }}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
+                <div className="absolute top-2 right-2 z-10">
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-7 w-7 pointer-events-auto" 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setPhotoToDelete(photo);
+                    }}>
+                    <Trash2 className="h-4 w-4" color="white"/>
+                    <span className="sr-only">Edit Trip</span>
+                  </Button>
+                </div>
+                
               </div>
             ))}
           </div>
@@ -543,19 +546,6 @@ export const MemoriesView: FC<MemoriesViewProps> = ({ trip, setTrip }) => {
                 height={1080}
                 className="rounded-lg object-contain w-full h-auto max-h-[80vh]"
               />
-              {/* Delete button in full screen view */}
-              <Button
-                size="icon"
-                variant="destructive"
-                className="absolute top-4 right-4 h-10 w-10"
-                onClick={() => {
-                  setPhotoToDelete(viewingPhoto);
-                  setViewingPhoto(null);
-                }}
-                title="Delete photo"
-              >
-                <Trash2 className="h-5 w-5" />
-              </Button>
             </div>
           </DialogContent>
         </Dialog>

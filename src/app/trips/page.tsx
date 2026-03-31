@@ -127,8 +127,11 @@ export default function TripsPage() {
     const fetchUser = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        const fullName = user.user_metadata.full_name;
-        setUserName(fullName ? fullName.split(' ')[0] : 'My');
+        const { data: usersInfoData, error: usersInfoError } = await supabase
+          .from('users_info')
+          .select('display_name').eq('user_id', user.id).single();
+         const displayName = usersInfoData?.display_name || user.user_metadata.full_name;
+         setUserName(displayName ? displayName : 'My');
       }
     };
     fetchUser();
@@ -599,8 +602,8 @@ export default function TripsPage() {
             <DialogHeader>
               <DialogTitle>Edit Trip: {editingTrip?.name}</DialogTitle>
             </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
+            <div className="grid gap-4 py-4 pr-6 overflow-y-auto max-h-[80vh] space-y-4">
+              <div className="grid grid-cols-4 items-center gap-4 ">
                 <Label htmlFor="edit-name" className="text-right">Name</Label>
                 <Input id="edit-name" value={tripForm.name || ''} onChange={(e) => handleFormChange('name', e.target.value)} className="col-span-3" />
               </div>

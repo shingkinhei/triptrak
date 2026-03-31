@@ -40,9 +40,6 @@ export default function LoginPage() {
     const handleFacebookLogin = async () => {
         const { error } = await supabase.auth.signInWithOAuth({
             provider: 'facebook',
-            options: {
-                redirectTo: `${window.location.origin}/auth/callback`,
-            },
         });
 
         if (error) {
@@ -51,7 +48,7 @@ export default function LoginPage() {
                 description: error.message,
                 variant: 'destructive',
             });
-        }
+        } 
         console.log('Facebook login initiated');
         // Don't redirect manually - the OAuth callback will handle it
     };
