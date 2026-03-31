@@ -7,7 +7,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { BottomNav, type Tab } from "@/components/ui/bottom-nav";
 import { ExpenseTracker } from "@/components/expense-tracker";
 import { ShoppingList } from "@/components/shopping-list";
-import MemoriesView from "@/components/memories-view";
+import { MemoriesView } from "@/components/memories-view";
 import { TripPlanner } from "@/components/trip-planner";
 import { useCurrency } from "@/context/CurrencyContext";
 import {

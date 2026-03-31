@@ -34,9 +34,29 @@ import { useRouter } from "next/navigation";
 import {
   ArrowLeft
 } from "lucide-react";
-
+import Compressor from "compressorjs";
 import type { Trip, TripDayPhotos } from "@/lib/types";
 
+const compressFile = (file: File): Promise<File> => {
+  return new Promise((resolve, reject) => {
+    new Compressor(file, {
+      quality: 0.6,
+      maxWidth: 1200,
+      // 轉換成與原始檔案同名但內容壓縮後的 File 物件
+      success(result: Blob) {
+        const compressedFile = new File([result], file.name, {
+          type: result.type,
+          lastModified: Date.now(),
+        });
+        resolve(compressedFile);
+      },
+      error(err) {
+        console.error('壓縮失敗:', err.message);
+        reject(err);
+      },
+    });
+  });
+};
 type MemoriesViewProps = {
   trip: Trip;
   setTrip: React.Dispatch<React.SetStateAction<Trip | undefined>>;
@@ -111,119 +131,200 @@ export const MemoriesView: FC<MemoriesViewProps> = ({ trip, setTrip }) => {
   if (!trip) {
     return null;
     }
-  const handleUploadChange = async (
-    e: React.ChangeEvent<HTMLInputElement>
-  ) => {
-    if (!e.target.files || !selectedDayId) return;
-    const files = Array.from(e.target.files);
-    if (files.length === 0) return;
 
-    setIsUploading(true);
+  const handleUploadChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  if (!e.target.files || !selectedDayId) return;
+  const files = Array.from(e.target.files);
+  setIsUploading(true);
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) {
-      toast({
-        title: "Not Authenticated",
-        description: "You must be logged in to upload photos.",
-        variant: "destructive",
-      });
-      setIsUploading(false);
-      return;
-    }
+  try {
+    // 1. 身份檢查
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("Not Authenticated");
 
-    const currentDay = trip.itinerary.find(
-      (d) => d.day_uuid === selectedDayId
-    );
+    const currentDay = trip.itinerary.find(d => d.day_uuid === selectedDayId);
     let startSeq = currentDay?.tripDayPhotos?.length ?? 0;
 
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      const ext = (file.name.split(".").pop() || "jpg")
-        .toLowerCase()
-        .replace(/[^a-z0-9]/gi, "");
-      const filePath = `${user.id}/${trip.trip_uuid}/${selectedDayId}/${Date.now()}-${i}.${ext || "jpg"}`;
+    // 2. 併發處理所有文件 (壓縮 -> 上傳 -> 寫入 DB)
+    const uploadPromises = files.map(async (file, i) => {
+      // A. 壓縮圖片
+      const compressedFile = await compressFile(file);
+      
+      // B. 準備路徑
+      const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+      const filePath = `${user.id}/${trip.trip_uuid}/${selectedDayId}/${Date.now()}-${i}.${ext}`;
 
+      // C. 上傳至 Supabase Storage
       const { error: uploadError } = await supabase.storage
         .from("day_feedback")
-        .upload(filePath, file, { upsert: false });
+        .upload(filePath, compressedFile); // 使用壓縮後的檔案
 
-      if (uploadError) {
-        toast({
-          title: "Photo upload failed",
-          description: uploadError.message,
-          variant: "destructive",
-        });
-        continue;
-      }
+      if (uploadError) throw uploadError;
 
-      const { data: urlData } = supabase.storage
+      // D. 獲取 Public URL
+      const { data: { publicUrl } } = supabase.storage
         .from("day_feedback")
         .getPublicUrl(filePath);
-      const publicUrl = urlData.publicUrl;
 
-      const photoRow = {
+      // E. 準備寫入資料庫的物件
+      return {
         photo_uuid: uuidv4(),
         day_uuid: selectedDayId,
-        seq: startSeq,
+        seq: startSeq + i,
         url: publicUrl,
         user_id: user.id,
       };
+    });
 
-      const { error: insertError } = await supabase
-        .from("trip_photos")
-        .insert(photoRow);
-      if (insertError) {
-        toast({
-          title: "Save failed",
-          description: insertError.message,
-          variant: "destructive",
-        });
-      } else {
-        startSeq += 1;
-      }
-    }
+    const photoRows = await Promise.all(uploadPromises);
 
-    const { data: freshPhotos, error: fetchError } = await supabase
+    // 3. 一次性寫入資料庫 (更有效率)
+    const { error: insertError } = await supabase
       .from("trip_photos")
-      .select("*")
-      .eq("day_uuid", selectedDayId)
-      .order("seq", { ascending: true });
+      .insert(photoRows);
 
-    if (fetchError) {
-      toast({
-        title: "Refresh failed",
-        description: fetchError.message,
-        variant: "destructive",
-      });
-    } else if (freshPhotos) {
-      setTrip((prev) =>
-        prev
-          ? {
-              ...prev,
-              itinerary: prev.itinerary.map((day) =>
-                day.day_uuid === selectedDayId
-                  ? {
-                      ...day,
-                      tripDayPhotos: freshPhotos as TripDayPhotos[],
-                    }
-                  : day
-              ),
-            }
-          : prev
-      );
-      toast({
-        title: "Photos uploaded",
-        description: `${files.length} photo(s) added to your memories.`,
-      });
-    }
+    if (insertError) throw insertError;
 
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
+    toast({ 
+      title: "成功", 
+      description: 
+      `已上傳照片` 
+    });
+
+    // 4. 更新狀態
+    setAllPhotos(prev => [...prev, ...photoRows]);
+    setTrip(prev => prev ? {
+      ...prev,
+      itinerary: prev.itinerary.map(day =>
+        day.day_uuid === selectedDayId
+          ? { ...day, tripDayPhotos: [...(day.tripDayPhotos || []), ...photoRows] }
+          : day
+      ),
+    } : prev);
+  } catch (error: any) {
+    toast({
+      title: "上傳失敗",
+      description: error.message,
+      variant: "destructive",
+    });
+  } finally {
     setIsUploading(false);
-  };
+  }
+};
+
+  // const handleUploadChange = async (
+  //   e: React.ChangeEvent<HTMLInputElement>
+  // ) => {
+  //   if (!e.target.files || !selectedDayId) return;
+  //   const files = Array.from(e.target.files);
+  //   if (files.length === 0) return;
+
+  //   setIsUploading(true);
+
+  //   const {
+  //     data: { user },
+  //   } = await supabase.auth.getUser();
+  //   if (!user) {
+  //     toast({
+  //       title: "Not Authenticated",
+  //       description: "You must be logged in to upload photos.",
+  //       variant: "destructive",
+  //     });
+  //     setIsUploading(false);
+  //     return;
+  //   }
+
+  //   const currentDay = trip.itinerary.find(
+  //     (d) => d.day_uuid === selectedDayId
+  //   );
+  //   let startSeq = currentDay?.tripDayPhotos?.length ?? 0;
+
+  //   for (let i = 0; i < files.length; i++) {
+  //     const file = files[i];
+  //     const ext = (file.name.split(".").pop() || "jpg")
+  //       .toLowerCase()
+  //       .replace(/[^a-z0-9]/gi, "");
+  //     const filePath = `${user.id}/${trip.trip_uuid}/${selectedDayId}/${Date.now()}-${i}.${ext || "jpg"}`;
+
+  //     const { error: uploadError } = await supabase.storage
+  //       .from("day_feedback")
+  //       .upload(filePath, file, { upsert: false });
+
+  //     if (uploadError) {
+  //       toast({
+  //         title: "Photo upload failed",
+  //         description: uploadError.message,
+  //         variant: "destructive",
+  //       });
+  //       continue;
+  //     }
+
+  //     const { data: urlData } = supabase.storage
+  //       .from("day_feedback")
+  //       .getPublicUrl(filePath);
+  //     const publicUrl = urlData.publicUrl;
+
+  //     const photoRow = {
+  //       photo_uuid: uuidv4(),
+  //       day_uuid: selectedDayId,
+  //       seq: startSeq,
+  //       url: publicUrl,
+  //       user_id: user.id,
+  //     };
+
+  //     const { error: insertError } = await supabase
+  //       .from("trip_photos")
+  //       .insert(photoRow);
+  //     if (insertError) {
+  //       toast({
+  //         title: "Save failed",
+  //         description: insertError.message,
+  //         variant: "destructive",
+  //       });
+  //     } else {
+  //       startSeq += 1;
+  //     }
+  //   }
+
+  //   const { data: freshPhotos, error: fetchError } = await supabase
+  //     .from("trip_photos")
+  //     .select("*")
+  //     .eq("day_uuid", selectedDayId)
+  //     .order("seq", { ascending: true });
+
+  //   if (fetchError) {
+  //     toast({
+  //       title: "Refresh failed",
+  //       description: fetchError.message,
+  //       variant: "destructive",
+  //     });
+  //   } else if (freshPhotos) {
+  //     setTrip((prev) =>
+  //       prev
+  //         ? {
+  //             ...prev,
+  //             itinerary: prev.itinerary.map((day) =>
+  //               day.day_uuid === selectedDayId
+  //                 ? {
+  //                     ...day,
+  //                     tripDayPhotos: freshPhotos as TripDayPhotos[],
+  //                   }
+  //                 : day
+  //             ),
+  //           }
+  //         : prev
+  //     );
+  //     toast({
+  //       title: "Photos uploaded",
+  //       description: `${files.length} photo(s) added to your memories.`,
+  //     });
+  //   }
+
+  //   if (fileInputRef.current) {
+  //     fileInputRef.current.value = "";
+  //   }
+  //   setIsUploading(false);
+  // };
 
   const handleDeletePhoto = async () => {
     if (!photoToDelete) return;

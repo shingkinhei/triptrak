@@ -732,7 +732,13 @@ export function ShoppingList({
                             className="h-5 w-5 bg-background border-2"
                           />
                         </div>
-                        <DropdownMenu>
+                        <div className="z-20 absolute top-2 right-2 group-hover:opacity-100 transition-opacity flex gap-1">
+                          <Button variant="ghost" size="icon" className="h-7 w-7 pointer-events-auto" onClick={() => handleEditItemClick(item)}>
+                            <Edit className="h-4 w-4" color="white"/>
+                            <span className="sr-only">Edit Trip</span>
+                          </Button>
+                        </div>
+                        {/* <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button
                               variant="ghost"
@@ -750,7 +756,7 @@ export function ShoppingList({
                               Edit
                             </DropdownMenuItem>
                           </DropdownMenuContent>
-                        </DropdownMenu>
+                        </DropdownMenu> */}
 
                         <div className="relative aspect-square w-full">
                           {item.image_url && (

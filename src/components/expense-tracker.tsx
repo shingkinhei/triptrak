@@ -868,8 +868,8 @@ export function ExpenseTracker({ expensesInfo, trip }: ExpenseTrackerProps) {
               key={group.name}
               className="bg-card/80 backdrop-blur-sm border-white/20 shadow-lg"
             >
-              <CardHeader>
-                <div className="flex justify-between items-center">
+              <CardHeader className="pb-2">
+                <div className="flex justify-between items-center border-b border-gray-400 pb-2">
                   <CardTitle className="text-lg font-headline text-card-foreground flex items-center gap-2">
                     {CategoryIcon && (
                       <CategoryIcon className="h-5 w-5 text-primary" />
@@ -877,7 +877,7 @@ export function ExpenseTracker({ expensesInfo, trip }: ExpenseTrackerProps) {
                     {group.name}
                   </CardTitle>
                   <div className="flex items-center gap-2">
-                    <span className="font-semibold text-card-foreground">
+                    <span className="font-semibold text-lg text-card-foreground">
                       {currentFormatter(categoryTotalInCurrent)}
                     </span>
                   </div>
@@ -892,9 +892,9 @@ export function ExpenseTracker({ expensesInfo, trip }: ExpenseTrackerProps) {
                         ? convertUsdToCurrency(baseItemPrice, tripRate)
                         : convertUsdToCurrency(baseItemPrice, homeRate);
                     return (
-                      <Card
+                      <div
                         key={item.expense_uuid}
-                        className="flex justify-between p-3 items-center"
+                        className="flex justify-between items-center border-b last:border-b-0 border-gray-400"
                       >
                         <div className="flex-grow">
                           <p className="font-semibold text-card-foreground">
@@ -909,29 +909,11 @@ export function ExpenseTracker({ expensesInfo, trip }: ExpenseTrackerProps) {
                             -{currentFormatter(itemPriceInCurrent)}
                           </p>
                         </div>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 ml-2 text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-                            >
-                              <MoreVertical className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent
-                            align="end"
-                            className="shadow-lg"
-                          >
-                            <DropdownMenuItem
-                              onClick={() => handleEditExpenseClick(item)}
-                            >
-                              <Edit className="mr-2 h-4 w-4" />
-                              Edit
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </Card>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 pointer-events-auto ml-1" onClick={() => handleEditExpenseClick(item)}>
+                          <Edit className="h-4 w-4" />
+                          <span className="sr-only">Edit Trip</span>
+                        </Button>
+                      </div>
                     );
                   })}
                 </div>

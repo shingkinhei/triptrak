@@ -455,7 +455,7 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
   // const [viewingPhoto, setViewingPhoto] = useState<TripDayPhotos | null>(null);
   const [activityOptions, setActivityOptions] = useState<ActivityOptions[]>([]);
   const photoInputRef = useRef<HTMLInputElement>(null);
-  const dayCoverInputRef = useRef<HTMLInputElement>(null);
+  // const dayCoverInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
   const supabase = createClient();
   const { toast } = useToast();
@@ -1119,200 +1119,200 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
     }
   };
 
-  const handleDayCoverImageChange = (
-    e: React.ChangeEvent<HTMLInputElement>
-  ) => {
-    if (!e.target.files || !editingItem) return;
-    const file = e.target.files[0];
-    if (file) {
-      new Compressor(file, {
-        quality: 0.6,
-        maxWidth: 1200,
-        success: (compressedResult) => {
-          setEditingItem((prev) =>
-            prev
-              ? { ...prev, cover_image_file: compressedResult as File }
-              : null
-          );
-          const reader = new FileReader();
-          reader.onloadend = () => {
-            setEditingItem((prev) =>
-              prev
-                ? { ...prev, cover_image_preview: reader.result as string }
-                : null
-            );
-          };
-          reader.readAsDataURL(compressedResult);
-        },
-        error: (err) => {
-          toast({
-            title: "Image compression failed",
-            description: err.message,
-            variant: "destructive",
-          });
-        },
-      });
-    }
-  };
+  // const handleDayCoverImageChange = (
+  //   e: React.ChangeEvent<HTMLInputElement>
+  // ) => {
+  //   if (!e.target.files || !editingItem) return;
+  //   const file = e.target.files[0];
+  //   if (file) {
+  //     new Compressor(file, {
+  //       quality: 0.6,
+  //       maxWidth: 1200,
+  //       success: (compressedResult) => {
+  //         setEditingItem((prev) =>
+  //           prev
+  //             ? { ...prev, cover_image_file: compressedResult as File }
+  //             : null
+  //         );
+  //         const reader = new FileReader();
+  //         reader.onloadend = () => {
+  //           setEditingItem((prev) =>
+  //             prev
+  //               ? { ...prev, cover_image_preview: reader.result as string }
+  //               : null
+  //           );
+  //         };
+  //         reader.readAsDataURL(compressedResult);
+  //       },
+  //       error: (err) => {
+  //         toast({
+  //           title: "Image compression failed",
+  //           description: err.message,
+  //           variant: "destructive",
+  //         });
+  //       },
+  //     });
+  //   }
+  // };
 
-  const handleRemoveDayCoverImage = () => {
-    if (editingItem) {
-      setEditingItem((prev) =>
-        prev
-          ? {
-              ...prev,
-              cover_image_file: null,
-              cover_image_preview: null,
-              cover_image_url: null,
-            }
-          : null
-      );
-    }
-  };
+  // const handleRemoveDayCoverImage = () => {
+  //   if (editingItem) {
+  //     setEditingItem((prev) =>
+  //       prev
+  //         ? {
+  //             ...prev,
+  //             cover_image_file: null,
+  //             cover_image_preview: null,
+  //             cover_image_url: null,
+  //           }
+  //         : null
+  //     );
+  //   }
+  // };
 
-  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files || !editingItem) return;
+  // const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  //   if (!e.target.files || !editingItem) return;
 
-    const files = Array.from(e.target.files);
-    if (files.length === 0) return;
+  //   const files = Array.from(e.target.files);
+  //   if (files.length === 0) return;
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) {
-      toast({
-        title: "Not Authenticated",
-        description: "You must be logged in to upload photos.",
-        variant: "destructive",
-      });
-      return;
-    }
+  //   const {
+  //     data: { user },
+  //   } = await supabase.auth.getUser();
+  //   if (!user) {
+  //     toast({
+  //       title: "Not Authenticated",
+  //       description: "You must be logged in to upload photos.",
+  //       variant: "destructive",
+  //     });
+  //     return;
+  //   }
 
-    toast({
-      title: "Uploading photos",
-      description: `Uploading ${files.length} file(s)...`,
-      variant: "default",
-    });
+  //   toast({
+  //     title: "Uploading photos",
+  //     description: `Uploading ${files.length} file(s)...`,
+  //     variant: "default",
+  //   });
 
-    const compressFile = (file: File): Promise<File> => {
-      return new Promise((resolve, reject) => {
-        // @ts-ignore
-        new Compressor(file, {
-          quality: 0.6,
-          maxWidth: 1200,
-          success(result: Blob) {
-            const ext = (file.name.split(".").pop() || "").toLowerCase();
-            const mime = result.type || file.type || "image/jpeg";
-            const name = `${editingItem.date}_${editingItem.day_number}_${uuidv4()}.${ext || (mime.split("/")[1] ?? "jpg")}`;
-            const compressedFile = new File([result], name, { type: mime });
-            resolve(compressedFile);
-          },
-          error(err: any) {
-            reject(err);
-          },
-        });
-      });
-    };
+  //   const compressFile = (file: File): Promise<File> => {
+  //     return new Promise((resolve, reject) => {
+  //       // @ts-ignore
+  //       new Compressor(file, {
+  //         quality: 0.6,
+  //         maxWidth: 1200,
+  //         success(result: Blob) {
+  //           const ext = (file.name.split(".").pop() || "").toLowerCase();
+  //           const mime = result.type || file.type || "image/jpeg";
+  //           const name = `${editingItem.date}_${editingItem.day_number}_${uuidv4()}.${ext || (mime.split("/")[1] ?? "jpg")}`;
+  //           const compressedFile = new File([result], name, { type: mime });
+  //           resolve(compressedFile);
+  //         },
+  //         error(err: any) {
+  //           reject(err);
+  //         },
+  //       });
+  //     });
+  //   };
 
-    try {
-      // Instead of uploading immediately, create compressed previews and attach them to editingItem
-      const previews = await Promise.all(
-        files.map(async (file, idx) => {
-          const compressed = await compressFile(file);
-          // create data URL preview
-          const reader = new FileReader();
-          const dataUrl: string = await new Promise((resolve, reject) => {
-            reader.onloadend = () => resolve(reader.result as string);
-            reader.onerror = reject;
-            reader.readAsDataURL(compressed);
-          });
+  //   try {
+  //     // Instead of uploading immediately, create compressed previews and attach them to editingItem
+  //     const previews = await Promise.all(
+  //       files.map(async (file, idx) => {
+  //         const compressed = await compressFile(file);
+  //         // create data URL preview
+  //         const reader = new FileReader();
+  //         const dataUrl: string = await new Promise((resolve, reject) => {
+  //           reader.onloadend = () => resolve(reader.result as string);
+  //           reader.onerror = reject;
+  //           reader.readAsDataURL(compressed);
+  //         });
 
-          return {
-            photo_uuid: uuidv4(),
-            day_uuid: editingItem.day_uuid,
-            seq: (editingItem.tripDayPhotos?.length ?? 0) + idx,
-            url: "",
-            trip_day_photo: compressed,
-            trip_day_photo_preview: dataUrl,
-          } as any;
-        })
-      );
+  //         return {
+  //           photo_uuid: uuidv4(),
+  //           day_uuid: editingItem.day_uuid,
+  //           seq: (editingItem.tripDayPhotos?.length ?? 0) + idx,
+  //           url: "",
+  //           trip_day_photo: compressed,
+  //           trip_day_photo_preview: dataUrl,
+  //         } as any;
+  //       })
+  //     );
 
-      setEditingItem((prev) =>
-        prev
-          ? {
-              ...prev,
-              tripDayPhotos: [...(prev.tripDayPhotos || []), ...previews],
-            }
-          : prev
-      );
-      // Also optimistically update itinerary view while editing
-      setItinerary((prev) =>
-        prev.map((d) =>
-          d.day_uuid === editingItem.day_uuid
-            ? ({
-                ...d,
-                tripDayPhotos: [...(d.tripDayPhotos || []), ...previews],
-              } as ItineraryItem)
-            : d
-        )
-      );
+  //     setEditingItem((prev) =>
+  //       prev
+  //         ? {
+  //             ...prev,
+  //             tripDayPhotos: [...(prev.tripDayPhotos || []), ...previews],
+  //           }
+  //         : prev
+  //     );
+  //     // Also optimistically update itinerary view while editing
+  //     setItinerary((prev) =>
+  //       prev.map((d) =>
+  //         d.day_uuid === editingItem.day_uuid
+  //           ? ({
+  //               ...d,
+  //               tripDayPhotos: [...(d.tripDayPhotos || []), ...previews],
+  //             } as ItineraryItem)
+  //           : d
+  //       )
+  //     );
 
-      toast({
-        title: "Files ready",
-        description: `${previews.length} photo(s) ready to save. Click Save Changes to upload.`,
-        variant: "default",
-      });
-      if (photoInputRef.current) photoInputRef.current.value = "";
-    } catch (err: any) {
-      console.error("Preparing previews failed", err);
-      toast({
-        title: "Preview failed",
-        description: err.message || String(err),
-        variant: "destructive",
-      });
-    }
-  };
+  //     toast({
+  //       title: "Files ready",
+  //       description: `${previews.length} photo(s) ready to save. Click Save Changes to upload.`,
+  //       variant: "default",
+  //     });
+  //     if (photoInputRef.current) photoInputRef.current.value = "";
+  //   } catch (err: any) {
+  //     console.error("Preparing previews failed", err);
+  //     toast({
+  //       title: "Preview failed",
+  //       description: err.message || String(err),
+  //       variant: "destructive",
+  //     });
+  //   }
+  // };
 
-  const handleDeletePhoto = async (photoId: string) => {
-    if (!editingItem) return;
+  // const handleDeletePhoto = async (photoId: string) => {
+  //   if (!editingItem) return;
 
-    const photo = (editingItem.tripDayPhotos || []).find((p) => p.photo_uuid === photoId) as any;
-    if (!photo) return;
+  //   const photo = (editingItem.tripDayPhotos || []).find((p) => p.photo_uuid === photoId) as any;
+  //   if (!photo) return;
 
-    // If it's a pending (unsaved) photo (has trip_day_photo), just remove locally now
-    if (photo.trip_day_photo) {
-      setEditingItem((prev) =>
-        prev
-          ? { ...prev, tripDayPhotos: (prev.tripDayPhotos || []).filter((p) => p.photo_uuid !== photoId) }
-          : prev
-      );
-      setItinerary((prev) =>
-        prev.map((d) =>
-          d.day_uuid === editingItem.day_uuid
-            ? ({ ...d, tripDayPhotos: (d.tripDayPhotos || []).filter((p: any) => p.photo_uuid !== photoId) } as ItineraryItem)
-            : d
-        )
-      );
-      toast({ title: "Removed", description: "Photo removed from selection.", variant: "default" });
-      return;
-    }
+  //   // If it's a pending (unsaved) photo (has trip_day_photo), just remove locally now
+  //   if (photo.trip_day_photo) {
+  //     setEditingItem((prev) =>
+  //       prev
+  //         ? { ...prev, tripDayPhotos: (prev.tripDayPhotos || []).filter((p) => p.photo_uuid !== photoId) }
+  //         : prev
+  //     );
+  //     setItinerary((prev) =>
+  //       prev.map((d) =>
+  //         d.day_uuid === editingItem.day_uuid
+  //           ? ({ ...d, tripDayPhotos: (d.tripDayPhotos || []).filter((p: any) => p.photo_uuid !== photoId) } as ItineraryItem)
+  //           : d
+  //       )
+  //     );
+  //     toast({ title: "Removed", description: "Photo removed from selection.", variant: "default" });
+  //     return;
+  //   }
 
-    // For already-saved photos, toggle pending_delete flag (mark for deletion on Save)
-    const isPending = !!photo.pending_delete;
-    setEditingItem((prev) =>
-      prev ? { ...prev, tripDayPhotos: (prev.tripDayPhotos || []).map((p: any) => (p.photo_uuid === photoId ? { ...p, pending_delete: !isPending } : p)) } : prev
-    );
-    setItinerary((prev) =>
-      prev.map((d) =>
-        d.day_uuid === editingItem.day_uuid
-          ? ({ ...d, tripDayPhotos: (d.tripDayPhotos || []).map((p: any) => (p.photo_uuid === photoId ? { ...p, pending_delete: !isPending } : p)) } as ItineraryItem)
-          : d
-      )
-    );
+  //   // For already-saved photos, toggle pending_delete flag (mark for deletion on Save)
+  //   const isPending = !!photo.pending_delete;
+  //   setEditingItem((prev) =>
+  //     prev ? { ...prev, tripDayPhotos: (prev.tripDayPhotos || []).map((p: any) => (p.photo_uuid === photoId ? { ...p, pending_delete: !isPending } : p)) } : prev
+  //   );
+  //   setItinerary((prev) =>
+  //     prev.map((d) =>
+  //       d.day_uuid === editingItem.day_uuid
+  //         ? ({ ...d, tripDayPhotos: (d.tripDayPhotos || []).map((p: any) => (p.photo_uuid === photoId ? { ...p, pending_delete: !isPending } : p)) } as ItineraryItem)
+  //         : d
+  //     )
+  //   );
 
-    toast({ title: isPending ? "Restore" : "Pending delete", description: isPending ? "Photo will no longer be deleted." : "Photo marked for deletion. Click Save Changes to apply.", variant: "default" });
-  };
+  //   toast({ title: isPending ? "Restore" : "Pending delete", description: isPending ? "Photo will no longer be deleted." : "Photo marked for deletion. Click Save Changes to apply.", variant: "default" });
+  // };
 
   const handleDeleteDay = async () => {
     if (!editingItem) return;
@@ -1617,7 +1617,7 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
           <Card className="overflow-hidden bg-card/80 backdrop-blur-sm border-white/20 shadow-lg">
             <div className="relative">
               <div className="relative w-full h-32 rounded-t-lg overflow-hidden">
-                {item.cover_image_url && (
+                {/* {item.cover_image_url && (
                   <Image
                     src={item.cover_image_url}
                     alt={item.title}
@@ -1625,7 +1625,7 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
                     className="object-cover"
                     data-ai-hint={item.cover_image_hint || ""}
                   />
-                )}
+                )} */}
                 <div className="absolute inset-0 bg-black/40 flex items-end p-4">
                   <div className="text-white flex-grow text-left">
                     <h2 className="font-bold text-lg font-headline">
@@ -1636,23 +1636,10 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
                 </div>
               </div>
               <div className="absolute top-2 right-2 z-10">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-white hover:bg-white/20 hover:text-white"
-                    >
-                      <MoreVertical className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="shadow-lg">
-                    <DropdownMenuItem onSelect={() => handleEditClick(item)}>
-                      <Edit className="mr-2 h-4 w-4" />
-                      Edit
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                <Button variant="ghost" size="icon" className="h-7 w-7 pointer-events-auto" onClick={() => handleEditClick(item)}>
+                  <Edit className="h-4 w-4" color="white"/>
+                  <span className="sr-only">Edit Trip</span>
+                </Button>
               </div>
             </div>
             <div className="p-4 space-y-4">
@@ -1755,7 +1742,7 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
                 />
               </div>
 
-              <div className="space-y-2">
+              {/* <div className="space-y-2">
                 <Label>Day Cover Image</Label>
                 {editingItem.cover_image_preview && (
                   <div className="relative w-full aspect-[4/3] rounded-md overflow-hidden">
@@ -1791,7 +1778,7 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
                     <Trash2 className="mr-2 h-4 w-4" /> Remove
                   </Button>
                 </div>
-              </div>
+              </div> */}
 
               <div className="space-y-2">
                 <Label htmlFor="remarks">Feedback</Label>

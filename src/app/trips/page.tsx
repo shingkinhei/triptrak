@@ -439,7 +439,7 @@ export default function TripsPage() {
   };
 
   return (
-    <main className="flex h-screen flex-col bg-background font-body">
+    <main className="flex h-screen mx-0 lg:mx-24 flex-col bg-background font-body">
         <header className="mb-4 flex items-center justify-between px-4 pt-4 shrink-0 mt-4">
             <div>
                 <h1 className="text-2xl font-bold font-headline text-foreground">
@@ -521,25 +521,27 @@ export default function TripsPage() {
               </div>
             )}
             {trips.map(trip => (
-                <Card key={trip.trip_uuid} className={cn("overflow-hidden w-full transition-all hover:shadow-lg relative", {'border-primary border-2': trip.status === 'A'})}>
+                <Card key={trip.trip_uuid} className={cn("overflow-hidden w-full h-[16rem] lg:h-[30rem] bg-white transition-all hover:shadow-lg relative", {'border-primary border-2': trip.status === 'A'})}>
                     <CardContent className="p-0">
                         <div className="flex flex-col">
-                            <div className="relative h-56 w-full shrink-0 object-fill">
+                            <Link href={`/trip/${trip.trip_uuid}`} className="relative h-[16rem] lg:h-[30rem] w-full shrink-0 object-fill block hover:opacity-90 transition-opacity " aria-label={`View trip: ${trip.name}`}>
                                 <Image
                                     src={trip.cover_image_url || ''}
                                     alt={trip.name || ''}
                                     fill
-                                    className="object-cover"
+                                    className="object-cover h-[16rem] lg:h-[30rem] w-full"
                                     data-ai-hint={trip.cover_image_hint || ''}
                                 />
-                            </div>
-                            <div className="absolute bottom-0 w-full flex flex-col justify-between p-3 flex-grow bg-gradient-to-t from-background to-transparent backdrop-blur-sm">
-                                <div>
-                                  <h2 className="text-lg font-bold font-headline leading-tight">{trip.name}</h2>
-                                  <p className="text-sm text-muted-foreground">{trip.destination}</p>
-                                  <p className="text-xs text-muted-foreground mt-1">{new Date(trip.start_date).toLocaleDateString()} - {new Date(trip.end_date).toLocaleDateString()}</p>
-                                </div>
-                                <div className='flex items-center justify-between gap-2 mt-2 z-10'>
+                            </Link>
+                            <div className="absolute bottom-0 z-10 w-full flex flex-col justify-between p-3 flex-grow bg-gradient-to-b from-black/0 to-black/60">
+                                <Link href={`/trip/${trip.trip_uuid}`} className="flex-grow flex flex-col justify-start cursor-pointer hover:opacity-80 transition-opacity" aria-label={`View trip: ${trip.name}`}>
+                                  <div>
+                                    <h2 className="text-white text-lg font-bold font-headline leading-tight">{trip.name}</h2>
+                                    <p className="text-white text-sm text-muted-foreground">{trip.destination}</p>
+                                    <p className="text-white text-xs text-muted-foreground mt-1">{new Date(trip.start_date).toLocaleDateString()} - {new Date(trip.end_date).toLocaleDateString()}</p>
+                                  </div>
+                                </Link>
+                                <div className='flex items-center justify-between gap-2 mt-2 z-20 pointer-events-auto'>
                                   <Select value={trip.status} onValueChange={(value) => handleSetStatus(trip.trip_uuid, value as TripStatus)}>
                                       <SelectTrigger className={cn("h-7 text-xs w-auto capitalize focus:ring-0 border-none", statusMap[trip.status]?.color)}>
                                           <SelectValue placeholder="Set status" />
@@ -551,16 +553,41 @@ export default function TripsPage() {
                                       </SelectContent>
                                   </Select>
                                   <div className="flex items-center">
-                                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.preventDefault(); handleEditClick(trip); }}>
-                                      <Edit className="h-4 w-4" />
+                                    <Button variant="ghost" size="icon" className="h-7 w-7 pointer-events-auto" onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleEditClick(trip); }}>
+                                      <Edit className="h-4 w-4" color="white"/>
                                       <span className="sr-only">Edit Trip</span>
                                     </Button>
                                   </div>
                                 </div>
                             </div>
+                            {/* g-gradient-to-t from-yellow/600/0 to-black/40 */}
+                            <div className="absolute z-2 left-1/2 top-0 transform -translate-x-1/2 w-full h-full overflow-hidden pointer-events-none ">
+                              <div
+                                className="absolute z-2 w-full h-[120%] bottom-0 flex items-end overflow-hidden blur-[4px] scale-x-100 scale-y-110 "
+                              >
+                                <div
+                                  className="absolute z-2 bottom-0 left-0 w-full h-[45%] lg:h-[25%] flex items-end overflow-hidden pointer-events-none "
+                                >
+                                  <img
+                                    src={trip.cover_image_url || ''}
+                                    alt={trip.name || ''}
+                                    className="object-cover h-[16rem] lg:h-[30rem] w-full"
+                                    data-ai-hint={trip.cover_image_hint || ''}
+                                    
+                                  />
+                                </div>
+                              </div>
+                               <Image
+                                src={trip.cover_image_url || ''}
+                                alt={trip.name || ''}
+                                fill
+                                className="object-cover absolute z-1 left-0 top-[4%] blur-[8px] h-[16rem] lg:h-[30rem] w-full opacity-20 rotate-4 scale-102 rounded-[30px] elchi"
+                                data-ai-hint={trip.cover_image_hint || ''}
+                              />
+                            </div>
+
                         </div>
                     </CardContent>
-                     <Link href={`/trip/${trip.trip_uuid}`} className="absolute inset-0 z-0" aria-label={`View trip: ${trip.name}`}></Link>
                 </Card>
             ))}
             </div>

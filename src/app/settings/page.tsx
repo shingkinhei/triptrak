@@ -146,7 +146,7 @@ export default function SettingsPage() {
     }
 
   return (
-    <main className="bg-background font-body flex flex-col h-screen">
+    <main className="bg-background mx-0 lg:mx-24 font-body flex flex-col h-screen">
         <header className="mb-4 flex items-center justify-between px-4 pt-4 shrink-0 mt-4">
             <div>
                 <h1 className="text-2xl font-bold font-headline text-foreground">
