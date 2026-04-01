@@ -661,15 +661,15 @@ export function ExpenseTracker({ expensesInfo, trip }: ExpenseTrackerProps) {
             </Button>
           </div>
         </CardHeader>
-        <CardContent>
-          <ChartContainer config={chartConfig} className="h-[200px] w-full">
+        <CardContent className="grid grid-cols-3 gap-2">
+          <ChartContainer config={chartConfig} className="flex col-span-3 lg:col-span-2 h-180 lg:h-84">
             <PieChart>
               <ChartTooltip
                 cursor={{ fill: "hsl(var(--muted))", radius: 4 }}
                 content={
                   <ChartTooltipContent
                     formatter={(value, name, props) => {
-                      const categoryKey = name as keyof typeof chartConfig;
+                      // const categoryKey = name as keyof typeof chartConfig;
                       const total = grouped.reduce(
                         (acc, curr) => acc + curr.total,
                         0
@@ -679,7 +679,7 @@ export function ExpenseTracker({ expensesInfo, trip }: ExpenseTrackerProps) {
                           ? ((props.payload.total / total) * 100).toFixed(0)
                           : 0;
                       return `${
-                        chartConfig[categoryKey]?.label
+                        grouped.find((d) => d.name === name)?.name || ''
                       }: ${currentFormatter(value as number)} (${percentage}%)`;
                     }}
                   />
@@ -689,9 +689,9 @@ export function ExpenseTracker({ expensesInfo, trip }: ExpenseTrackerProps) {
                 data={grouped}
                 dataKey="total"
                 nameKey="name"
-                innerRadius={50}
-                outerRadius={80}
-                paddingAngle={2}
+                innerRadius={0}
+                outerRadius={120}
+                paddingAngle={3}
                 labelLine={false}
                 label={({
                   cx,
@@ -714,7 +714,7 @@ export function ExpenseTracker({ expensesInfo, trip }: ExpenseTrackerProps) {
                       fill="hsl(var(--card-foreground))"
                       textAnchor={x > cx ? "start" : "end"}
                       dominantBaseline="central"
-                      className="text-xs font-bold"
+                      className="text-lg font-bold"
                     >
                       {`${(percent * 100).toFixed(0)}%`}
                     </text>
@@ -725,20 +725,28 @@ export function ExpenseTracker({ expensesInfo, trip }: ExpenseTrackerProps) {
                   <Cell key={`cell-${entry.name}`} fill={entry.color} />
                 ))}
               </Pie>
-              <ChartLegend
-              // content={
-              //   <ChartLegendContent
-              //     nameKey="name"
-              //     formatter={(value) =>
-              //       chartConfig[
-              //         value as keyof typeof chartConfig
-              //       ]?.label
-              //     }
-              //   />
-              // }
-              />
             </PieChart>
           </ChartContainer>
+          <div className="col-span-3 lg:col-span-1 flex flex-row lg:flex-col gap-2 justify-center items-centerlg:items-start">
+            {grouped.map((group) => {
+              const CategoryIcon =
+                iconMap[getIconText(group.name, expenseCategoryOption)];
+              return (
+                <div
+                  key={group.name}
+                  className="flex items-center gap-2 text-sm text-card-foreground"
+                >
+                  {CategoryIcon && (
+                    <CategoryIcon
+                      className={`h-8 w-8`}
+                      style={{ color: getChartColor(group.name, expenseCategoryOption) }}
+                    />
+                  )}
+                  <span className="text-sm font-bold">{group.name}</span>
+                </div>
+              );
+            })}
+          </div>
         </CardContent>
       </Card>
 
@@ -887,7 +895,10 @@ export function ExpenseTracker({ expensesInfo, trip }: ExpenseTrackerProps) {
                 <div className="flex justify-between items-center border-b border-gray-400 pb-2">
                   <CardTitle className="text-lg font-headline text-card-foreground flex items-center gap-2">
                     {CategoryIcon && (
-                      <CategoryIcon className="h-5 w-5 text-primary" />
+                      <CategoryIcon 
+                        className="h-5 w-5 text-primary" 
+                        style={{ color: getChartColor(group.name, expenseCategoryOption) }}
+                      />
                     )}
                     {group.name}
                   </CardTitle>
@@ -909,7 +920,7 @@ export function ExpenseTracker({ expensesInfo, trip }: ExpenseTrackerProps) {
                     return (
                       <div
                         key={item.expense_uuid}
-                        className="flex justify-between items-center border-b last:border-b-0 border-gray-400"
+                        className="flex justify-between items-center pb-1 border-b last:border-b-0 border-gray-400"
                       >
                         <div className="flex-grow">
                           <p className="font-semibold text-card-foreground">

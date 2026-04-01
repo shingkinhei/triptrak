@@ -2013,7 +2013,11 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
 
       <Dialog
         open={isAiPlanDialogOpen}
-        onOpenChange={(isOpen) => setIsAiPlanDialogOpen(isOpen)}
+        onOpenChange={(isOpen) => {
+          handleCancelAIPlan();
+          setIsAiPlanLoading(false);
+          setIsAiPlanDialogOpen(isOpen);
+        }}
       >
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -2076,7 +2080,7 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
                 
           </div>
           <DialogFooter className="flex justify-end gap-2">
-            <Button
+            {/* <Button
               variant="outline"
               onClick={(e) => {
                 e.preventDefault();
@@ -2085,7 +2089,7 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
               disabled={isAiPlanLoading}
             >
               Cancel
-            </Button>
+            </Button> */}
             <Button 
               onClick={handleApplyAIPlan}
               disabled={isAiPlanLoading || (localAiRateLimit - localAiRate <= 0)}
