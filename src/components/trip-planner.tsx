@@ -1716,7 +1716,7 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
             <DialogHeader>
               <DialogTitle>Edit Day {editingItem.day_number}</DialogTitle>
             </DialogHeader>
-            <div className="flex-grow overflow-y-auto pr-6 -mr-6 space-y-4">
+            <div className="flex flex-col gap-4 overflow-y-auto max-h-[70vh] pl-1 pr-4">
               <div className="space-y-2">
                 <Label htmlFor="title">Title</Label>
                 <Input
@@ -1962,47 +1962,49 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
                 </div>
               </div>
             </div>
-            <DialogFooter className="grid grid-cols-3 grid-rows-2 gap-2">
-              <div>
+            <DialogFooter className="flex flex-col sm:flex-col sm:justify-between sm:space-x-0 gap-2">
+              <div  className="flex gap-2">
                 <Button variant="outline" onClick={handleOpenAIPlan} className="w-full">
-                  <Brain className="mr-2 h-4 w-4" />
+                  <Brain className="h-4 w-4" />
                   AI Plan
                 </Button>
               </div>
-              <div>
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button variant="destructive" size="sm" className="w-full">
-                      <Trash2 className="mr-2 h-4 w-4" /> Delete Day
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Delete Day</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        This will permanently delete the day, its activities,
-                        and photos. This action cannot be undone.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction
-                        onClick={handleDeleteDay}
-                        className="bg-destructive hover:bg-destructive/90"
-                      >
-                        Delete Day
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              </div>
-              <div >
+              <div className="flex gap-2 justify-around">
+                <div>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="outline" >
+                        <Trash2 className= "h-4 w-4" />
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Delete Day</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This will permanently delete the day, its activities,
+                          and photos. This action cannot be undone.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={handleDeleteDay}
+                          className="bg-destructive hover:bg-destructive/90"
+                        >
+                          Delete Day
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
+              {/* <div >
                 <Button variant="outline" onClick={handleCancelEdit} className="w-full">
                   Cancel
                 </Button>
-              </div>
-              <div className="col-span-3">
-                <Button onClick={handleSave} className="w-full">Save Changes</Button>
+              </div> */}
+                <div className="w-full">
+                  <Button onClick={handleSave} className="w-full">Save Changes</Button>
+                </div>
               </div>
             </DialogFooter>
           </DialogContent>

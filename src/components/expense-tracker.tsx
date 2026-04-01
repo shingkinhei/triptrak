@@ -760,8 +760,8 @@ export function ExpenseTracker({ expensesInfo, trip }: ExpenseTrackerProps) {
             <DialogHeader>
               <DialogTitle>Add New Transaction</DialogTitle>
             </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
+            <div className="flex flex-col gap-4 py-4 overflow-y-auto max-h-[70vh] pl-1 pr-4">
+              <div className="space-y-2">
                 <Label htmlFor="name" className="text-right">
                   Name
                 </Label>
@@ -775,11 +775,13 @@ export function ExpenseTracker({ expensesInfo, trip }: ExpenseTrackerProps) {
                   placeholder="e.g. Coffee"
                 />
               </div>
-              <div className="grid grid-cols-4 items-center gap-4">
+              <div className="space-y-2">
                 <Label htmlFor="amount" className="text-right">
                   Amount (
                   {displayCurrency === "trip" ? tripCurrency : homeCurrency})
                 </Label>
+              </div>
+              <div className="flex items-center gap-2">
                 <Input
                   id="amount"
                   type="number"
@@ -791,9 +793,22 @@ export function ExpenseTracker({ expensesInfo, trip }: ExpenseTrackerProps) {
                       amount: parseFloat(e.target.value) || 0,
                     })
                   }
-                  className="col-span-3"
                   placeholder="e.g. 5.00"
+                  className="w-full"
                 />
+                  <Button
+                    variant="outline"
+                    size="default"
+                    onClick={() => {
+                      const value = amountInputRef?.current?.value;
+                      if (value) {
+                        toggleCurrencyForm(parseFloat(value) || 0);
+                      }
+                    }}
+                  >
+                    <Repeat className="h-4 w-4 mr-2" />
+                    <span>{currencyButtonLabel}</span>
+                  </Button>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="date">Date</Label>
@@ -809,7 +824,7 @@ export function ExpenseTracker({ expensesInfo, trip }: ExpenseTrackerProps) {
                   }
                 />
               </div>
-              <div className="grid grid-cols-4 items-center gap-4">
+              <div className="space-y-2">
                 <Label htmlFor="category" className="text-right">
                   Category
                 </Label>
@@ -822,7 +837,7 @@ export function ExpenseTracker({ expensesInfo, trip }: ExpenseTrackerProps) {
                     })
                   }
                 >
-                  <SelectTrigger className="col-span-3">
+                  <SelectTrigger>
                     <SelectValue placeholder="Select a category" />
                   </SelectTrigger>
                   <SelectContent className="shadow-lg">
@@ -849,7 +864,7 @@ export function ExpenseTracker({ expensesInfo, trip }: ExpenseTrackerProps) {
               </div>
             </div>
             <DialogFooter>
-              <Button onClick={handleAddExpense}>Add Expense</Button>
+              <Button onClick={handleAddExpense} className="w-full">Add Expense</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -927,14 +942,17 @@ export function ExpenseTracker({ expensesInfo, trip }: ExpenseTrackerProps) {
         <Dialog
           open={isEditDialogOpen}
           onOpenChange={(isOpen) => {
-            if (!isOpen) handleCancelEdit();
+            if (!isOpen) {
+              handleCancelEdit();
+              setEditingExpense(null);
+            }
           }}
         >
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Edit: {editingExpense?.item.name}</DialogTitle>
             </DialogHeader>
-            <div className="grid gap-4 py-4">
+            <div className="grid gap-4 py-4 overflow-y-auto max-h-[70vh] pl-1 pr-4">
               <div className="space-y-2">
                 <Label htmlFor="item-name">Item Name</Label>
                 <Input
@@ -952,8 +970,7 @@ export function ExpenseTracker({ expensesInfo, trip }: ExpenseTrackerProps) {
                   {displayCurrency === "trip" ? tripCurrency : homeCurrency})
                 </Label>
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
+              <div className="flex gap-4">
                   <Input
                     id="item-price"
                     type="number"
@@ -964,12 +981,11 @@ export function ExpenseTracker({ expensesInfo, trip }: ExpenseTrackerProps) {
                       handleEditExpenseFormChange("amount", e.target.value)
                     }
                     placeholder="e.g. 15.00"
+                    className="w-full"
                   />
-                </div>
-                <div className="space-y-2">
                   <Button
                     variant="outline"
-                    size="sm"
+                    size="default"
                     onClick={() => {
                       const value = amountInputRef?.current?.value;
                       if (value) {
@@ -980,7 +996,6 @@ export function ExpenseTracker({ expensesInfo, trip }: ExpenseTrackerProps) {
                     <Repeat className="h-4 w-4 mr-2" />
                     <span>{currencyButtonLabel}</span>
                   </Button>
-                </div>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="date">Date</Label>
@@ -1029,8 +1044,8 @@ export function ExpenseTracker({ expensesInfo, trip }: ExpenseTrackerProps) {
               <div>
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
-                    <Button variant="destructive" size="sm">
-                      <Trash2 className="mr-2 h-4 w-4" /> Delete
+                    <Button variant="outline" size="icon">
+                      <Trash2 className= "h-4 w-4" /> 
                     </Button>
                   </AlertDialogTrigger>
                   <AlertDialogContent>
@@ -1052,15 +1067,13 @@ export function ExpenseTracker({ expensesInfo, trip }: ExpenseTrackerProps) {
                   </AlertDialogContent>
                 </AlertDialog>
               </div>
-              <div className="flex gap-2">
-                <Button
+                {/* <Button
                   variant="outline"
                   onClick={() => setEditingExpense(null)}
                 >
                   Cancel
-                </Button>
-                <Button onClick={handleUpdateExpense}>Save Changes</Button>
-              </div>
+                </Button> */}
+                <Button onClick={handleUpdateExpense} className="w-full">Save Changes</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>

@@ -833,14 +833,17 @@ export function ShoppingList({
         <Dialog
           open={isEditDialogOpen}
           onOpenChange={(isOpen) => {
-            if (!isOpen) handleCancelEdit();
+            if (!isOpen) {
+              handleCancelEdit()
+              setEditingItem(null)
+            };
           }}
         >
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Edit: {editingItem.item.name}</DialogTitle>
             </DialogHeader>
-            <div className="grid gap-4 py-4">
+            <div className="grid gap-4 py-4 overflow-y-auto max-h-[70vh] pl-1 pr-4">
               <div className="space-y-2">
                 <Label htmlFor="item-name">Item Name</Label>
                 <Input
@@ -972,48 +975,51 @@ export function ShoppingList({
                   </p>
                 )}
               </div>
-            </div>
-            <div className="space-y-2">
-              <Label>Image (Optional)</Label>
-              <div className="flex items-center gap-4">
-                {editItemFormData.previewUrl && (
-                  <Image
-                    src={editItemFormData.previewUrl}
-                    alt="preview"
-                    width={60}
-                    height={60}
-                    className="rounded-md object-cover"
+              <div className="space-y-2">
+                <div className="flex items-center justify-items-start gap-2">
+                  <Label>Image (Optional)</Label>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    <Upload className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={handleClearNewItemImage}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+                <div className="flex items-center gap-4">
+                  {editItemFormData.previewUrl && (
+                    <Image
+                      src={editItemFormData.previewUrl}
+                      alt="preview"
+                      width={600}
+                      height={800}
+                      className="rounded-md object-cover"
+                    />
+                  )}
+                  <Input
+                    type="file"
+                    accept="image/*"
+                    ref={fileInputRef}
+                    onChange={handleEditImageChange}
+                    className="hidden"
                   />
-                )}
-                <Input
-                  type="file"
-                  accept="image/*"
-                  ref={fileInputRef}
-                  onChange={handleEditImageChange}
-                  className="hidden"
-                />
-                <Button
-                  variant="outline"
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  <Camera className="mr-2 h-4 w-4" />
-                  Change
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => handleClearNewItemImage()}
-                >
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  Clear
-                </Button>
+                </div>
               </div>
             </div>
+            
             <DialogFooter className="flex items-center justify-between">
               <div>
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
-                    <Button variant="destructive" size="sm">
-                      <Trash2 className="mr-2 h-4 w-4" /> Delete
+                    <Button variant="outline" size="icon">
+                      <Trash2 className="h-4 w-4" />
                     </Button>
                   </AlertDialogTrigger>
                   <AlertDialogContent>
@@ -1035,12 +1041,12 @@ export function ShoppingList({
                   </AlertDialogContent>
                 </AlertDialog>
               </div>
-              <div className="flex gap-2">
-                <Button variant="outline" onClick={() => setEditingItem(null)}>
+                {/* <Button variant="outline" onClick={() => setEditingItem(null)}>
                   Cancel
+                </Button> */}
+                <Button onClick={handleUpdateItem} className="w-full">
+                  Save Changes
                 </Button>
-                <Button onClick={handleUpdateItem}>Save Changes</Button>
-              </div>
             </DialogFooter>
           </DialogContent>
         </Dialog>

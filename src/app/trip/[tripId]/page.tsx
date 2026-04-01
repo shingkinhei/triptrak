@@ -724,17 +724,20 @@ export default function TripDetailsPage() {
         </div>
 
         {activeTab === "shopping" && (
-          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+          <Dialog 
+            open={isAddDialogOpen} 
+            onOpenChange={setIsAddDialogOpen}
+            >
             <DialogTrigger asChild>
               <Button className="absolute bottom-24 right-8 h-16 w-16 rounded-full shadow-lg z-20">
-                <PlusCircle className="h-8 w-8" />
+                <PlusCircle className="h-8 w-8"/>
               </Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>Add New Shopping Item</DialogTitle>
               </DialogHeader>
-              <div className="grid gap-4 py-4">
+              <div className="grid gap-4 py-4 overflow-auto max-h-[70vh] pl-1 pr-4">
                 <div className="space-y-2">
                   <Label htmlFor="item-name">Item Name</Label>
                   <Input
@@ -870,14 +873,30 @@ export default function TripDetailsPage() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label>Image (Optional)</Label>
+                  <div className="flex items-center justify-items-start gap-2">
+                    <Label>Image (Optional)</Label>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      <Upload className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={handleClearNewItemImage}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                   <div className="flex items-center gap-4">
                     {newItem.item_image_preview && (
                       <Image
                         src={newItem.item_image_preview}
                         alt="preview"
-                        width={60}
-                        height={60}
+                        width={600}
+                        height={800}
                         className="rounded-md object-cover"
                       />
                     )}
@@ -888,31 +907,17 @@ export default function TripDetailsPage() {
                       onChange={handleDayCoverImageChange}
                       className="hidden"
                     />
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => fileInputRef.current?.click()}
-                    >
-                      <Upload className="mr-2 h-4 w-4" /> Upload
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleClearNewItemImage}
-                    >
-                      <Trash2 className="mr-2 h-4 w-4" /> Clear
-                    </Button>
                   </div>
                 </div>
               </div>
               <DialogFooter>
-                <Button
+                {/* <Button
                   variant="outline"
                   onClick={() => setIsAddDialogOpen(false)}
                 >
                   Cancel
-                </Button>
-                <Button onClick={handleAddItem}>Add Item</Button>
+                </Button> */}
+                <Button onClick={handleAddItem} className="w-full">Add Item</Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
