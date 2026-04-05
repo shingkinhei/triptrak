@@ -206,7 +206,7 @@ export function ShoppingList({
     if (!trip || !trip.itinerary) return [];
     const allPois = trip.itinerary.flatMap((day) =>
       day.activities.map((activity) => ({
-        name: activity.description,
+        name: activity.name,
         address: activity.address || "",
       }))
     );
@@ -353,7 +353,7 @@ export function ShoppingList({
     }
 
     try {
-      let newImageUrl: string | null = null;
+      let newImageUrl: string | `https://rodtfkraukblqbshlazo.supabase.co/storage/v1/object/public/shopping_item_photo/933747f2-ccbb-4668-b661-c73e69ba0fbb/d4e1cbfb-5cf8-4317-857e-d101d26b1b07/2d63da87-0a12-4130-8fd0-3c366729d054-e7e4f3d5-9f89-47ac-b076-24ba3d034bf7.jpg`;
 
       if (editItemFormData.file) {
         const file = editItemFormData.file;
@@ -591,8 +591,8 @@ export function ShoppingList({
   const handleClearNewItemImage = () => {
     setEditItemFormData((prev) => ({
       ...prev,
-      item_image: null,
-      item_image_preview: null,
+      file: null,
+      previewUrl: null,
     }));
     if (fileInputRef.current) fileInputRef.current.value = "";
   };

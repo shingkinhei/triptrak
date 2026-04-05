@@ -436,7 +436,7 @@ export default function TripDetailsPage() {
     if (!trip || !trip.itinerary) return [];
     const allPois = trip.itinerary.flatMap((day) =>
       day.activities.map((activity) => ({
-        name: activity.description,
+        name: activity.name,
         address: activity.address || "",
       }))
     );
@@ -656,7 +656,7 @@ export default function TripDetailsPage() {
       pcs: newItem.pcs || 1,
       image_url:
         newImageUrl ||
-        `https://picsum.photos/seed/${newItem.name.trim()}/100/100`,
+        `https://rodtfkraukblqbshlazo.supabase.co/storage/v1/object/public/shopping_item_photo/933747f2-ccbb-4668-b661-c73e69ba0fbb/d4e1cbfb-5cf8-4317-857e-d101d26b1b07/2d63da87-0a12-4130-8fd0-3c366729d054-e7e4f3d5-9f89-47ac-b076-24ba3d034bf7.jpg`,
       address: newItem.address,
       store: newItem.store,
       user_id: user.id,
