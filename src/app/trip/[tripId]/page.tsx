@@ -655,8 +655,7 @@ export default function TripDetailsPage() {
           ) || 0,
       pcs: newItem.pcs || 1,
       image_url:
-        newImageUrl ||
-        `https://rodtfkraukblqbshlazo.supabase.co/storage/v1/object/public/shopping_item_photo/933747f2-ccbb-4668-b661-c73e69ba0fbb/d4e1cbfb-5cf8-4317-857e-d101d26b1b07/2d63da87-0a12-4130-8fd0-3c366729d054-e7e4f3d5-9f89-47ac-b076-24ba3d034bf7.jpg`,
+        newImageUrl || '',
       address: newItem.address,
       store: newItem.store,
       user_id: user.id,
@@ -713,7 +712,7 @@ export default function TripDetailsPage() {
     <main className="flex h-screen w-full flex-col bg-background font-body">
       <div
         className="relative flex-grow bg-cover bg-center overflow-hidden"
-        style={{ backgroundImage: `url(${trip.cover_image_url})` }}
+        style={{ backgroundImage: `url(${trip.cover_image_url || "https://rodtfkraukblqbshlazo.supabase.co/storage/v1/object/public/trip_cover/trip_cover_sample.jpg"})` }}
       >
         <div className="absolute inset-0 bg-black/60 z-0 backdrop-blur-sm" />
         <div className="relative z-10 h-full mx-0 lg:mx-24 flex flex-col">

@@ -90,7 +90,7 @@ import {
 import { v4 as uuidv4 } from "uuid";
 import { Description } from "@radix-ui/react-toast";
 import { match } from "assert/strict";
-import { getAIPlan } from "@/api/generateDayActivities";
+import { getAiPlan } from "@/api/generateDayActivities";
 
 const iconMap: Record<string, LucideIcon> = {
   Plane,
@@ -441,8 +441,8 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isAiPlanDialogOpen, setIsAiPlanDialogOpen] = useState(false);
   const [isAiPlanLoading, setIsAiPlanLoading] = useState(false);
-  const [localAiRate, setAiRate] = useState(aiRate);
-  const [localAiRateLimit, setAiRateLimit] = useState(aiRateLimit);
+  const [localAiRate, setLocalAiRate] = useState(aiRate);
+  const [localAiRateLimit, setLocalAiRateLimit] = useState(aiRateLimit);
   const [aiPreferences, setAiPreferences] = useState({
     preferences: null,
     suggestions: null,
@@ -461,22 +461,6 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
   const { toast } = useToast();
 
   useEffect(() => {
-    const fetchChecklist = async () => {
-      const { data, error } = await supabase
-        .from("pre_trip_checklist")
-        .select("*")
-        .eq("trip_uuid", trip.trip_uuid)
-        .order("seq", { ascending: true });
-      if (error) {
-        toast({
-          title: "Error fetching checklist",
-          description: error.message,
-          variant: "destructive",
-        });
-      } else if (data) {
-        setChecklist(data as ChecklistItem[]);
-      }
-    };
     const fetchActivityOptions = async () => {
       const { data, error } = await supabase
         .from("activities_option_setup")
@@ -494,16 +478,36 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
         );
       }
     };
+    fetchActivityOptions();
+  });
+
+  useEffect(() => {
+    const fetchChecklist = async () => {
+      const { data, error } = await supabase
+        .from("pre_trip_checklist")
+        .select("*")
+        .eq("trip_uuid", trip.trip_uuid)
+        .order("seq", { ascending: true });
+      if (error) {
+        toast({
+          title: "Error fetching checklist",
+          description: error.message,
+          variant: "destructive",
+        });
+      } else if (data) {
+        setChecklist(data as ChecklistItem[]);
+      }
+    };
+
 
     fetchChecklist();
-    fetchActivityOptions();
     setItinerary(trip.itinerary);
-  }, [trip, supabase, toast]);
+  }, [trip]);
 
   useEffect(() => {
     // Sync local AI rate state with props
-    setAiRate(aiRate);
-    setAiRateLimit(aiRateLimit);
+    setLocalAiRate(aiRate);
+    setLocalAiRateLimit(aiRateLimit);
   }, [aiRate, aiRateLimit]);
 
   const handleEditClick = (item: ItineraryItem) => {
@@ -895,11 +899,11 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
     setEditingItem(null);
   };
 
-  const handleAIPlanChange = (field: "preferences" | "suggestions", value: string | null) => {
+  const handleAiPlanChange = (field: "preferences" | "suggestions", value: string | null) => {
     setAiPreferences(prev => ({ ...prev, [field]: value }));
   }
 
-  const handleOpenAIPlan = async () => {
+  const handleOpenAiPlan = async () => {
     // Refresh AI rate from database
     const {
       data: { user },
@@ -921,22 +925,22 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
       } else if (data) {
         // Update parent component props by triggering a callback
         // Note: Since props are read-only, we'll show the updated info in the dialog
-        setAiRate(data.ai_rate_count || 0);
-        setAiRateLimit(data.ai_rate_limit || 10);
+        setLocalAiRate(data.ai_rate_count || 0);
+        setLocalAiRateLimit(data.ai_rate_limit || 0);
       }
     }
 
     setIsAiPlanDialogOpen(true);
   };
 
-  const handleCancelAIPlan = () => {
+  const handleCancelAiPlan = () => {
     setIsAiPlanDialogOpen(false);
     setAiPreferences({
       preferences: null,
       suggestions: null,
     });
   }
-  const handleApplyAIPlan = async () => {
+  const handleApplyAiPlan = async () => {
 
     const {
       data: { user },
@@ -959,10 +963,17 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
       return;
     }
 
-    if (aiRate >= aiRateLimit) {
+    // Make Sure latest AI rate is checked before applying plan
+    const { data: usersInfoData, error: usersInfoError } = await supabase
+      .from('users_info')
+      .select('ai_rate, ai_rate_limit')
+      .eq('user_id', user.id).single();
+    const aiRateCheck = usersInfoData?.ai_rate || localAiRate;
+    const aiRateLimitCheck = usersInfoData?.ai_rate_limit || localAiRateLimit;
+    if (aiRateCheck >= aiRateLimitCheck) {
       toast({
         title: "AI Rate Limit Reached",
-        description: `You have reached the AI rate limit of ${aiRateLimit}.`,
+        description: `You have reached the AI rate limit of ${aiRateLimitCheck}.`,
         variant: "destructive",
       });
       return;
@@ -996,7 +1007,7 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
     });
 
     try {
-      const result = await getAIPlan(
+      const result = await getAiPlan(
         editingItem.day_uuid,
         aiPreferences.preferences,
         aiPreferences.suggestions
@@ -1714,7 +1725,7 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
         >
           <DialogContent className="max-h-[90vh] flex flex-col shadow-lg">
             <DialogHeader>
-              <DialogTitle>Edit Day {editingItem.day_number}</DialogTitle>
+              <DialogTitle>Day {editingItem.day_number}</DialogTitle>
             </DialogHeader>
             <div className="flex flex-col gap-4 overflow-y-auto max-h-[70vh] pl-1 pr-4">
               <div className="space-y-2">
@@ -1964,7 +1975,7 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
             </div>
             <DialogFooter className="flex flex-col sm:flex-col sm:justify-between sm:space-x-0 gap-2">
               <div  className="flex gap-2">
-                <Button variant="outline" onClick={handleOpenAIPlan} className="w-full">
+                <Button variant="outline" onClick={handleOpenAiPlan} className="w-full">
                   <Brain className="h-4 w-4" />
                   AI Plan
                 </Button>
@@ -2011,10 +2022,10 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
         </Dialog>
       )}
 
-      <Dialog
+      {( isAiPlanDialogOpen || isAiPlanLoading ) && <Dialog
         open={isAiPlanDialogOpen}
         onOpenChange={(isOpen) => {
-          handleCancelAIPlan();
+          handleCancelAiPlan();
           setIsAiPlanLoading(false);
           setIsAiPlanDialogOpen(isOpen);
         }}
@@ -2049,7 +2060,7 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
                           : "outline"
                       }
                       onClick={() =>
-                        handleAIPlanChange("preferences", opt.activity_type)
+                        handleAiPlanChange("preferences", opt.activity_type)
                       }
                     >
                       <div className="flex flex-col items-center justify-center gap-2 h-[8rem] w-full">
@@ -2071,7 +2082,7 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
                     placeholder="Add more local food spots?"
                     value= {aiPreferences.suggestions || ""}
                     onChange={(e) =>
-                      handleAIPlanChange("suggestions", e.target.value)
+                      handleAiPlanChange("suggestions", e.target.value)
                     }
                   />
                 </div>
@@ -2091,7 +2102,7 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
               Cancel
             </Button> */}
             <Button 
-              onClick={handleApplyAIPlan}
+              onClick={handleApplyAiPlan}
               disabled={isAiPlanLoading || (localAiRateLimit - localAiRate <= 0)}
               title={localAiRateLimit - localAiRate <= 0 ? "You have reached your daily AI limit" : ""}
             >
@@ -2099,7 +2110,7 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
             </Button>
           </DialogFooter>
         </DialogContent>
-      </Dialog>
+      </Dialog>}
 
       {/* {viewingPhoto && (
         <Dialog

@@ -1051,7 +1051,7 @@ export function ExpenseTracker({ expensesInfo, trip }: ExpenseTrackerProps) {
                 </Select>
               </div>
             </div>
-            <DialogFooter className="flex items-center justify-between">
+            <DialogFooter className="flex flex-row sm:flex-row items-center justify-around gap-2">
               <div>
                 <AlertDialog>
                   <AlertDialogTrigger asChild>

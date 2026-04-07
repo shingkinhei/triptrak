@@ -1013,8 +1013,7 @@ export function ShoppingList({
                 </div>
               </div>
             </div>
-            
-            <DialogFooter className="flex items-center justify-between">
+            <DialogFooter className="flex flex-row sm:flex-row items-center justify-around gap-2">
               <div>
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
@@ -1044,9 +1043,9 @@ export function ShoppingList({
                 {/* <Button variant="outline" onClick={() => setEditingItem(null)}>
                   Cancel
                 </Button> */}
-                <Button onClick={handleUpdateItem} className="w-full">
-                  Save Changes
-                </Button>
+              <Button onClick={handleUpdateItem} className="w-full">
+                Save Changes
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>

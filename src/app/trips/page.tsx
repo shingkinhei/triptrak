@@ -1,9 +1,26 @@
 
 'use client';
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, use } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
-import { PlusCircle, Edit, Upload, Trash2 } from 'lucide-react';
+import { 
+  PlusCircle,
+  Edit, 
+  Upload, 
+  Trash2, 
+  Brain,
+  BedDouble,
+  Camera,
+  Plane,
+  Train, 
+  UtensilsCrossed,
+  X,
+  type LucideIcon,
+  Ticket,
+  Mountain,
+  Building,
+  } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -21,6 +38,9 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import Compressor from 'compressorjs';
 import { v4 as uuidv4 } from "uuid";
 import { useCurrency } from "@/context/CurrencyContext";
+import { getAiTrip } from "@/api/generateTrip";
+import { set } from 'lodash';
+import { root } from 'postcss';
 // import useLongPress from '@/hooks/use-long-press';
 // import { on } from 'events';
 
@@ -53,11 +73,19 @@ type NewTripState = {
   cover_image_preview: string | null;
 };
 
-
+type ActivityOptions = {
+  activity_type: string;
+  icon_text: string;
+  color_code: string;
+  description: string;
+  ai_preference: boolean;
+};
 export default function TripsPage() {
+  const router = useRouter();
   const [trips, setTrips] = useState<Trip[]>([]);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [editingTrip, setEditingTrip] = useState<Trip | null>(null);
   const [tripForm, setTripForm] = useState<EditableTrip>({});
   const [userName, setUserName] = useState<string | null>(null);
@@ -68,10 +96,29 @@ export default function TripsPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const editFileInputRef = useRef<HTMLInputElement>(null);
   const { getCurrencyByCountryCode, tripCurrency } = useCurrency();
+  const [ isAiTripLoading, setIsAiTripLoading ] = useState(false);
+  const [ isAiTripDialogOpen, setIsAiTripDialogOpen ] = useState(false);
+  const [ localAiRate, setLocalAiRate] = useState(0);
+  const [ localAiRateLimit, setLocalAiRateLimit ] = useState(10);
+  const [ aiPreferencesOptions, setAiPreferencesOptions ] = useState<ActivityOptions[]>([]);
+  const [ aiPreferences, setAiPreferences ] = useState({
+    preferences: null,
+    suggestions: null,
+  });
   // const { action, handlers } = useLongPress(
   //   handleOnClick
   // );
   // const { action: otherAction, handlers: otherHandlers } = useLongPress();
+  const iconMap: Record<string, LucideIcon> = {
+    Plane,
+    Train,
+    BedDouble,
+    UtensilsCrossed,
+    Camera,
+    Ticket,
+    Mountain,
+    Building,
+  };
 
   function handleOnClick() {
     console.log('handleOnClick long press triggered');
@@ -123,6 +170,22 @@ export default function TripsPage() {
     }
   };
 
+  const fetchAiActivityOptions = async () => {
+    const { data, error } = await supabase
+      .from("activities_option_setup")
+      .select("activity_type, icon_text, color_code, description, ai_preference")
+      .eq("ai_preference", true);
+    if (error) {
+      toast({
+        title: "Error fetching statuses",
+        description: error.message,
+        variant: "destructive",
+      });
+    } else {
+      setAiPreferencesOptions(data as ActivityOptions[]);
+    }
+  };
+
   useEffect(() => {
     const fetchUser = async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -138,6 +201,7 @@ export default function TripsPage() {
     fetchTrips();
     fetchStatusOptions();
     fetchCountryOptions();
+    fetchAiActivityOptions();
   }, []);
 
   const [newTrip, setNewTrip] = useState<NewTripState>({
@@ -176,18 +240,22 @@ export default function TripsPage() {
     }
   };
 
-  const handleAddTrip = async () => {
-    if (!newTrip.name || !newTrip.destination || !newTrip.country_code || !newTrip.start_date || !newTrip.end_date) {
-      toast({ title: 'Missing Information', description: 'Please fill out all fields to create a trip.', variant: 'destructive' });
-      return;
+  const validateTripForm = (): { valid: boolean; message?: string } => {
+    if (!newTrip.destination || !newTrip.country_code || !newTrip.start_date || !newTrip.end_date) {
+      return { valid: false, message: 'Please fill out all fields to create a trip.' };
     }
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-        toast({ title: 'Not authenticated', description: 'You must be logged in to create a trip.', variant: 'destructive' });
-        return;
+    if (new Date(newTrip.start_date) > new Date(newTrip.end_date)) {
+      return { valid: false, message: 'Start date must be before end date.' };
     }
+    if (new Date(newTrip.start_date) < new Date()) {
+      return { valid: false, message: 'Start date must be in the future.' };
+    }
+    return { valid: true };
+  };
 
-    let coverImageUrl = `https://picsum.photos/seed/${newTrip.destination}/600/400`;
+
+  const handleCreateTrip = async (user) => {
+    let coverImageUrl = ``;
     let coverImageHint = newTrip.destination;
 
     if (newTrip.cover_image_file) {
@@ -210,18 +278,35 @@ export default function TripsPage() {
 
     const newTripData = {
       user_id: user.id,
-      name: newTrip.name,
+      name: newTrip.destination + ' in ' + newTrip.start_date.split('-')[0],
       destination: newTrip.destination,
       country_code: newTrip.country_code,
       currency_code: getCurrencyByCountryCode(newTrip.country_code),
       start_date: newTrip.start_date,
       end_date: newTrip.end_date,
       status: 'U' as TripStatus,
-      cover_image_url: coverImageUrl,
+      cover_image_url: coverImageUrl || null,
       cover_image_hint: coverImageHint,
     };
     
     const { data, error } = await supabase.from('trips').insert([newTripData]).select().single();
+
+    return { data, error };
+  }
+  const handleAddTrip = async () => {
+    const { valid, message } = validateTripForm();
+    if (!valid) {
+      toast({ title: 'Invalid Information', description: message, variant: 'destructive' });
+      return;
+    }
+    
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+        toast({ title: 'Not authenticated', description: 'You must be logged in to create a trip.', variant: 'destructive' });
+        return;
+    }
+
+    const { data, error } = await handleCreateTrip(user);
 
     if (error) {
         toast({ title: 'Error creating trip', description: error.message, variant: 'destructive' });
@@ -230,6 +315,7 @@ export default function TripsPage() {
         setNewTrip({ name: '', destination: '', country_code: '', currency_code: '',start_date: '', end_date: '', cover_image_file: null, cover_image_preview: null });
         setIsAddDialogOpen(false);
         toast({ title: 'Trip Created!', description: `"${data.name}" has been added.` });
+        router.push(`/trip/${data.trip_uuid}`);
     }
   };
   
@@ -293,7 +379,7 @@ export default function TripsPage() {
       start_date: tripForm.start_date,
       end_date: tripForm.end_date,
       cover_image_hint: tripForm.cover_image_hint,
-      cover_image_url: tripForm.cover_image_url,
+      cover_image_url: tripForm.cover_image_url || null,
     };
     const oldImageUrl = editingTrip.cover_image_url;
 
@@ -401,6 +487,10 @@ export default function TripsPage() {
         }
         setTrips(prev => prev.filter(t =>  t.country_code !== trip.country_code && t.start_date !== trip.start_date));
         toast({ title: 'Trip Deleted', description: 'The trip has been successfully removed.' });
+        fetchTrips();
+        setIsDeleteDialogOpen(false);
+        setEditingTrip(null);
+        setIsEditDialogOpen(false);
       }
     }
       
@@ -441,6 +531,199 @@ export default function TripsPage() {
     E: { label: 'Expired', color: 'bg-gray-500 text-white' },
   };
 
+  //AI Trip Planning
+  const handleCancelAiTrip = () => {
+    setIsAiTripDialogOpen(false);
+    setAiPreferences({
+      preferences: null,
+      suggestions: null,
+    });
+  }
+  const handleOpenAiTrip = async () => {
+    const { valid, message } = validateTripForm();
+    if (!valid) {
+      toast({ title: 'Invalid Information', description: message, variant: 'destructive' });
+      return;
+    }
+
+    // Refresh AI rate from database
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (user) {
+      const { data, error } = await supabase
+        .from("users_info")
+        .select("ai_rate_count, ai_rate_limit")
+        .eq("user_id", user.id)
+        .single();
+
+      if (error) {
+        toast({
+          title: "Error refreshing AI rate",
+          description: error.message,
+          variant: "destructive",
+        });
+      } else if (data) {
+        setLocalAiRate(data.ai_rate_count || 0);
+        setLocalAiRateLimit(data.ai_rate_limit || 0);
+      }
+    }
+    setIsAiTripDialogOpen(true);
+  };
+
+  const handleAiTripChange = (field: "preferences" | "suggestions", value: string | null) => {
+    setAiPreferences(prev => ({ ...prev, [field]: value }));
+  }
+
+  const handleApplyAiTrip = async () => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      toast({
+        title: "Not Authenticated",
+        description: "You must be logged in to create a trip.",
+        variant: "destructive",
+      });
+      setIsAiTripLoading(false);
+      setIsAiTripDialogOpen(false);
+      setAiPreferences(null);
+      fetchTrips();
+      setNewTrip({ name: '', destination: '', country_code: '', currency_code: '',start_date: '', end_date: '', cover_image_file: null, cover_image_preview: null });
+      setIsAddDialogOpen(false);
+      return;
+    }
+
+    try {
+      // Make Sure latest AI rate is checked before applying plan
+      const { data: usersInfoData, error: usersInfoError } = await supabase
+        .from('users_info')
+        .select('ai_rate_count, ai_rate_limit')
+        .eq('user_id', user.id).single();
+      const aiRateCheck = usersInfoData?.ai_rate_count || localAiRate;
+      const aiRateLimitCheck = usersInfoData?.ai_rate_limit || localAiRateLimit;
+      if (aiRateCheck >= aiRateLimitCheck) {
+        throw new Error('AI Rate Limit Reached');
+      }
+
+      // Validate preferences input
+      if (!aiPreferences.preferences) {
+        throw new Error('Please provide your preferences.');
+      }
+
+      // set loading state and toast
+      setIsAiTripLoading(true);
+      const loadingToastId = toast({
+        title: "Generating AI plan...",
+        description: "Please wait while we generate your itinerary suggestions.",
+      });
+
+      const aiResponse = await getAiTrip(
+        newTrip.start_date,
+        newTrip.end_date,
+        countryOptions.find(country => country.country_code === newTrip.country_code)?.name || newTrip.country_code,
+        newTrip.destination,
+        aiPreferences.preferences || '',
+        aiPreferences.suggestions || ''
+      );
+      if (!aiResponse) {
+        throw new Error('Error generating AI trip');
+      }
+
+      // Insert Trip (Trigger creates trip_days automatically)
+      const { data: newTripData, error: newTripError } = await handleCreateTrip(user);
+
+      if (newTripError || !newTripData) {
+        throw new Error(newTripError?.message || 'Error creating trip');
+      } 
+
+      // Fetch the newly created trip's day ID to link with activities
+      const tripId = newTripData.trip_uuid;
+      const { data: days, error: daysErr } = await supabase
+      .from('trip_days')
+      .select('day_uuid, date')
+      .eq('trip_uuid', tripId);
+
+      if (daysErr || !days) {
+        throw new Error(daysErr?.message || 'Error fetching trip days');
+      };      
+      const activitiesToInsert = await aiResponse.map(activity => {
+      // Find the day_uuid where the date matches the activity date
+        const targetDay = days.find(d => d.date === activity.day);
+
+        return {
+              day_uuid: targetDay?.day_uuid,
+              time: activity.time, // Ensure format is 'HH:MM:SS'
+              description: activity.description || '',
+              user_id: user.id,
+              address: activity.address || '',
+              name: activity.name || 'Untitled Activity',
+              activity_type: activity.activity_type, // Must exist in activities_option_setup
+              ai_plan: true,
+            };
+      }).filter(act => act.day_uuid); // Ensure we don't insert orphans
+
+      const { error: actErr } = await supabase
+        .from('activities')
+        .insert(activitiesToInsert);
+
+        if (actErr) {
+          toast({
+            title: "Error inserting AI activities",
+            description: actErr.message,
+            variant: "destructive",
+          });
+        }
+
+      toast({
+        title: "AI Trip Generated!",
+        description: "Your AI-generated itinerary has been created. You can view and customize it in your trips.",
+      });
+
+      // Ai rate count update
+      const { error: rateErr } = await supabase
+        .from('users_info')
+        .update({ ai_rate_count: aiRateCheck + 1 })
+        .eq('user_id', user.id);
+
+      if (rateErr) {
+        toast({
+          title: "Error updating AI rate",
+          description: rateErr.message,
+          variant: "destructive",
+        });
+      } else {
+        setLocalAiRate(prev => prev + 1);
+      };
+      
+      setIsAiTripLoading(false);
+      setIsAiTripDialogOpen(false);
+      setAiPreferences({
+        preferences: null,
+        suggestions: null,
+      });
+      fetchTrips();
+      setNewTrip({ name: '', destination: '', country_code: '', currency_code: '',start_date: '', end_date: '', cover_image_file: null, cover_image_preview: null });
+      setIsAddDialogOpen(false);
+      router.push(`/trip/${tripId}`);
+
+    } catch (error) {
+      toast({
+        title: "Error generating AI trip",
+        description: error instanceof Error ? error.message : "An unknown error occurred.",
+        variant: "destructive",
+      });
+      setIsAiTripLoading(false);
+      setIsAiTripDialogOpen(false);
+      setAiPreferences(null);
+      fetchTrips();
+      setNewTrip({ name: '', destination: '', country_code: '', currency_code: '',start_date: '', end_date: '', cover_image_file: null, cover_image_preview: null });
+      setIsAddDialogOpen(false);
+      return;
+    };
+  };
+
   return (
     <main className="flex h-screen mx-0 lg:mx-24 flex-col bg-background font-body">
         <header className="mb-4 flex items-center justify-between px-4 pt-4 shrink-0 mt-4">
@@ -455,83 +738,31 @@ export default function TripsPage() {
           </Button> */}
                 </p>
             </div>
-            <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-                <DialogTrigger asChild>
-                <Button size="icon" className="h-9 w-9">
-                    <PlusCircle className="h-5 w-5" />
-                    <span className="sr-only">New Trip</span>
-                </Button>
-                </DialogTrigger>
-                <DialogContent>
-                <DialogHeader>
-                    <DialogTitle>Plan a New Trip</DialogTitle>
-                </DialogHeader>
-                <div className="grid gap-4 py-4">
-                    <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="name" className="text-right">Name</Label>
-                    <Input id="name" value={newTrip.name} onChange={(e) => setNewTrip({...newTrip, name: e.target.value})} className="col-span-3" placeholder="e.g. Summer in Italy" />
-                    </div>
-                    <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="destination" className="text-right">Destination</Label>
-                    <Input id="destination" value={newTrip.destination} onChange={(e) => setNewTrip({...newTrip, destination: e.target.value})} className="col-span-3" placeholder="e.g. Rome, Florence, Venice" />
-                    </div>
-                     <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="country" className="text-right">Country</Label>
-                        <Select value={newTrip.country_code} onValueChange={(value) => setNewTrip({...newTrip, country_code: value})}>
-                            <SelectTrigger className="col-span-3">
-                                <SelectValue placeholder="Select a country" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {countryOptions.map(option => (
-                                    <SelectItem key={option.country_code} value={option.country_code}>{option.name}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
-                    <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="start-date" className="text-right">Start Date</Label>
-                    <Input id="start-date" type="date" value={newTrip.start_date} onChange={(e) => setNewTrip({...newTrip, start_date: e.target.value})} className="col-span-3" />
-                    </div>
-                    <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="end-date" className="text-right">End Date</Label>
-                    <Input id="end-date" type="date" value={newTrip.end_date} onChange={(e) => setNewTrip({...newTrip, end_date: e.target.value})} className="col-span-3" />
-                    </div>
-                    <div className="grid grid-cols-4 items-start gap-4">
-                      <Label className="text-right pt-2">Cover Image</Label>
-                      <div className="col-span-3 space-y-2">
-                        {newTrip.cover_image_preview && (
-                          <Image src={newTrip.cover_image_preview} alt="preview" width={200} height={150} className="rounded-md object-cover w-full aspect-[4/3]"/>
-                        )}
-                        <Input id="cover-image-upload" type="file" accept="image/*" ref={fileInputRef} onChange={handleNewTripImageChange} className="hidden" />
-                        <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
-                          <Upload className="mr-2 h-4 w-4" /> Upload
-                        </Button>
-                      </div>
-                    </div>
-                </div>
-                <DialogFooter>
-                    <Button onClick={handleAddTrip}>Create Trip</Button>
-                </DialogFooter>
-                </DialogContent>
-            </Dialog>
+            <Button size="icon" className="h-9 w-9" onClick={() => setIsAddDialogOpen(true)}>
+              <PlusCircle className="h-5 w-5" />
+              <span className="sr-only">New Trip</span>
+            </Button>
         </header>
 
         <ScrollArea className="flex-grow">
             <div className="flex flex-col lg:flex-row px-4 pb-4 gap-4">
             {trips.length === 0 && (
-              <div className="text-center text-muted-foreground py-10">
-                <p>No trips yet. Planyour first adventure!</p>
+              <div className="py-10 flex items-center justify-center flex-col gap-4 w-[100%] h-[100vh]">
+                <p className='text-center text-muted-foreground'>No trips yet. Planyour first adventure!</p>
+                {/* <div className=""><Button onClick={() => setIsOpen(true)}>Plan a New Trip</Button></div> */}
               </div>
-            )}
+            ) ||
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 lg:gap-8 overflow-y-scroll w-full">
             {trips.map(trip => (
                 <Card key={trip.trip_uuid} className={cn("overflow-hidden w-full h-[16rem] lg:h-[30rem] bg-white transition-all hover:shadow-lg relative", {'border-primary border-2': trip.status === 'A'})}>
                     <CardContent className="p-0">
                         <div className="flex flex-col">
-                            <Link href={`/trip/${trip.trip_uuid}`} className="relative h-[16rem] lg:h-[30rem] w-full shrink-0 object-fill block hover:opacity-90 transition-opacity " aria-label={`View trip: ${trip.name}`}>
+                            <Link href={`/trip/${trip.trip_uuid}`} className="relative w-full h-[16rem] lg:h-[30rem] shrink-0 object-fill block hover:opacity-90 transition-opacity " aria-label={`View trip: ${trip.name}`}>
                                 <Image
-                                    src={trip.cover_image_url || ''}
+                                    src={trip.cover_image_url || 'https://rodtfkraukblqbshlazo.supabase.co/storage/v1/object/public/trip_cover/trip_cover_sample.jpg'}
                                     alt={trip.name || ''}
                                     fill
+                                    sizes="100%"
                                     className="object-cover h-[16rem] lg:h-[30rem] w-full"
                                     data-ai-hint={trip.cover_image_hint || ''}
                                 />
@@ -540,7 +771,7 @@ export default function TripsPage() {
                                 <Link href={`/trip/${trip.trip_uuid}`} className="flex-grow flex flex-col justify-start cursor-pointer hover:opacity-80 transition-opacity" aria-label={`View trip: ${trip.name}`}>
                                   <div>
                                     <h2 className="text-white text-lg font-bold font-headline leading-tight">{trip.name}</h2>
-                                    <p className="text-white text-sm text-muted-foreground">{trip.destination}</p>
+                                    <p className="text-white text-sm text-muted-foreground">{countryOptions.find(country => country.country_code === trip.country_code)?.name || trip.country_code}</p>
                                     <p className="text-white text-xs text-muted-foreground mt-1">{new Date(trip.start_date).toLocaleDateString()} - {new Date(trip.end_date).toLocaleDateString()}</p>
                                   </div>
                                 </Link>
@@ -572,18 +803,18 @@ export default function TripsPage() {
                                   className="absolute z-2 bottom-0 left-0 w-full h-[45%] lg:h-[25%] flex items-end overflow-hidden pointer-events-none "
                                 >
                                   <img
-                                    src={trip.cover_image_url || ''}
+                                    src={trip.cover_image_url || 'https://rodtfkraukblqbshlazo.supabase.co/storage/v1/object/public/trip_cover/trip_cover_sample.jpg'}
                                     alt={trip.name || ''}
                                     className="object-cover h-[16rem] lg:h-[30rem] w-full"
                                     data-ai-hint={trip.cover_image_hint || ''}
-                                    
                                   />
                                 </div>
                               </div>
                                <Image
-                                src={trip.cover_image_url || ''}
+                                src={trip.cover_image_url || 'https://rodtfkraukblqbshlazo.supabase.co/storage/v1/object/public/trip_cover/trip_cover_sample.jpg'}
                                 alt={trip.name || ''}
                                 fill
+                                sizes="100%"
                                 className="object-cover absolute z-1 left-0 top-[4%] blur-[8px] h-[16rem] lg:h-[30rem] w-full opacity-20 rotate-4 scale-102 rounded-[30px] elchi"
                                 data-ai-hint={trip.cover_image_hint || ''}
                               />
@@ -594,24 +825,26 @@ export default function TripsPage() {
                 </Card>
             ))}
             </div>
+            }
+            </div>
         </ScrollArea>
         <BottomNav activeItem="trips" />
         
-        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        {isAddDialogOpen || <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Edit Trip: {editingTrip?.name}</DialogTitle>
             </DialogHeader>
-            <div className="grid gap-4 py-4 pr-6 overflow-y-auto max-h-[80vh] space-y-4">
-              <div className="grid grid-cols-4 items-center gap-4 ">
+            <div className="grid gap-4 py-4 overflow-y-auto max-h-[70vh] pl-1 pr-4">
+              <div className="space-y-2">
                 <Label htmlFor="edit-name" className="text-right">Name</Label>
                 <Input id="edit-name" value={tripForm.name || ''} onChange={(e) => handleFormChange('name', e.target.value)} className="col-span-3" />
               </div>
-              <div className="grid grid-cols-4 items-center gap-4">
+              <div className="space-y-2">
                 <Label htmlFor="edit-destination" className="text-right">Destination</Label>
                 <Input id="edit-destination" value={tripForm.destination || ''} onChange={(e) => handleFormChange('destination', e.target.value)} className="col-span-3" />
               </div>
-               <div className="grid grid-cols-4 items-center gap-4">
+               <div className="space-y-2">
                 <Label htmlFor="edit-country" className="text-right">Country</Label>
                 <Select value={tripForm.country_code || ''} onValueChange={(value) => handleFormChange('country_code', value)}>
                     <SelectTrigger className="col-span-3">
@@ -624,44 +857,53 @@ export default function TripsPage() {
                     </SelectContent>
                 </Select>
               </div>
-              <div className="grid grid-cols-4 items-center gap-4">
+              <div className="space-y-2">
                 <Label htmlFor="edit-start-date" className="text-right">Start Date</Label>
                 <Input id="edit-start-date" type="date" value={tripForm.start_date || ''} onChange={(e) => handleFormChange('start_date', e.target.value)} className="col-span-3" />
               </div>
-              <div className="grid grid-cols-4 items-center gap-4">
+              <div className="space-y-2">
                 <Label htmlFor="edit-end-date" className="text-right">End Date</Label>
                 <Input id="edit-end-date" type="date" value={tripForm.end_date || ''} onChange={(e) => handleFormChange('end_date', e.target.value)} className="col-span-3" />
               </div>
-              <div className="grid grid-cols-4 items-center gap-4">
+              <div className="space-y-2">
                 <Label htmlFor="edit-image-hint" className="text-right">Image Hint</Label>
                 <Input id="edit-image-hint" value={tripForm.cover_image_hint || ''} onChange={(e) => handleFormChange('cover_image_hint', e.target.value)} className="col-span-3" />
               </div>
-              <div className="grid grid-cols-4 items-start gap-4">
+              <div className="space-y-2">
+                <div className="flex items-center justify-items-start gap-2">
                  <Label className="text-right pt-2">Cover Image</Label>
-                 <div className="col-span-3 space-y-2">
-                    {tripForm.cover_image_preview && (
-                        <Image
-                            src={tripForm.cover_image_preview}
-                            alt="Trip cover image preview"
-                            width={200}
-                            height={150}
-                            className="rounded-md object-cover w-full aspect-[4/3]"
-                        />
-                    )}
-                    <Input id="edit-image-upload" type="file" accept="image/*" ref={editFileInputRef} onChange={handleEditImageChange} className="hidden" />
-                     <Button variant="outline" onClick={() => editFileInputRef.current?.click()}>
-                        <Upload className="mr-2 h-4 w-4" />
-                        Upload Image
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => editFileInputRef.current?.click()}
+                    >
+                      <Upload className="h-4 w-4" />
                     </Button>
+                </div>
+                <div className="flex items-center gap-4">
+                      <Image
+                          src={tripForm.cover_image_preview || 'https://rodtfkraukblqbshlazo.supabase.co/storage/v1/object/public/trip_cover/trip_cover_sample.jpg'}
+                          alt="Trip cover image preview"
+                          width={200}
+                          height={150}
+                          className="rounded-md object-cover w-full aspect-[4/3]"
+                      />
+                    <Input id="edit-image-upload" type="file" accept="image/*" ref={editFileInputRef} onChange={handleEditImageChange} className="hidden" />
                  </div>
               </div>
             </div>
-            <DialogFooter>
-                              <AlertDialog>
+            <DialogFooter className="flex flex-col sm:flex-col sm:justify-between sm:space-x-0 gap-2">
+              <div className="flex gap-2"> 
+                {/* <Button variant="outline" onClick={handleOpenAIPlan} className="w-full">
+                  <Brain className="h-4 w-4" />
+                  AI Plan
+                </Button> */}
+              </div>
+              <div className="flex gap-2 justify-around">
+                <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
                   <AlertDialogTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={(e) => e.preventDefault()}>
+                    <Button variant="outline" size="icon" className="" onClick={() => setIsDeleteDialogOpen(true)}>
                       <Trash2 className="h-4 w-4" />
-                      <span className="sr-only">Delete Trip</span>
                     </Button>
                   </AlertDialogTrigger>
                   <AlertDialogContent>
@@ -681,16 +923,157 @@ export default function TripsPage() {
                     </AlertDialogFooter>
                   </AlertDialogContent>
                 </AlertDialog>
-                <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>Cancel</Button>
-              <Button onClick={handleUpdateTrip}>Save Changes</Button>
+                {/* <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>Cancel</Button> */}
+              <Button onClick={handleUpdateTrip} className="w-full">Save Changes</Button>
+              </div>
             </DialogFooter>
           </DialogContent>
-        </Dialog>
+        </Dialog>}
 
+        {isAddDialogOpen && (
+          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Plan a New Trip</DialogTitle>
+              </DialogHeader>
+              <div className="grid gap-4 py-4 overflow-y-auto max-h-[70vh] pl-1 pr-4">
+              {/* <div className="space-y-2">
+              <Label htmlFor="name" className="text-right">Name</Label>
+              <Input id="name" value={newTrip.name} onChange={(e) => setNewTrip({...newTrip, name: e.target.value})} className="col-span-3" placeholder="e.g. Summer in Italy" />
+              </div> */}
+              <div className="space-y-2">
+              <Label htmlFor="destination" className="text-right">Destination</Label>
+              <Input id="destination" value={newTrip.destination} onChange={(e) => setNewTrip({...newTrip, destination: e.target.value})} className="col-span-3" placeholder="e.g. Rome, Florence, Venice" />
+              </div>
+                <div className="space-y-2">
+                  <Label htmlFor="country" className="text-right">Country</Label>
+                  <Select value={newTrip.country_code} onValueChange={(value) => setNewTrip({...newTrip, country_code: value})}>
+                      <SelectTrigger className="col-span-3">
+                          <SelectValue placeholder="Select a country" />
+                      </SelectTrigger>
+                      <SelectContent>
+                          {countryOptions.map(option => (
+                              <SelectItem key={option.country_code} value={option.country_code}>{option.name}</SelectItem>
+                          ))}
+                      </SelectContent>
+                  </Select>
+              </div>
+              <div className="space-y-2">
+              <Label htmlFor="start-date" className="text-right">Start Date</Label>
+              <Input id="start-date" type="date" value={newTrip.start_date} onChange={(e) => setNewTrip({...newTrip, start_date: e.target.value})} className="col-span-3" />
+              </div>
+              <div className="space-y-2">
+              <Label htmlFor="end-date" className="text-right">End Date</Label>
+              <Input id="end-date" type="date" value={newTrip.end_date} onChange={(e) => setNewTrip({...newTrip, end_date: e.target.value})} className="col-span-3" />
+              </div>
+              <div className="space-y-2">
+                <div className="flex items-center justify-items-start gap-2">
+                <Label className="text-right pt-2">Cover Image</Label>                        
+                <Button variant="outline" size="icon" onClick={() => fileInputRef.current?.click()}>
+                    <Upload className="h-4 w-4" />
+                </Button>
+                </div>
+                <div className="">
+                    <Image src={newTrip.cover_image_preview || 'https://rodtfkraukblqbshlazo.supabase.co/storage/v1/object/public/trip_cover/trip_cover_sample.jpg'} 
+                      alt="preview" 
+                      width={200} height={150} 
+                      className="rounded-md object-cover w-full aspect-[4/3]"/>
+                  <Input id="cover-image-upload" type="file" accept="image/*" ref={fileInputRef} onChange={handleNewTripImageChange} className="hidden" />
+                </div>
+              </div>
+          </div>
+          <DialogFooter className="flex flex-col sm:flex-col items-center justify-around gap-2">
+            
+            <Button variant="outline" className="w-full" onClick={handleOpenAiTrip}>
+              <Brain className="h-4 w-4" />
+              AI Trip
+            </Button>
+            <Button onClick={handleAddTrip} className="w-full" style={{ margin: 0 }}>
+              Create Trip
+            </Button>
+          </DialogFooter>
+          </DialogContent>
+      </Dialog> )}
+
+      {( isAiTripDialogOpen || isAiTripLoading ) && <Dialog
+        open={isAiTripDialogOpen}
+        onOpenChange={(isOpen) => {
+          handleCancelAiTrip();
+          setIsAiTripLoading(false);
+          setIsAiTripDialogOpen(isOpen);
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>AI Trip Preferences</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <p className="text-sm text-muted-foreground">
+              Choose the preferences to guide the AI itinerary suggestions. 
+            </p>
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+              <p className="text-sm font-semibold text-blue-900">
+                Remaining AI Requests: <span className="text-lg font-bold text-blue-600">{Math.max(0, localAiRateLimit - localAiRate)}/{localAiRateLimit}</span>
+              </p>
+              {localAiRateLimit - localAiRate <= 0 && (
+                <p className="text-xs text-red-600 mt-1">You have reached your daily AI limit. Try again tomorrow.</p>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="flex flex-col gap-4 w-full">
+                <div className="flex items-center gap-2 justify-center">
+                  <div className="grid grid-cols-2 gap-4 p-2 ">
+                  {aiPreferencesOptions.map((opt) => (
+                    <Button
+                      className="flex items-center gap-2 h-[8rem] w-[8rem]"
+                      key={opt.icon_text}
+                      variant={
+                        aiPreferences?.preferences === opt.activity_type
+                          ? "default"
+                          : "outline"
+                      }
+                      onClick={() =>
+                        handleAiTripChange("preferences", opt.activity_type)
+                      }
+                    >
+                      <div className="flex flex-col items-center justify-center gap-2 h-[8rem] w-full">
+                        {React.createElement(
+                          iconMap[opt.icon_text],
+                          { className: "h-8 w-8" }
+                        )}
+                        <span>{opt.activity_type}</span>
+                      </div>
+                    </Button>
+                  ))}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Label>Suggestion</Label>
+                  <Input
+                    id="ai-suggestions"
+                    type="text"
+                    placeholder="Add more local food spots?"
+                     value= {aiPreferences?.suggestions || ""}
+                    onChange={(e) =>
+                      handleAiTripChange("suggestions", e.target.value)
+                    }
+                  />
+                </div>
+              </div>
+            </div>
+                
+          </div>
+          <DialogFooter className="flex justify-end gap-2">
+             <Button 
+              onClick={handleApplyAiTrip}
+              disabled={isAiTripLoading || (localAiRateLimit - localAiRate <= 0)}
+              title={localAiRateLimit - localAiRate <= 0 ? "You have reached your daily AI limit" : ""}
+            >
+              {isAiTripLoading ? "Generating..." : localAiRateLimit - localAiRate <= 0 ? "Limit Reached" : "Apply"}
+            </Button> 
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>}
     </main>
   );
 }
-
-    
-
-    

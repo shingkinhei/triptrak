@@ -1,10 +1,11 @@
 import { createClient } from "@/lib/supabase/client";
 import { NextResponse } from 'next/server';
 
-export async function getAIPlan(day_uuid: string, user_preference: string,user_suggestion: string) {
+
+export async function getAiPlan(day_uuid: string, user_preference: string,user_suggestion: string) {
   const supabase = createClient();
 
-  // 1. 抓取該日的行程作為上下文
+  // 1. get the existing activities for the day 
   const { data: currentActivities } = await supabase
     .from('activities')
     .select('time, description, activity_type, address')
@@ -15,7 +16,7 @@ export async function getAIPlan(day_uuid: string, user_preference: string,user_s
     `time: ${a.time}, type: ${a.activity_type}, content: ${a.description}, address: ${a.address}`
   ).join('\n') || "no existing activities";
 
-  // 2. 抓取該日的日期資訊
+  // 2. get the date information for the day
   const { data: dayData } = await supabase
     .from('trip_days')
     .select('date')
@@ -23,7 +24,7 @@ export async function getAIPlan(day_uuid: string, user_preference: string,user_s
     .single();
 
   const dateInfo = dayData ? `Date: ${dayData.date}` : "Date information not available";
-  // 3. 呼叫 OpenRouter
+  // 3. call OpenRouter
   const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -55,6 +56,5 @@ export async function getAIPlan(day_uuid: string, user_preference: string,user_s
   }
   
   const cleanJsonString = aiContent.replace(/```json|```/g, "").trim();
-  console.log("Cleaned AI Content:", JSON.parse(cleanJsonString));
   return JSON.parse(cleanJsonString);
 }

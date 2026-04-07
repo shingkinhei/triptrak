@@ -13,8 +13,8 @@
     --popover: 220 20% 99%;
     --popover-foreground: 220 25% 10%;
     
-    --primary: 240 50% 60%; /* Vibrant Blue/Purple */
-    --primary-foreground: 240 50% 98%;
+    --primary: 160 30% 60%; /* Vibrant green */
+    --primary-foreground: 160 30% 98%;
     
     --secondary: 220 15% 90%; /* Light Gray */
     --secondary-foreground: 220 25% 20%;
@@ -22,8 +22,8 @@
     --muted: 220 15% 90%;
     --muted-foreground: 220 15% 45%; /* Medium Gray */
     
-    --accent: 260 60% 65%; /* Softer Purple */
-    --accent-foreground: 260 60% 98%;
+    --accent: 160 30% 60%; /* Softer Green */
+    --accent-foreground: 160 35% 98%;
     
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
