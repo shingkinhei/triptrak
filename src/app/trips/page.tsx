@@ -39,6 +39,7 @@ import Compressor from 'compressorjs';
 import { v4 as uuidv4 } from "uuid";
 import { useCurrency } from "@/context/CurrencyContext";
 import { getAiTrip } from "@/api/generateTrip";
+import { LoadingOverlay } from "@/components/loading-overlay";
 import { set } from 'lodash';
 import { root } from 'postcss';
 // import useLongPress from '@/hooks/use-long-press';
@@ -618,16 +619,23 @@ export default function TripsPage() {
         title: "Generating AI plan...",
         description: "Please wait while we generate your itinerary suggestions.",
       });
-
-      const aiResponse = await getAiTrip(
+      
+      let aiResult;
+      try {
+        const aiResponse = await getAiTrip(
         newTrip.start_date,
         newTrip.end_date,
         countryOptions.find(country => country.country_code === newTrip.country_code)?.name || newTrip.country_code,
         newTrip.destination,
         aiPreferences.preferences || '',
         aiPreferences.suggestions || ''
-      );
-      if (!aiResponse) {
+        );
+        aiResult = [...aiResponse];
+      } catch (error) {
+        throw new Error(error.message || "An unexpected error occurred.");
+      }
+
+      if (!aiResult) {
         throw new Error('Error generating AI trip');
       }
 
@@ -648,7 +656,7 @@ export default function TripsPage() {
       if (daysErr || !days) {
         throw new Error(daysErr?.message || 'Error fetching trip days');
       };      
-      const activitiesToInsert = await aiResponse.map(activity => {
+      const activitiesToInsert = await aiResult.map(activity => {
       // Find the day_uuid where the date matches the activity date
         const targetDay = days.find(d => d.date === activity.day);
 
@@ -699,10 +707,7 @@ export default function TripsPage() {
       
       setIsAiTripLoading(false);
       setIsAiTripDialogOpen(false);
-      setAiPreferences({
-        preferences: null,
-        suggestions: null,
-      });
+      setAiPreferences(null);
       fetchTrips();
       setNewTrip({ name: '', destination: '', country_code: '', currency_code: '',start_date: '', end_date: '', cover_image_file: null, cover_image_preview: null });
       setIsAddDialogOpen(false);
@@ -748,11 +753,11 @@ export default function TripsPage() {
             <div className="flex flex-col lg:flex-row px-4 pb-4 gap-4">
             {trips.length === 0 && (
               <div className="py-10 flex items-center justify-center flex-col gap-4 w-[100%] h-[100vh]">
-                <p className='text-center text-muted-foreground'>No trips yet. Planyour first adventure!</p>
+                <p className='text-center text-muted-foreground'>No trips yet. Plan your first adventure!</p>
                 {/* <div className=""><Button onClick={() => setIsOpen(true)}>Plan a New Trip</Button></div> */}
               </div>
             ) ||
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 lg:gap-8 overflow-y-scroll w-full">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 lg:gap-8 overflow-y-scroll w-full pb-16">
             {trips.map(trip => (
                 <Card key={trip.trip_uuid} className={cn("overflow-hidden w-full h-[16rem] lg:h-[30rem] bg-white transition-all hover:shadow-lg relative", {'border-primary border-2': trip.status === 'A'})}>
                     <CardContent className="p-0">
@@ -1074,6 +1079,13 @@ export default function TripsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>}
+
+      {isAiTripLoading &&
+        <LoadingOverlay
+          isLoading={isAiTripLoading}
+          message="AI is thinking..."
+        /> 
+      }
     </main>
   );
 }

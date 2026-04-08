@@ -10,7 +10,7 @@ export type Activity = {
   description: string;
   address?: string | null;
   activity_type: string;
-  
+  ai_plan?: boolean | false;
 };
 
 export type TripDayPhotos = {
@@ -44,7 +44,7 @@ export type ItineraryItem = {
   cover_image_url: string | null;
   cover_image_hint: string | null;
   activities: Activity[];
-  tripDayPhotos: TripDayPhotos[];
+//  tripDayPhotos: TripDayPhotos[];
 };
 
 // export type ExpenseCategory = 'Food' | 'Transport' | 'Shopping' | 'Accommodation' | 'Other';

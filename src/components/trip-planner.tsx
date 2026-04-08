@@ -28,6 +28,7 @@ import {
   Trash2,
   Upload,
   X,
+  MapPin,
   type LucideIcon,
   Ticket,
   Mountain,
@@ -449,7 +450,7 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
   });
   const [aiPreferencesOptions, setAIPreferencesOptions] = useState<ActivityOptions[]>([]);
 
-  const [activeView, setActiveView] = useState<string>("");
+  const [activeView, setActiveView] = useState<string>("day-1");
   const [checklistOpen, setChecklistOpen] = useState(false);
 
   // const [viewingPhoto, setViewingPhoto] = useState<TripDayPhotos | null>(null);
@@ -517,10 +518,10 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
         activities: item.activities
           ? [...item.activities.map((a) => ({ ...a }))]
           : [],
-        tripDayPhotos: item.tripDayPhotos
-          ? [...item.tripDayPhotos.map((a) => ({ ...a }))]
-          : [],
-        cover_image_preview: item.cover_image_url,
+        // tripDayPhotos: item.tripDayPhotos
+        //   ? [...item.tripDayPhotos.map((a) => ({ ...a }))]
+        //   : [],
+        // cover_image_preview: item.cover_image_url,
       });
       setIsEditDialogOpen(true);
     }, 150);
@@ -861,16 +862,16 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
         : [];
 
       // Sort photos by seq
-      const sortedPhotos = Array.isArray(refreshedDay.tripDayPhotos)
-        ? [...refreshedDay.tripDayPhotos].sort(
-            (a: any, b: any) => Number(a?.seq ?? 0) - Number(b?.seq ?? 0)
-          )
-        : [];
+      // const sortedPhotos = Array.isArray(refreshedDay.tripDayPhotos)
+      //   ? [...refreshedDay.tripDayPhotos].sort(
+      //       (a: any, b: any) => Number(a?.seq ?? 0) - Number(b?.seq ?? 0)
+      //     )
+      //   : [];
 
       // Update editing item
-      setEditingItem(prev =>
-        prev ? { ...prev, tripDayPhotos: sortedPhotos } : prev
-      );
+      // setEditingItem(prev =>
+      //   prev ? { ...prev, tripDayPhotos: sortedPhotos } : prev
+      // );
 
       // Update itinerary
       setItinerary(prev =>
@@ -879,7 +880,7 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
             ? ({
                 ...refreshedDay,
                 activities: sortedActivities,
-                tripDayPhotos: sortedPhotos,
+                //tripDayPhotos: sortedPhotos,
               } as ItineraryItem)
             : item
         )
@@ -1042,6 +1043,7 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
             description: activity.description || "",
             activity_type: activity.activity_type || "Sightseeing",
             address: activity.address || null,
+            ai_plan: true
           }))
         : [];
 
@@ -1060,12 +1062,6 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
         title: "AI Plan Applied",
         description: `${aiActivities.length} activity(ies) added to your day.`,
       });
-
-      setIsAiPlanDialogOpen(false);
-      setAiPreferences({
-        preferences: null,
-        suggestions: null,
-      });
     } catch (error) {
       console.error("Error applying AI plan:", error);
       toast({
@@ -1074,6 +1070,10 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
         variant: "destructive",
       });
     } finally {
+      setAiPreferences({
+        preferences: null,
+        suggestions: null,
+      });
       setIsAiPlanLoading(false);
     }
   };
@@ -1577,8 +1577,8 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
               <p className={`font-semibold ${checklistOpen ? "text-black" : "text-white"}`}>Pre-Trip Checklist</p>
             </div>
             {checklistOpen ? (
-              <ChevronUp className="h-4 w-4" />
-            ) : (<ChevronDown className="h-4 w-4" />)}
+              <ChevronUp className="h-4 w-4 text-primary" />
+            ) : (<ChevronDown className="h-4 w-4 text-white" />)}
             
           </div>
           {checklistOpen && (
@@ -1640,7 +1640,7 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
                 <div className="absolute inset-0 bg-black/40 flex items-end p-4">
                   <div className="text-white flex-grow text-left">
                     <h2 className="font-bold text-lg font-headline">
-                      Day {item.day_number}: {item.title}
+                      {item.title}
                     </h2>
                     <p className="text-sm">{item.date}</p>
                   </div>
@@ -1656,12 +1656,6 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
               </div>
             </div>
             <div className="p-4 space-y-4">
-              {item.feedback && (
-                <div className="prose prose-sm max-w-none text-card-foreground">
-                  <p>{item.feedback}</p>
-                </div>
-              )}
-
               {/* {item.tripDayPhotos && item.tripDayPhotos.length > 0 && (
                 <div className="grid grid-cols-3 gap-2">
                   {item.tripDayPhotos
@@ -1691,26 +1685,44 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
                   const ActivityIcon = iconMap[icon];
                   return (
                     <li key={activity.activity_uuid} className="flex items-stretch gap-4"> 
-                      <div className="flex flex-col items-center">
-                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                      <div className="flex flex-col items-center justify-center">
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/20 text-primary">
                           {ActivityIcon && <ActivityIcon className="h-4 w-4" />}
                         </div>
                         
-                        {actIndex < item.activities.length - 1 && (
+                        {/* {actIndex < item.activities.length - 1 && (
                           <div className="w-[2px] flex-1 bg-primary/30 my-1 translate-y-1"></div>
-                        )}
+                        )} */}
                       </div>
 
-                      <div>
-                        <p className="font-semibold text-card-foreground">{activity.time}</p>
-                        <p className="font-semibold text-card-foreground">{activity.name}</p>
-                        <p className="text-muted-foreground">{activity.description}</p>
-                        <p className="text-muted-foreground">{activity.address}</p>
+                      <div className="flex flex-col gap-0">
+                        <div>
+                          <p className="font-semibold text-card-foreground">{activity.time} </p>
+                        </div>
+                        <div className="flex items-center">
+                          <p className="font-semibold text-primary">{activity.name} 
+                          </p>
+                          {activity.ai_plan &&  <div className="ml-1 rounded-full bg-primary p-1"><Brain className="h-3 w-3 text-white" /></div>}
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">{activity.description}</p>
+                        </div>
+                        {activity.address && activity.address.length > 0 && (
+                        <div className="flex items-center">
+                          <MapPin className="mr-1 h-4 w-4 text-primary" />
+                          <p className="text-muted-foreground">{activity.address}</p>
+                        </div>
+                        )}
                       </div>
                     </li>
                   );
                 })}
               </ul>
+              {item.feedback && (
+                <div className="prose prose-sm max-w-none text-card-foreground">
+                  <p>{item.feedback}</p>
+                </div>
+              )}
             </div>
           </Card>
         </div>

@@ -45,6 +45,7 @@ import { debounce, set } from "lodash";
 import { v4 as uuidv4 } from "uuid";
 import Compressor from "compressorjs";
 import {
+  Loader2,
   Repeat,
   Upload,
   PlusCircle,
@@ -447,7 +448,8 @@ export default function TripDetailsPage() {
 
   if (!trip) {
     return (
-      <main className="flex min-h-screen items-center justify-center p-4 font-body bg-background">
+      <main className="flex flex-col min-h-screen items-center justify-center p-4 font-body bg-background">
+        <Loader2 className="h-10 w-10 animate-spin text-primary" />
         <div>Loading trip...</div>
       </main>
     );
