@@ -46,7 +46,7 @@ export type ItineraryItem = {
   activities: Activity[];
   weather_icon: string | null;
   temperature: number | null;
-//  tripDayPhotos: TripDayPhotos[];
+  tripDayPhotos: TripDayPhotos[];
 };
 
 // export type ExpenseCategory = 'Food' | 'Transport' | 'Shopping' | 'Accommodation' | 'Other';
