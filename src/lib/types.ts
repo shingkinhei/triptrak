@@ -44,6 +44,8 @@ export type ItineraryItem = {
   cover_image_url: string | null;
   cover_image_hint: string | null;
   activities: Activity[];
+  weather_icon: string | null;
+  temperature: number | null;
 //  tripDayPhotos: TripDayPhotos[];
 };
 

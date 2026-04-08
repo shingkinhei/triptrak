@@ -62,7 +62,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "./ui/select";
-// import { WeatherCard } from "./weather-card";
+import { WeatherCard } from "./weather-card";
 import { Textarea } from "./ui/textarea";
 import { useRouter } from "next/navigation";
 import { Checkbox } from "./ui/checkbox";
@@ -468,7 +468,7 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
         .select("activity_type, icon_text, color_code, description, ai_preference");
       if (error) {
         toast({
-          title: "Error fetching statuses",
+          title: "Error fetching activity options",
           description: error.message,
           variant: "destructive",
         });
@@ -546,49 +546,49 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
     const originalDay = itinerary.find(
       (d) => d.day_uuid === itemToSave.day_uuid
     );
-    const oldImageUrl = originalDay?.cover_image_url;
+    // const oldImageUrl = originalDay?.cover_image_url;
 
-    let newImageUrl: string | null = itemToSave.cover_image_url;
+    // let newImageUrl: string | null = itemToSave.cover_image_url;
 
-    if (
-      (itemToSave.cover_image_file || newImageUrl === null) &&
-      oldImageUrl &&
-      oldImageUrl !== newImageUrl
-    ) {
-      const oldImageKey = oldImageUrl.split("/day_cover/").pop();
-      if (oldImageKey) {
-        await supabase.storage.from("day_cover").remove([oldImageKey]);
-      }
-    }
+    // if (
+    //   (itemToSave.cover_image_file || newImageUrl === null) &&
+    //   oldImageUrl &&
+    //   oldImageUrl !== newImageUrl
+    // ) {
+    //   const oldImageKey = oldImageUrl.split("/day_cover/").pop();
+    //   if (oldImageKey) {
+    //     await supabase.storage.from("day_cover").remove([oldImageKey]);
+    //   }
+    // }
 
-    if (itemToSave.cover_image_file) {
-      const file = itemToSave.cover_image_file;
-      const fileExt = (file.name.split(".").pop() || "jpg").replace(
-        /[^a-z0-9]/gi,
-        ""
-      );
-      const filePath = `${user.id}/${trip.trip_uuid}/${itemToSave.date}-${itemToSave.day_number}-${uuidv4()}.${fileExt}`;
+    // if (itemToSave.cover_image_file) {
+    //   const file = itemToSave.cover_image_file;
+    //   const fileExt = (file.name.split(".").pop() || "jpg").replace(
+    //     /[^a-z0-9]/gi,
+    //     ""
+    //   );
+    //   const filePath = `${user.id}/${trip.trip_uuid}/${itemToSave.date}-${itemToSave.day_number}-${uuidv4()}.${fileExt}`;
 
-      const { error: uploadError } = await supabase.storage
-        .from("day_cover")
-        .upload(filePath, file, { upsert: true });
+    //   const { error: uploadError } = await supabase.storage
+    //     .from("day_cover")
+    //     .upload(filePath, file, { upsert: true });
 
-      if (uploadError) {
-        toast({
-          title: "Error uploading day cover",
-          description: uploadError.message,
-          variant: "destructive",
-        });
-        return;
-      }
+    //   if (uploadError) {
+    //     toast({
+    //       title: "Error uploading day cover",
+    //       description: uploadError.message,
+    //       variant: "destructive",
+    //     });
+    //     return;
+    //   }
 
-      const { data: urlData } = supabase.storage
-        .from("day_cover")
-        .getPublicUrl(filePath);
-      newImageUrl = urlData.publicUrl;
-    } else if (!itemToSave.cover_image_preview && oldImageUrl) {
-      newImageUrl = null;
-    }
+    //   const { data: urlData } = supabase.storage
+    //     .from("day_cover")
+    //     .getPublicUrl(filePath);
+    //   newImageUrl = urlData.publicUrl;
+    // } else if (!itemToSave.cover_image_preview && oldImageUrl) {
+    //   newImageUrl = null;
+    // }
 
     if (!originalDay) {
       // Insert new day record when adding a fresh day
@@ -599,8 +599,8 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
         title: itemToSave.title,
         date: itemToSave.date,
         feedback: itemToSave.feedback,
-        cover_image_hint: itemToSave.cover_image_hint,
-        cover_image_url: newImageUrl,
+        // cover_image_hint: itemToSave.cover_image_hint,
+        // cover_image_url: newImageUrl,
         user_id: user.id,
       };
 
@@ -626,8 +626,8 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
         title: itemToSave.title,
         date: itemToSave.date,
         feedback: itemToSave.feedback,
-        cover_image_hint: itemToSave.cover_image_hint,
-        cover_image_url: newImageUrl,
+        // cover_image_hint: itemToSave.cover_image_hint,
+        // cover_image_url: newImageUrl,
       };
 
       const { error: dayError } = await supabase
@@ -701,6 +701,7 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
             activity_type: act.activity_type,
             address: act.address,
             day_uuid: itemToSave.day_uuid, // keep consistent day_uuid
+            ai_plan: act.ai_plan,
           })
           .eq("activity_uuid", act.activity_uuid); // WHERE clause
 
@@ -725,6 +726,7 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
             description: act.description,
             address: act.address,
             activity_type: act.activity_type,
+            ai_plan: act.ai_plan,
           }))
         );
       if (error)
@@ -1331,34 +1333,34 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
     const dayUuid = editingItem.day_uuid;
 
     try {
-      const {
-        data: photos,
-        error: photosErr,
-      } = await supabase.from("trip_photos").select("url,photo_uuid").eq("day_uuid", dayUuid);
+      // const {
+      //   data: photos,
+      //   error: photosErr,
+      // } = await supabase.from("trip_photos").select("url,photo_uuid").eq("day_uuid", dayUuid);
 
-      if (photosErr) {
-        toast({ title: "Error", description: photosErr.message, variant: "destructive" });
-      }
+      // if (photosErr) {
+      //   toast({ title: "Error", description: photosErr.message, variant: "destructive" });
+      // }
 
-      // Remove storage objects for any photos that have been uploaded
-      if (Array.isArray(photos) && photos.length > 0) {
-        for (const p of photos) {
-          try {
-            const url = p.url || "";
-            const key = url.split("/day_feedback/").pop();
-            if (key) {
-              const { error: delErr } = await supabase.storage.from("day_feedback").remove([key]);
-              if (delErr) console.warn("Storage delete error", delErr.message);
-            }
-          } catch (inner) {
-            console.warn("Error deleting storage object", inner);
-          }
-        }
-      }
+      // // Remove storage objects for any photos that have been uploaded
+      // if (Array.isArray(photos) && photos.length > 0) {
+      //   for (const p of photos) {
+      //     try {
+      //       const url = p.url || "";
+      //       const key = url.split("/day_feedback/").pop();
+      //       if (key) {
+      //         const { error: delErr } = await supabase.storage.from("day_feedback").remove([key]);
+      //         if (delErr) console.warn("Storage delete error", delErr.message);
+      //       }
+      //     } catch (inner) {
+      //       console.warn("Error deleting storage object", inner);
+      //     }
+      //   }
+      // }
 
-      // Delete DB rows: trip_photos, activities, then trip_days
-      const { error: photosDeleteErr } = await supabase.from("trip_photos").delete().eq("day_uuid", dayUuid);
-      if (photosDeleteErr) console.warn("Error deleting photo rows", photosDeleteErr.message);
+      // // Delete DB rows: trip_photos, activities, then trip_days
+      // const { error: photosDeleteErr } = await supabase.from("trip_photos").delete().eq("day_uuid", dayUuid);
+      // if (photosDeleteErr) console.warn("Error deleting photo rows", photosDeleteErr.message);
 
       const { error: actDelErr } = await supabase.from("activities").delete().eq("day_uuid", dayUuid);
       if (actDelErr) console.warn("Error deleting activities", actDelErr.message);
@@ -1489,12 +1491,12 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
       day_number: newDayNumber,
       title: "New Destination",
       date: newDateString,
-      cover_image_url: `https://picsum.photos/seed/${new Date().getTime()}/600/400`,
-      cover_image_hint: "landscape",
+      //cover_image_url: `https://picsum.photos/seed/${new Date().getTime()}/600/400`,
+      //cover_image_hint: "landscape",
       activities: [],
       tripDayPhotos: [],
       isNew: true,
-      cover_image_preview: `https://picsum.photos/seed/${new Date().getTime()}/600/400`,
+      //cover_image_preview: `https://picsum.photos/seed/${new Date().getTime()}/600/400`,
     } as unknown as EditableItineraryItem;
 
     setEditingItem(newEditingItem);
@@ -1608,16 +1610,6 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
         <ScrollBar orientation="horizontal" />
       </ScrollArea>
 
-
-      {/* {activeItineraryItem && (
-        <WeatherCard
-          location={activeItineraryItem.title.replace(
-            /arrival in |exploring |day trip to /i,
-            ""
-          )}
-        />
-      )} */}
-
       {itinerary.map((item) => (
         <div
           key={item.day_uuid}
@@ -1628,17 +1620,21 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
           <Card className="overflow-hidden bg-card/80 backdrop-blur-sm border-white/20 shadow-lg">
             <div className="relative">
               <div className="relative w-full h-32 rounded-t-lg overflow-hidden">
-                {/* {item.cover_image_url && (
-                  <Image
-                    src={item.cover_image_url}
-                    alt={item.title}
+                  {item.weather_icon && (
+                    <WeatherCard
+                    temperature={item.temperature}
+                      wmoCode={item.weather_icon}
+                    />
+                  ) ||
+                  (<Image
+                    src="/images/background.jpeg"
+                    alt="Trip Cover Image"
                     fill
                     className="object-cover"
-                    data-ai-hint={item.cover_image_hint || ""}
-                  />
-                )} */}
-                <div className="absolute inset-0 bg-black/40 flex items-end p-4">
-                  <div className="text-white flex-grow text-left">
+                    data-ai-hint={item.title || ""}
+                  />) }
+                <div className="absolute inset-0 flex items-end p-4">
+                  <div className="text-primary flex-grow text-left">
                     <h2 className="font-bold text-lg font-headline">
                       {item.title}
                     </h2>
@@ -1710,7 +1706,7 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
                         {activity.address && activity.address.length > 0 && (
                         <div className="flex items-center">
                           <MapPin className="mr-1 h-4 w-4 text-primary" />
-                          <p className="text-muted-foreground">{activity.address}</p>
+                          <p className="text-muted-foreground italic">{activity.address}</p>
                         </div>
                         )}
                       </div>
