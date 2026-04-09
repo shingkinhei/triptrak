@@ -109,8 +109,16 @@ export type Trip = {
   cover_image_hint: string;
   created_at: string;
   // These are now handled separately
-  itinerary: ItineraryItem[];
-  expenses: Expenses[];
-  shoppingItems: ShoppingItems[];
-  checklist: ChecklistItem[];
+  //itinerary: ItineraryItem[];
+  //expenses: Expenses[];
+  // shoppingItems: ShoppingItems[];
+  //checklist: ChecklistItem[];
+};
+
+export type ActivityOptions = {
+  activity_type: string;
+  icon_text: string;
+  color_code: string;
+  description: string;
+  ai_preference: boolean;
 };

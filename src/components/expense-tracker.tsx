@@ -118,9 +118,6 @@ const iconMap: Record<string, LucideIcon> = {
 };
 
 interface ExpenseTrackerProps {
-  expenses: Expenses[];
-  setExpenses: React.Dispatch<React.SetStateAction<Expenses[]>>;
-  onCheckChange: (itemId: string, checked: boolean) => void;
   trip: Trip;
 }
 // const expenseCategories: ExpenseCategory[] = ['Food', 'Transport', 'Shopping', 'Accommodation', 'Other'];
@@ -204,7 +201,7 @@ interface ChartCategory {
   description?: string;
 }
 
-export function ExpenseTracker({ expensesInfo, trip }: ExpenseTrackerProps) {
+export function ExpenseTracker({ trip }: ExpenseTrackerProps) {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [expenseCategoryOption, setExpenseCategoryOption] = useState<
     ExpenseCategoryOption[]
@@ -233,7 +230,7 @@ export function ExpenseTracker({ expensesInfo, trip }: ExpenseTrackerProps) {
     setDisplayCurrency,
     rates,
   } = useCurrency();
-  const [expenses, setExpenses] = useState<Expenses[]>(expensesInfo);
+  const [expenses, setExpenses] = useState<Expenses[]>([]);
   const [editingExpense, setEditingExpense] = useState<{
     item: Expenses;
   } | null>(null);
@@ -1051,7 +1048,7 @@ export function ExpenseTracker({ expensesInfo, trip }: ExpenseTrackerProps) {
                 </Select>
               </div>
             </div>
-            <DialogFooter className="flex flex-row sm:flex-row items-center justify-around gap-2">
+            <DialogFooter className="flex items-center justify-between">
               <div>
                 <AlertDialog>
                   <AlertDialogTrigger asChild>

@@ -35,7 +35,7 @@ import {
   ArrowLeft
 } from "lucide-react";
 import Compressor from "compressorjs";
-import type { Trip, TripDayPhotos } from "@/lib/types";
+import type { Trip, TripDayPhotos, ItineraryItem } from "@/lib/types";
 
 const compressFile = (file: File): Promise<File> => {
   return new Promise((resolve, reject) => {
@@ -65,15 +65,48 @@ export const MemoriesView: FC<MemoriesViewProps> = ({ trip, setTrip }) => {
   const supabase = createClient();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const [selectedDayId, setSelectedDayId] = useState<string>(
-    trip.itinerary[0]?.day_uuid || ""
-  );
+  const [selectedDayId, setSelectedDayId] = useState<string>("");
   const [allPhotos, setAllPhotos] = useState<TripDayPhotos[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [itinerary, setItinerary] = useState<ItineraryItem[]>([]);
   const [viewingPhoto, setViewingPhoto] = useState<TripDayPhotos | null>(null);
   const [photoToDelete, setPhotoToDelete] = useState<TripDayPhotos | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const router = useRouter();
+
+  useEffect(() => {
+    const ensureItinerary = async () => {
+      const { data, error } = await supabase
+        .from("trip_days")
+        .select(`*, tripDayPhotos:trip_photos (*)`)
+        .eq("trip_uuid", trip.trip_uuid)
+        .order("day_number", { ascending: true });
+
+      if (error) {
+        toast({
+          title: "Error fetching itinerary",
+          description: error.message,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const sortedDays = (data || []).map((day: any) => ({
+        ...day,
+        tripDayPhotos: (day.tripDayPhotos || []).sort(
+          (a: TripDayPhotos, b: TripDayPhotos) => (a.seq ?? 0) - (b.seq ?? 0)
+        ),
+      }));
+
+      setItinerary(sortedDays as ItineraryItem[]);
+
+      if (!selectedDayId && sortedDays.length > 0) {
+        setSelectedDayId(sortedDays[0].day_uuid);
+      }
+    };
+
+    ensureItinerary();
+  }, [trip, selectedDayId, setTrip, supabase, toast]);
 
 //   const allPhotos = useMemo(() => {
 //     const photos: Array<
@@ -97,7 +130,7 @@ export const MemoriesView: FC<MemoriesViewProps> = ({ trip, setTrip }) => {
 
   useEffect(() => {
     const fetchPhotes = async () => {
-        // if (!selectedDayId) return;
+        if (!selectedDayId) return;
         const { data: photos, error } = await supabase
             .from("trip_photos")
             .select("*")
@@ -111,18 +144,6 @@ export const MemoriesView: FC<MemoriesViewProps> = ({ trip, setTrip }) => {
             });
         } else if (photos) {
             setAllPhotos(photos as TripDayPhotos[]);
-             setTrip((prev) =>
-                prev
-                    ? {
-                          ...prev,
-                          itinerary: prev.itinerary.map((day) =>
-                              day.day_uuid === selectedDayId
-                                  ? { ...day, tripDayPhotos: photos as TripDayPhotos[] }
-                                  : day
-                          ),
-                      }
-                    : prev
-            );
         }
     };
     fetchPhotes();
@@ -142,8 +163,8 @@ export const MemoriesView: FC<MemoriesViewProps> = ({ trip, setTrip }) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Not Authenticated");
 
-    const currentDay = trip.itinerary.find(d => d.day_uuid === selectedDayId);
-    let startSeq = currentDay?.tripDayPhotos?.length ?? 0;
+    const currentDay = allPhotos.find(d => d.day_uuid === selectedDayId);
+    let startSeq = currentDay?.day_uuid?.length ?? 0;
 
     // 2. 併發處理所有文件 (壓縮 -> 上傳 -> 寫入 DB)
     const uploadPromises = files.map(async (file, i) => {
@@ -192,15 +213,14 @@ export const MemoriesView: FC<MemoriesViewProps> = ({ trip, setTrip }) => {
     });
 
     // 4. 更新狀態
-    setAllPhotos(prev => [...prev, ...photoRows]);
-    setTrip(prev => prev ? {
-      ...prev,
-      itinerary: prev.itinerary.map(day =>
+    setAllPhotos((prev) => [...prev, ...photoRows]);
+    setItinerary((prev) =>
+      prev.map((day) =>
         day.day_uuid === selectedDayId
           ? { ...day, tripDayPhotos: [...(day.tripDayPhotos || []), ...photoRows] }
           : day
-      ),
-    } : prev);
+      )
+    );
   } catch (error: any) {
     toast({
       title: "上傳失敗",
@@ -211,120 +231,6 @@ export const MemoriesView: FC<MemoriesViewProps> = ({ trip, setTrip }) => {
     setIsUploading(false);
   }
 };
-
-  // const handleUploadChange = async (
-  //   e: React.ChangeEvent<HTMLInputElement>
-  // ) => {
-  //   if (!e.target.files || !selectedDayId) return;
-  //   const files = Array.from(e.target.files);
-  //   if (files.length === 0) return;
-
-  //   setIsUploading(true);
-
-  //   const {
-  //     data: { user },
-  //   } = await supabase.auth.getUser();
-  //   if (!user) {
-  //     toast({
-  //       title: "Not Authenticated",
-  //       description: "You must be logged in to upload photos.",
-  //       variant: "destructive",
-  //     });
-  //     setIsUploading(false);
-  //     return;
-  //   }
-
-  //   const currentDay = trip.itinerary.find(
-  //     (d) => d.day_uuid === selectedDayId
-  //   );
-  //   let startSeq = currentDay?.tripDayPhotos?.length ?? 0;
-
-  //   for (let i = 0; i < files.length; i++) {
-  //     const file = files[i];
-  //     const ext = (file.name.split(".").pop() || "jpg")
-  //       .toLowerCase()
-  //       .replace(/[^a-z0-9]/gi, "");
-  //     const filePath = `${user.id}/${trip.trip_uuid}/${selectedDayId}/${Date.now()}-${i}.${ext || "jpg"}`;
-
-  //     const { error: uploadError } = await supabase.storage
-  //       .from("day_feedback")
-  //       .upload(filePath, file, { upsert: false });
-
-  //     if (uploadError) {
-  //       toast({
-  //         title: "Photo upload failed",
-  //         description: uploadError.message,
-  //         variant: "destructive",
-  //       });
-  //       continue;
-  //     }
-
-  //     const { data: urlData } = supabase.storage
-  //       .from("day_feedback")
-  //       .getPublicUrl(filePath);
-  //     const publicUrl = urlData.publicUrl;
-
-  //     const photoRow = {
-  //       photo_uuid: uuidv4(),
-  //       day_uuid: selectedDayId,
-  //       seq: startSeq,
-  //       url: publicUrl,
-  //       user_id: user.id,
-  //     };
-
-  //     const { error: insertError } = await supabase
-  //       .from("trip_photos")
-  //       .insert(photoRow);
-  //     if (insertError) {
-  //       toast({
-  //         title: "Save failed",
-  //         description: insertError.message,
-  //         variant: "destructive",
-  //       });
-  //     } else {
-  //       startSeq += 1;
-  //     }
-  //   }
-
-  //   const { data: freshPhotos, error: fetchError } = await supabase
-  //     .from("trip_photos")
-  //     .select("*")
-  //     .eq("day_uuid", selectedDayId)
-  //     .order("seq", { ascending: true });
-
-  //   if (fetchError) {
-  //     toast({
-  //       title: "Refresh failed",
-  //       description: fetchError.message,
-  //       variant: "destructive",
-  //     });
-  //   } else if (freshPhotos) {
-  //     setTrip((prev) =>
-  //       prev
-  //         ? {
-  //             ...prev,
-  //             itinerary: prev.itinerary.map((day) =>
-  //               day.day_uuid === selectedDayId
-  //                 ? {
-  //                     ...day,
-  //                     tripDayPhotos: freshPhotos as TripDayPhotos[],
-  //                   }
-  //                 : day
-  //             ),
-  //           }
-  //         : prev
-  //     );
-  //     toast({
-  //       title: "Photos uploaded",
-  //       description: `${files.length} photo(s) added to your memories.`,
-  //     });
-  //   }
-
-  //   if (fileInputRef.current) {
-  //     fileInputRef.current.value = "";
-  //   }
-  //   setIsUploading(false);
-  // };
 
   const handleDeletePhoto = async () => {
     if (!photoToDelete) return;
@@ -383,22 +289,17 @@ export const MemoriesView: FC<MemoriesViewProps> = ({ trip, setTrip }) => {
         prev.filter((p) => p.photo_uuid !== photoToDelete.photo_uuid)
       );
 
-      setTrip((prev) =>
-        prev
-          ? {
-              ...prev,
-              itinerary: prev.itinerary.map((day) =>
-                day.day_uuid === selectedDayId
-                  ? {
-                      ...day,
-                      tripDayPhotos: day.tripDayPhotos?.filter(
-                        (p) => p.photo_uuid !== photoToDelete.photo_uuid
-                      ),
-                    }
-                  : day
-              ),
-            }
-          : prev
+      setItinerary((prev) =>
+        prev.map((day) =>
+          day.day_uuid === selectedDayId
+            ? {
+                ...day,
+                tripDayPhotos: day.tripDayPhotos?.filter(
+                  (p) => p.photo_uuid !== photoToDelete.photo_uuid
+                ),
+              }
+            : day
+        )
       );
 
       setViewingPhoto(null);
@@ -448,7 +349,7 @@ export const MemoriesView: FC<MemoriesViewProps> = ({ trip, setTrip }) => {
               <SelectValue placeholder="Select a day" />
             </SelectTrigger>
             <SelectContent>
-              {trip.itinerary.map((day) => (
+              {itinerary.map((day) => (
                 <SelectItem key={day.day_uuid} value={day.day_uuid}>
                   Day {day.day_number}: {day.title}
                 </SelectItem>

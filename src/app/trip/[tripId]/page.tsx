@@ -109,38 +109,38 @@ const TabContent: FC<TabContentProps> = ({ trip, setTrip, activeTab, aiRate, aiR
   const { toast } = useToast();
   const { tripCurrency } = useCurrency();
 
-  const handleShoppingItemCheck = (itemId: string, checked: boolean) => {
-    let checkedItemName: string | undefined;
-    let checkedItemPrice: number | undefined;
+  // const handleShoppingItemCheck = (itemId: string, checked: boolean) => {
+  //   let checkedItemName: string | undefined;
+  //   let checkedItemPrice: number | undefined;
 
-    const newList = trip.shoppingItems.map((item) => {
-      if (item.item_uuid === itemId) {
-        if (checked && item.price && item.price >= 0) {
-          checkedItemName = item.name;
-          checkedItemPrice = item.price;
-        }
-        return { ...item, checked };
-      }
-      return item;
-    });
+  //   // const newList = (trip.shoppingItems ?? []).map((item) => {
+  //   //   if (item.item_uuid === itemId) {
+  //   //     if (checked && item.price && item.price >= 0) {
+  //   //       checkedItemName = item.name;
+  //   //       checkedItemPrice = item.price;
+  //   //     }
+  //   //     return { ...item, checked };
+  //   //   }
+  //   //   return item;
+  //   // });
 
-    setTrip((currentTrip) =>
-      currentTrip ? { ...currentTrip, shopping_list: newList } : undefined
-    );
+  //   setTrip((currentTrip) =>
+  //     currentTrip ? { ...currentTrip, shopping_list: newList } : undefined
+  //   );
 
-    if (checkedItemName && checkedItemPrice) {
-      const newExpense: Expenses = {
-        expense_uuid: uuidv4(),
-        name: checkedItemName,
-        expense_category: "Shopping",
-        amount: checkedItemPrice,
-        date: new Date().toISOString().split("T")[0],
-        trip_uuid: trip.trip_uuid,
-        currency_code: tripCurrency,
-        user_id: trip.user_id || null,
-      };
-    }
-  };
+  //   if (checkedItemName && checkedItemPrice) {
+  //     const newExpense: Expenses = {
+  //       expense_uuid: uuidv4(),
+  //       name: checkedItemName,
+  //       expense_category: "Shopping",
+  //       amount: checkedItemPrice,
+  //       date: new Date().toISOString().split("T")[0],
+  //       trip_uuid: trip.trip_uuid,
+  //       currency_code: tripCurrency,
+  //       user_id: trip.user_id || null,
+  //     };
+  //   }
+  // };
 
   const tabComponents: Record<Tab, React.ComponentType<any>> = {
     planner: TripPlanner,
@@ -149,27 +149,27 @@ const TabContent: FC<TabContentProps> = ({ trip, setTrip, activeTab, aiRate, aiR
     shopping: ShoppingList,
   };
 
-  const setExpenses = (updater: React.SetStateAction<Expenses[]>) => {
-    setTrip((currentTrip) => {
-      if (!currentTrip) return undefined;
-      const newExpenses =
-        typeof updater === "function"
-          ? updater(currentTrip.expenses)
-          : updater;
-      return { ...currentTrip, expenses: newExpenses };
-    });
-  };
+  // const setExpenses = (updater: React.SetStateAction<Expenses[]>) => {
+  //   setTrip((currentTrip) => {
+  //     if (!currentTrip) return undefined;
+  //     const newExpenses =
+  //       typeof updater === "function"
+  //         ? updater(currentTrip.expenses)
+  //         : updater;
+  //     return { ...currentTrip, expenses: newExpenses };
+  //   });
+  // };
 
-  const setShoppingList = (updater: React.SetStateAction<ShoppingItems[]>) => {
-    setTrip((currentTrip) => {
-      if (!currentTrip) return undefined;
-      const newShoppingList =
-        typeof updater === "function"
-          ? updater(currentTrip.shoppingItems)
-          : updater;
-      return { ...currentTrip, shoppingItems: newShoppingList };
-    });
-  };
+  // const setShoppingList = (updater: React.SetStateAction<ShoppingItems[]>) => {
+  //   setTrip((currentTrip) => {
+  //     if (!currentTrip) return undefined;
+  //     const newShoppingList =
+  //       typeof updater === "function"
+  //         ? updater(currentTrip.shoppingItems)
+  //         : updater;
+  //     return { ...currentTrip, shoppingItems: newShoppingList };
+  //   });
+  // };
 
 
 
@@ -187,9 +187,6 @@ const TabContent: FC<TabContentProps> = ({ trip, setTrip, activeTab, aiRate, aiR
       trip: trip,
     },
     shopping: {
-      list: trip.shoppingItems,
-      setList: setShoppingList,
-      onCheckChange: handleShoppingItemCheck,
       trip: trip,
     },
   };
@@ -257,8 +254,6 @@ export default function TripDetailsPage() {
   const [aiRate, setAiRate] = useState<number>(0);
   const [aiRateLimit, setAiRateLimit] = useState<number>(0);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const priceInputRef = useRef<HTMLInputElement>(null);
-
   useEffect(() => {
 
     const fetchTripData = async () => {
@@ -302,149 +297,17 @@ export default function TripDetailsPage() {
         return;
       }
 
-      const { data: daysData, error: daysError } = await supabase
-        .from("trip_days")
-        .select(`*, activities:activities (*), tripDayPhotos:trip_photos (*)`)
-        .eq("trip_uuid", tripUuId)
-        .order("day_number", { ascending: true });
-
-      if (daysError) {
-        toast({
-          title: "Error fetching trip days",
-          description: daysError.message,
-          variant: "destructive",
-        });
-      }
-
-      const { data: checklistData, error: checklistError } = await supabase
-        .from("pre_trip_checklist")
-        .select(`*`)
-        .eq("trip_uuid", tripUuId)
-        .order("seq", { ascending: true });
-
-      if (checklistError) {
-        toast({
-          title: "Error fetching checklist",
-          description: checklistError.message,
-          variant: "destructive",
-        });
-      }
-
-      const sortedDays = daysData?.map((day) => ({
-        ...day,
-        activities: day.activities?.sort((a: Activity, b: Activity) =>
-          a.time.localeCompare(b.time)
-        ),
-        tripDayPhotos: day.tripDayPhotos?.sort(
-          (a: TripDayPhotos, b: TripDayPhotos) => (a.seq ?? 0) - (b.seq ?? 0)
-        ),
-      }));
-
-      const enrichedTrip: Trip = {
+      const basicTrip: Trip = {
         ...tripData,
-        itinerary: sortedDays || [],
-        checklist: checklistData || [],
       };
 
-      setTrip(enrichedTrip);
+      setTrip(basicTrip);
       if (tripData.country_code) {
         setTripCurrency(tripData.currency_code);
-        //setTripCurrencyFromCountry(tripData.country_code);
-      }
-      // fetch shopping items for this trip and attach to trip state
-      const { data: shoppingData, error: shoppingError } = await supabase
-        .from("shopping_items")
-        .select(
-          "item_uuid, shopping_category, name, checked, image_url, price, user_id, store, address, trip_uuid, pcs"
-        )
-        .eq("trip_uuid", tripUuId);
-
-      if (shoppingError) {
-        toast({
-          title: "Error fetching shopping items",
-          description: shoppingError.message,
-          variant: "destructive",
-        });
-      } else if (shoppingData) {
-        setTrip((prev) =>
-          prev ? { ...prev, shoppingItems: shoppingData } : prev
-        );
-      }
-      //fetch expense categories for the trip and attach to trip state
-      const { data: expenseData, error: expenseError } = await supabase
-        .from("expenses")
-        .select("expense_uuid, trip_uuid, name, expense_category, amount, date, currency_code,user_id")
-        .eq("trip_uuid", tripUuId);
-      if (expenseError) {
-        toast({
-          title: "Error fetching expenses",
-          description: expenseError.message,
-          variant: "destructive",
-        });
-      } else if (expenseData) {
-        setTrip((prev) =>
-          prev ? { ...prev, expenses: expenseData } : prev
-        );
       }
     };
     fetchTripData();
   }, [tripUuId, router, supabase, toast]);
-
-  useEffect(() => {
-    if (trip) {
-      // const debouncedUpdater = debounce(async () => {
-      //   const { error } = await supabase
-      //     .from("shopping_items")
-      //     .update({
-      //       trip.shoppingItems,
-      //     })
-      //     .eq("trip_uuid", trip.trip_uuid);
-
-      //   if (error) {
-      //     toast({
-      //       title: "Error saving trip data",
-      //       description: error.message,
-      //       variant: "destructive",
-      //     });
-      //   }
-      // }, 1500);
-
-      const fetchShoppingCategoryOptions = async () => {
-        const { data, error } = await supabase
-          .from("shopping_categories_setup")
-          .select(
-            "name, icon_text, color_code, description, shopping_categories_seq"
-          );
-
-        if (error) {
-          toast({
-            title: "Error fetching shopping categories",
-            description: error.message,
-            variant: "destructive",
-          });
-        } else {
-          setShoppingCategoryOption(data as shoppingCategoryOption[]);
-        }
-      };
-
-      // debouncedUpdater();
-      fetchShoppingCategoryOptions();
-      // return () => debouncedUpdater.cancel();
-    }
-  }, [trip, supabase, toast]);
-
-  const pointsOfInterest = useMemo(() => {
-    if (!trip || !trip.itinerary) return [];
-    const allPois = trip.itinerary.flatMap((day) =>
-      day.activities.map((activity) => ({
-        name: activity.name,
-        address: activity.address || "",
-      }))
-    );
-    return allPois.filter((poi) =>
-      newItem.address ? poi.address === newItem.address : true
-    );
-  }, [trip, newItem.address]);
 
   if (!trip) {
     return (
@@ -485,32 +348,32 @@ export default function TripDetailsPage() {
       ? `${tripCurrency} \u2194 ${homeCurrency}`
       : `${homeCurrency} \u2194 ${tripCurrency}`;
 
-  const setShoppingList = (updater: React.SetStateAction<ShoppingItems[]>) => {
-    setTrip((currentTrip) => {
-      if (!currentTrip) return undefined;
-      const newShoppingList =
-        typeof updater === "function"
-          ? updater(currentTrip.shoppingItems)
-          : updater;
-      return { ...currentTrip, shoppingItems: newShoppingList };
-    });
-  };
-  const fetchShoppingItems = async () => {
-    const { data, error } = await supabase
-      .from("shopping_items")
-      .select("*")
-      .eq("trip_uuid", tripUuId);
+  // const setShoppingList = (updater: React.SetStateAction<ShoppingItems[]>) => {
+  //   setTrip((currentTrip) => {
+  //     if (!currentTrip) return undefined;
+  //     const newShoppingList =
+  //       typeof updater === "function"
+  //         ? updater(currentTrip.shoppingItems)
+  //         : updater;
+  //     return { ...currentTrip, shoppingItems: newShoppingList };
+  //   });
+  // };
+  // const fetchShoppingItems = async () => {
+  //   const { data, error } = await supabase
+  //     .from("shopping_items")
+  //     .select("*")
+  //     .eq("trip_uuid", tripUuId);
 
-    if (error) {
-      toast({
-        title: "Error fetching shopping items",
-        description: error.message,
-        variant: "destructive",
-      });
-    } else if (data) {
-      setShoppingList(data as ShoppingItems[]);
-    }
-  };
+  //   if (error) {
+  //     toast({
+  //       title: "Error fetching shopping items",
+  //       description: error.message,
+  //       variant: "destructive",
+  //     });
+  //   } else if (data) {
+  //     setShoppingList(data as ShoppingItems[]);
+  //   }
+  // };
   const handleDayCoverImageChange = (
     e: React.ChangeEvent<HTMLInputElement>
   ) => {
@@ -677,7 +540,7 @@ export default function TripDetailsPage() {
         variant: "destructive",
       });
     } else if (data) {
-      fetchShoppingItems();
+      // fetchShoppingItems();
       setNewItem({
         item_uuid: uuidv4(),
         trip_uuid: trip.trip_uuid,
@@ -710,6 +573,10 @@ export default function TripDetailsPage() {
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
+  if (!trip) {
+    return <div className="p-4 text-center text-muted-foreground">Loading trip...</div>;
+  }
+
   return (
     <main className="flex h-screen w-full flex-col bg-background font-body">
       <div
@@ -723,206 +590,6 @@ export default function TripDetailsPage() {
           </div>
           <BottomNav activeItem={activeTab} setActiveTab={setActiveTab} />
         </div>
-
-        {activeTab === "shopping" && (
-          <Dialog 
-            open={isAddDialogOpen} 
-            onOpenChange={setIsAddDialogOpen}
-            >
-            <DialogTrigger asChild>
-              <Button className="absolute bottom-24 right-8 h-16 w-16 rounded-full shadow-lg z-20">
-                <PlusCircle className="h-8 w-8"/>
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Add New Shopping Item</DialogTitle>
-              </DialogHeader>
-              <div className="grid gap-4 py-4 overflow-auto max-h-[70vh] pl-1 pr-4">
-                <div className="space-y-2">
-                  <Label htmlFor="item-name">Item Name</Label>
-                  <Input
-                    id="item-name"
-                    value={newItem.name}
-                    onChange={(e) => handleInputChange("name", e.target.value)}
-                    placeholder="e.g. Japanese KitKats"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="item-price">
-                    Price (
-                    {displayCurrency === "trip" ? tripCurrency : homeCurrency})
-                  </Label>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Input
-                      id="item-price"
-                      type="number"
-                      step="0.01"
-                      ref={priceInputRef}
-                      value={newItem.price  || 0}
-                      onChange={(e) =>
-                        handleInputChange("price", e.target.value)
-                      }
-                      placeholder="e.g. 15.00"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                       const value = priceInputRef?.current?.value;
-                        if (value) {
-                          toggleCurrencyForm(parseFloat(value) || 0);
-                        }
-                      }
-                    }
-                  >
-                    <Repeat className="h-4 w-4 mr-2" />
-                    <span>{currencyButtonLabel}</span>
-                  </Button>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="item-pcs">Quantity (pcs)</Label>
-                  <Input
-                    id="item-pcs"
-                    type="number"
-                    value={newItem.pcs || 1}
-                    onChange={(e) => handleInputChange("pcs", e.target.value)}
-                    placeholder="1"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="item-category">Category</Label>
-                  <Select
-                    value={newItem.shopping_category || ""}
-                    onValueChange={(value) =>
-                      handleInputChange("shopping_category", value)
-                    }
-                  >
-                    <SelectTrigger id="item-category">
-                      <SelectValue placeholder="Select a category" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {ShoppingCategoryOption.map((cat) => (
-                        <SelectItem key={cat.name} value={cat.name}>
-                          <div className="flex items-center gap-2">
-                            {(() => {
-                              const IconComp =
-                                iconMap[cat.icon_text as keyof typeof iconMap];
-                              return IconComp ? (
-                                <IconComp className="h-4 w-4" />
-                              ) : (
-                                <PlusCircle className="h-4 w-4" />
-                              );
-                            })()}
-                            <span>{cat.name}</span>
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid gap-4 py-4">
-                  {/* <div className="space-y-2">
-                            <Label htmlFor="item-location">Store</Label>
-                          <Select value={newItem.address || ''} onValueChange={(value) => handleInputChange('address', value)}>
-                                <SelectTrigger id="item-location">
-                                    <SelectValue placeholder="Select a location" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {itineraryLocations.map(loc => (
-                                        <SelectItem key={loc} value={loc}>{loc}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div> */}
-                  <div className="space-y-2">
-                    <Label htmlFor="item-store">Store / POI</Label>
-                    <Select
-                      value={newItem.store || ""}
-                      onValueChange={(value) =>
-                        handleInputChange("store", value)
-                      }
-                      disabled={
-                        !pointsOfInterest || pointsOfInterest.length === 0
-                      }
-                    >
-                      <SelectTrigger id="item-store">
-                        <SelectValue placeholder="Select a store" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {pointsOfInterest.map((poi) => (
-                          <SelectItem key={poi.name} value={poi.name}>
-                            {poi.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {pointsOfInterest.find((p) => p.name === newItem.store)
-                      ?.address && (
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        {
-                          pointsOfInterest.find((p) => p.name === newItem.store)
-                            ?.address
-                        }
-                      </p>
-                    )}
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <div className="flex items-center justify-items-start gap-2">
-                    <Label>Image (Optional)</Label>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={() => fileInputRef.current?.click()}
-                    >
-                      <Upload className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={handleClearNewItemImage}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    {newItem.item_image_preview && (
-                      <Image
-                        src={newItem.item_image_preview}
-                        alt="preview"
-                        width={600}
-                        height={800}
-                        className="rounded-md object-cover"
-                      />
-                    )}
-                    <Input
-                      type="file"
-                      accept="image/*"
-                      ref={fileInputRef}
-                      onChange={handleDayCoverImageChange}
-                      className="hidden"
-                    />
-                  </div>
-                </div>
-              </div>
-              <DialogFooter>
-                {/* <Button
-                  variant="outline"
-                  onClick={() => setIsAddDialogOpen(false)}
-                >
-                  Cancel
-                </Button> */}
-                <Button onClick={handleAddItem} className="w-full">Add Item</Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        )}
       </div>
     </main>
   );

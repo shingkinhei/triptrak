@@ -14,6 +14,7 @@ import type {
   TripDayPhotos,
   ChecklistItem,
   Trip,
+  ActivityOptions
 } from "@/lib/types";
 import {
   BedDouble,
@@ -81,17 +82,12 @@ import {
 import { ScrollArea, ScrollBar } from "./ui/scroll-area";
 import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import Compressor from "compressorjs";
-import {
-  DragDropContext,
-  Droppable,
-  Draggable,
-  type DropResult,
-} from "@hello-pangea/dnd";
 import { v4 as uuidv4 } from "uuid";
 import { Description } from "@radix-ui/react-toast";
 import { match } from "assert/strict";
 import { getAiPlan } from "@/api/generateDayActivities";
+import { PreTripChecklist } from "./pre-trip-checklist";
+import { DayActivities } from "./day-activities";
 
 const iconMap: Record<string, LucideIcon> = {
   Plane,
@@ -116,14 +112,6 @@ type EditableItineraryItem = ItineraryItem & {
   cover_image_file?: File | null;
   cover_image_preview?: string | null;
   isNew?: boolean;
-};
-
-type ActivityOptions = {
-  activity_type: string;
-  icon_text: string;
-  color_code: string;
-  description: string;
-  ai_preference: boolean;
 };
 
 function getIconText(
@@ -154,288 +142,10 @@ const timeToMinutes = (time?: string | null) => {
   return hh * 60 + mm;
 };
 
-const PreTripChecklist = ({
-  checklist: initialChecklist,
-  tripId,
-}: {
-  checklist: ChecklistItem[];
-  tripId: string;
-}) => {
-  const [checklist, setChecklist] = useState(initialChecklist);
-  const [newItemLabel, setNewItemLabel] = useState("");
-  const supabase = createClient();
-  const { toast } = useToast();
-
-  useEffect(() => {
-    setChecklist(initialChecklist.sort((a, b) => (a.seq ?? 0) - (b.seq ?? 0)));
-  }, [initialChecklist]);
-
-  const handleCheckChange = async (item: ChecklistItem, checked: boolean) => {
-    const originalState = [...checklist];
-    setChecklist((prev) =>
-      prev.map((i) =>
-        i.checklist_uuid === item.checklist_uuid ? { ...i, checked } : i
-      )
-    );
-
-    const { error } = await supabase
-      .from("pre_trip_checklist")
-      .update({ checked: checked })
-      .eq("checklist_uuid", item.checklist_uuid);
-
-    if (error) {
-      toast({
-        title: "Error",
-        description: "Failed to update checklist item.",
-        variant: "destructive",
-      });
-      setChecklist(originalState);
-    }
-  };
-
-  const handleAddItem = async () => {
-    if (newItemLabel.trim()) {
-      const maxSeq = checklist.reduce(
-        (max, item) => Math.max(item.seq ?? 0, max),
-        0
-      );
-
-      // Get current user from Supabase auth
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      const newItem: ChecklistItem = {
-        checklist_uuid: uuidv4(),
-        // checklist_id: null,
-        trip_uuid: tripId,
-        label: newItemLabel.trim(),
-        checked: false,
-        seq: maxSeq + 1,
-        created_at: new Date().toISOString(), // explicitly set timestamp
-        user_id: user?.id ?? null, // set to current user
-      };
-
-      // Update local state
-      setChecklist((prev) => [...prev, newItem]);
-      setNewItemLabel("");
-
-      // Insert into Supabase
-      const { error } = await supabase
-        .from("pre_trip_checklist")
-        .insert(newItem);
-
-      if (error) {
-        console.error("Error inserting checklist item:", error.message);
-      }
-    }
-  };
-
-  const handleDeleteItem = (id: string) => {
-    const originalChecklist = [...checklist];
-    setChecklist((prev) =>
-      prev.filter((item) => item.checklist_uuid !== id)
-    );
-
-    supabase
-      .from("pre_trip_checklist")
-      .delete()
-      .eq("checklist_uuid", id)
-      .then(({ error }) => {
-        if (error) {
-          toast({
-            title: "Error Deleting Item",
-            description: error.message,
-            variant: "destructive",
-          });
-          setChecklist(originalChecklist);
-        }
-      });
-  };
-
-  const handleLabelBlur = async (item: ChecklistItem, label: string) => {
-    if (label.trim() === item.label) return;
-
-    const { error } = await supabase
-      .from("pre_trip_checklist")
-      .update({ label: label.trim() })
-      .eq("checklist_uuid", item.checklist_uuid);
-
-    if (error) {
-      toast({
-        title: "Error Updating Label",
-        description: error.message,
-        variant: "destructive",
-      });
-    }
-  };
-
-  const onDragEnd = async (result: DropResult) => {
-    if (!result.destination) return;
-
-    const originalChecklist = [...checklist];
-    const items = Array.from(checklist);
-    const [reorderedItem] = items.splice(result.source.index, 1);
-    items.splice(result.destination.index, 0, reorderedItem);
-    setChecklist(items);
-
-    // Persist new order
-    const updates = items.map((item, index) => ({
-      checklist_uuid: item.checklist_uuid,
-      seq: index,
-    }));
-
-    for (const u of updates) {
-      const { error } = await supabase
-        .from("pre_trip_checklist")
-        .update({ seq: u.seq })
-        .eq("checklist_uuid", u.checklist_uuid);
-
-      if (error) {
-        toast({
-          title: "Error Updating Order",
-          description: error.message,
-          variant: "destructive",
-        });
-        setChecklist(originalChecklist);
-        break;
-      }
-    }
-  };
-
-  return (
-    // <div className=" bg-white/20 backdrop-blur-sm border-white/20 shadow-lg">
-    <div className="mt-2">
-
-      {/* <div className="flex items-center justify-between px-4 pt-4">
-        <CardTitle className="flex items-center gap-2 text-lg font-headline text-card-foreground">
-          <CheckCircle2 className="h-5 w-5 text-primary" />
-          Pre-Trip Checklist
-        </CardTitle>
-      </div> */}
-      <CardContent>
-        <DragDropContext onDragEnd={onDragEnd}>
-          <Droppable droppableId="checklist-main">
-            {(provided) => (
-              <div
-                {...provided.droppableProps}
-                ref={provided.innerRef}
-                className="space-y-3"
-              >
-                {checklist.map((item, index) => (
-                  <Draggable
-                    key={item.checklist_uuid}
-                    draggableId={item.checklist_uuid}
-                    index={index}
-                  >
-                    {(provided) => (
-                      <div
-                        ref={provided.innerRef}
-                        {...provided.draggableProps}
-                        className="flex items-center gap-3 p-2 bg-background/40 rounded-md"
-                      >
-                        <div
-                          {...provided.dragHandleProps}
-                          className="cursor-grab text-muted-foreground"
-                        >
-                          <GripVertical className="h-4 w-4" />
-                        </div>
-                        <Checkbox
-                          id={item.checklist_uuid}
-                          onCheckedChange={(checked) =>
-                            handleCheckChange(item, !!checked)
-                          }
-                          checked={item.checked}
-                        />
-                        <Input
-                          value={item.label}
-                          onChange={(e) =>
-                            setChecklist((prev) =>
-                              prev.map((i) =>
-                                i.checklist_uuid === item.checklist_uuid
-                                  ? { ...i, label: e.target.value }
-                                  : i
-                              )
-                            )
-                          }
-                          onBlur={(e) =>
-                            handleLabelBlur(item, e.target.value)
-                          }
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") {
-                              e.currentTarget.blur();
-                            }
-                          }}
-                          className={cn(
-                            "flex-grow h-8 text-sm",
-                            item.checked &&
-                              "text-muted-foreground line-through"
-                          )}
-                        />
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 shrink-0"
-                            >
-                              <Trash2 className="h-4 w-4 text-destructive" />
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>
-                                Delete checklist item?
-                              </AlertDialogTitle>
-                              <AlertDialogDescription>
-                                This will permanently delete "
-                                {item.label}" from your pre-trip checklist.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancel</AlertDialogCancel>
-                              <AlertDialogAction
-                                onClick={() =>
-                                  handleDeleteItem(item.checklist_uuid)
-                                }
-                                className="bg-destructive hover:bg-destructive/90"
-                              >
-                                Delete
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      </div>
-                    )}
-                  </Draggable>
-                ))}
-                {provided.placeholder}
-              </div>
-            )}
-          </Droppable>
-        </DragDropContext>
-
-        <div className="flex items-center gap-2 pt-4 border-t mt-4">
-          <Input
-            placeholder="Add new item..."
-            value={newItemLabel}
-            onChange={(e) => setNewItemLabel(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleAddItem()}
-          />
-          <Button onClick={handleAddItem} className="shrink-0">
-            <PlusCircle className="mr-2 h-4 w-4" />
-            Add
-          </Button>
-        </div>
-      </CardContent>
-    </div>
-  );
-};
-
 export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
-  const [itinerary, setItinerary] = useState<ItineraryItem[]>(trip.itinerary);
+  const [itinerary, setItinerary] = useState<ItineraryItem[]>([]);
   const [tripState, setTripState] = useState<Trip>(trip);
-  const [checklist, setChecklist] = useState<ChecklistItem[]>(trip.checklist);
+  const [checklist, setChecklist] = useState<ChecklistItem[]>([]);
   const [editingItem, setEditingItem] = useState<EditableItineraryItem | null>(
     null
   );
@@ -475,12 +185,12 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
       } else {
         setActivityOptions(data as ActivityOptions[]);
         setAIPreferencesOptions(
-          (data as ActivityOptions[]).filter(opt => opt.ai_preference === true)
+          (data as ActivityOptions[]).filter((opt) => opt.ai_preference === true)
         );
       }
     };
     fetchActivityOptions();
-  });
+  }, []);
 
   useEffect(() => {
     const fetchChecklist = async () => {
@@ -500,10 +210,37 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
       }
     };
 
+    const fetchItinerary = async () => {
+      const { data, error } = await supabase
+        .from("trip_days")
+        .select(`*, activities:activities (*)`)
+        .eq("trip_uuid", trip.trip_uuid)
+        .order("day_number", { ascending: true });
+
+      if (error) {
+        toast({
+          title: "Error fetching itinerary",
+          description: error.message,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const sortedDays = (data || []).map((day: any) => ({
+        ...day,
+        activities: (day.activities || []).sort((a: Activity, b: Activity) =>
+          a.time.localeCompare(b.time)
+        ),
+        tripDayPhotos: (day.tripDayPhotos || []).sort(
+          (a: TripDayPhotos, b: TripDayPhotos) => (a.seq ?? 0) - (b.seq ?? 0)
+        ),
+      }));
+      setItinerary(sortedDays as ItineraryItem[]);
+    };
 
     fetchChecklist();
-    setItinerary(trip.itinerary);
-  }, [trip]);
+    fetchItinerary();
+  }, [trip, supabase, toast]);
 
   useEffect(() => {
     // Sync local AI rate state with props
@@ -1132,235 +869,15 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
     }
   };
 
-  // const handleDayCoverImageChange = (
-  //   e: React.ChangeEvent<HTMLInputElement>
-  // ) => {
-  //   if (!e.target.files || !editingItem) return;
-  //   const file = e.target.files[0];
-  //   if (file) {
-  //     new Compressor(file, {
-  //       quality: 0.6,
-  //       maxWidth: 1200,
-  //       success: (compressedResult) => {
-  //         setEditingItem((prev) =>
-  //           prev
-  //             ? { ...prev, cover_image_file: compressedResult as File }
-  //             : null
-  //         );
-  //         const reader = new FileReader();
-  //         reader.onloadend = () => {
-  //           setEditingItem((prev) =>
-  //             prev
-  //               ? { ...prev, cover_image_preview: reader.result as string }
-  //               : null
-  //           );
-  //         };
-  //         reader.readAsDataURL(compressedResult);
-  //       },
-  //       error: (err) => {
-  //         toast({
-  //           title: "Image compression failed",
-  //           description: err.message,
-  //           variant: "destructive",
-  //         });
-  //       },
-  //     });
-  //   }
-  // };
-
-  // const handleRemoveDayCoverImage = () => {
-  //   if (editingItem) {
-  //     setEditingItem((prev) =>
-  //       prev
-  //         ? {
-  //             ...prev,
-  //             cover_image_file: null,
-  //             cover_image_preview: null,
-  //             cover_image_url: null,
-  //           }
-  //         : null
-  //     );
-  //   }
-  // };
-
-  // const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-  //   if (!e.target.files || !editingItem) return;
-
-  //   const files = Array.from(e.target.files);
-  //   if (files.length === 0) return;
-
-  //   const {
-  //     data: { user },
-  //   } = await supabase.auth.getUser();
-  //   if (!user) {
-  //     toast({
-  //       title: "Not Authenticated",
-  //       description: "You must be logged in to upload photos.",
-  //       variant: "destructive",
-  //     });
-  //     return;
-  //   }
-
-  //   toast({
-  //     title: "Uploading photos",
-  //     description: `Uploading ${files.length} file(s)...`,
-  //     variant: "default",
-  //   });
-
-  //   const compressFile = (file: File): Promise<File> => {
-  //     return new Promise((resolve, reject) => {
-  //       // @ts-ignore
-  //       new Compressor(file, {
-  //         quality: 0.6,
-  //         maxWidth: 1200,
-  //         success(result: Blob) {
-  //           const ext = (file.name.split(".").pop() || "").toLowerCase();
-  //           const mime = result.type || file.type || "image/jpeg";
-  //           const name = `${editingItem.date}_${editingItem.day_number}_${uuidv4()}.${ext || (mime.split("/")[1] ?? "jpg")}`;
-  //           const compressedFile = new File([result], name, { type: mime });
-  //           resolve(compressedFile);
-  //         },
-  //         error(err: any) {
-  //           reject(err);
-  //         },
-  //       });
-  //     });
-  //   };
-
-  //   try {
-  //     // Instead of uploading immediately, create compressed previews and attach them to editingItem
-  //     const previews = await Promise.all(
-  //       files.map(async (file, idx) => {
-  //         const compressed = await compressFile(file);
-  //         // create data URL preview
-  //         const reader = new FileReader();
-  //         const dataUrl: string = await new Promise((resolve, reject) => {
-  //           reader.onloadend = () => resolve(reader.result as string);
-  //           reader.onerror = reject;
-  //           reader.readAsDataURL(compressed);
-  //         });
-
-  //         return {
-  //           photo_uuid: uuidv4(),
-  //           day_uuid: editingItem.day_uuid,
-  //           seq: (editingItem.tripDayPhotos?.length ?? 0) + idx,
-  //           url: "",
-  //           trip_day_photo: compressed,
-  //           trip_day_photo_preview: dataUrl,
-  //         } as any;
-  //       })
-  //     );
-
-  //     setEditingItem((prev) =>
-  //       prev
-  //         ? {
-  //             ...prev,
-  //             tripDayPhotos: [...(prev.tripDayPhotos || []), ...previews],
-  //           }
-  //         : prev
-  //     );
-  //     // Also optimistically update itinerary view while editing
-  //     setItinerary((prev) =>
-  //       prev.map((d) =>
-  //         d.day_uuid === editingItem.day_uuid
-  //           ? ({
-  //               ...d,
-  //               tripDayPhotos: [...(d.tripDayPhotos || []), ...previews],
-  //             } as ItineraryItem)
-  //           : d
-  //       )
-  //     );
-
-  //     toast({
-  //       title: "Files ready",
-  //       description: `${previews.length} photo(s) ready to save. Click Save Changes to upload.`,
-  //       variant: "default",
-  //     });
-  //     if (photoInputRef.current) photoInputRef.current.value = "";
-  //   } catch (err: any) {
-  //     console.error("Preparing previews failed", err);
-  //     toast({
-  //       title: "Preview failed",
-  //       description: err.message || String(err),
-  //       variant: "destructive",
-  //     });
-  //   }
-  // };
-
-  // const handleDeletePhoto = async (photoId: string) => {
-  //   if (!editingItem) return;
-
-  //   const photo = (editingItem.tripDayPhotos || []).find((p) => p.photo_uuid === photoId) as any;
-  //   if (!photo) return;
-
-  //   // If it's a pending (unsaved) photo (has trip_day_photo), just remove locally now
-  //   if (photo.trip_day_photo) {
-  //     setEditingItem((prev) =>
-  //       prev
-  //         ? { ...prev, tripDayPhotos: (prev.tripDayPhotos || []).filter((p) => p.photo_uuid !== photoId) }
-  //         : prev
-  //     );
-  //     setItinerary((prev) =>
-  //       prev.map((d) =>
-  //         d.day_uuid === editingItem.day_uuid
-  //           ? ({ ...d, tripDayPhotos: (d.tripDayPhotos || []).filter((p: any) => p.photo_uuid !== photoId) } as ItineraryItem)
-  //           : d
-  //       )
-  //     );
-  //     toast({ title: "Removed", description: "Photo removed from selection.", variant: "default" });
-  //     return;
-  //   }
-
-  //   // For already-saved photos, toggle pending_delete flag (mark for deletion on Save)
-  //   const isPending = !!photo.pending_delete;
-  //   setEditingItem((prev) =>
-  //     prev ? { ...prev, tripDayPhotos: (prev.tripDayPhotos || []).map((p: any) => (p.photo_uuid === photoId ? { ...p, pending_delete: !isPending } : p)) } : prev
-  //   );
-  //   setItinerary((prev) =>
-  //     prev.map((d) =>
-  //       d.day_uuid === editingItem.day_uuid
-  //         ? ({ ...d, tripDayPhotos: (d.tripDayPhotos || []).map((p: any) => (p.photo_uuid === photoId ? { ...p, pending_delete: !isPending } : p)) } as ItineraryItem)
-  //         : d
-  //     )
-  //   );
-
-  //   toast({ title: isPending ? "Restore" : "Pending delete", description: isPending ? "Photo will no longer be deleted." : "Photo marked for deletion. Click Save Changes to apply.", variant: "default" });
-  // };
-
   const handleDeleteDay = async () => {
     if (!editingItem) return;
 
     const dayUuid = editingItem.day_uuid;
 
     try {
-      // const {
-      //   data: photos,
-      //   error: photosErr,
-      // } = await supabase.from("trip_photos").select("url,photo_uuid").eq("day_uuid", dayUuid);
-
-      // if (photosErr) {
-      //   toast({ title: "Error", description: photosErr.message, variant: "destructive" });
-      // }
-
-      // // Remove storage objects for any photos that have been uploaded
-      // if (Array.isArray(photos) && photos.length > 0) {
-      //   for (const p of photos) {
-      //     try {
-      //       const url = p.url || "";
-      //       const key = url.split("/day_feedback/").pop();
-      //       if (key) {
-      //         const { error: delErr } = await supabase.storage.from("day_feedback").remove([key]);
-      //         if (delErr) console.warn("Storage delete error", delErr.message);
-      //       }
-      //     } catch (inner) {
-      //       console.warn("Error deleting storage object", inner);
-      //     }
-      //   }
-      // }
-
       // // Delete DB rows: trip_photos, activities, then trip_days
-      // const { error: photosDeleteErr } = await supabase.from("trip_photos").delete().eq("day_uuid", dayUuid);
-      // if (photosDeleteErr) console.warn("Error deleting photo rows", photosDeleteErr.message);
+      const { error: photosDeleteErr } = await supabase.from("trip_photos").delete().eq("day_uuid", dayUuid);
+      if (photosDeleteErr) console.warn("Error deleting photo rows", photosDeleteErr.message);
 
       const { error: actDelErr } = await supabase.from("activities").delete().eq("day_uuid", dayUuid);
       if (actDelErr) console.warn("Error deleting activities", actDelErr.message);
@@ -1846,128 +1363,13 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
               </div> */}
 
               <div className="space-y-2">
-                <div className="flex justify-between items-center">
-                  <h3 className="text-lg font-semibold">Activities</h3>
-                  <Button variant="ghost" size="sm" onClick={handleAddActivity}>
-                    <PlusCircle className="mr-2 h-4 w-4" />
-                    Add Activity
-                  </Button>
-                </div>
-                <div className="space-y-4">
-                  {editingItem.activities.map((act) => (
-                    <div
-                      key={act.activity_uuid}
-                      className="flex items-center gap-2 p-2 border rounded-lg"
-                    >
-                      <div className="grid gap-2 flex-grow">
-                        <div className="flex items-center gap-2">
-                          <Select
-                            value={act.activity_type}
-                            onValueChange={(val) =>
-                              handleActivityChange(
-                                act.activity_uuid,
-                                "activity_type",
-                                val
-                              )
-                            }
-                          >
-                            <SelectTrigger className="w-16 h-8">
-                              <SelectValue>
-                                {iconMap[
-                                  getIconText(
-                                    act.activity_type,
-                                    activityOptions
-                                  )
-                                ] &&
-                                  React.createElement(
-                                    iconMap[
-                                      getIconText(
-                                        act.activity_type,
-                                        activityOptions
-                                      )
-                                    ],
-                                    { className: "h-4 w-4" }
-                                  )}
-                              </SelectValue>
-                            </SelectTrigger>
-                            <SelectContent className="shadow-lg">
-                              {activityOptions.map((opt) => (
-                                <SelectItem
-                                  key={opt.icon_text}
-                                  value={opt.activity_type}
-                                >
-                                  <div className="flex items-center gap-2">
-                                    {React.createElement(
-                                      iconMap[opt.icon_text],
-                                      { className: "h-4 w-4" }
-                                    )}
-                                    <span>{opt.activity_type}</span>
-                                  </div>
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <Input
-                            type="time"
-                            value={act.time}
-                            onChange={(e) =>
-                              handleActivityChange(
-                                act.activity_uuid,
-                                "time",
-                                e.target.value
-                              )
-                            }
-                            className="w-24 h-8"
-                          />
-                        </div>
-                        <Input
-                          value={act.name}
-                          onChange={(e) =>
-                            handleActivityChange(
-                              act.activity_uuid,
-                              "name",
-                              e.target.value
-                            )
-                          }
-                          placeholder="Name"
-                          className="h-8"
-                        />
-                        <Input
-                          value={act.description}
-                          onChange={(e) =>
-                            handleActivityChange(
-                              act.activity_uuid,
-                              "description",
-                              e.target.value
-                            )
-                          }
-                          placeholder="Description"
-                          className="h-8"
-                        />
-                        <Input
-                          value={act.address || ""}
-                          onChange={(e) =>
-                            handleActivityChange(
-                              act.activity_uuid,
-                              "address",
-                              e.target.value
-                            )
-                          }
-                          placeholder="Address"
-                          className="h-8"
-                        />
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => handleDeleteActivity(act.activity_uuid)}
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                    </div>
-                  ))}
-                </div>
+              <DayActivities
+                activities={editingItem.activities}
+                activityOptions={activityOptions}
+                onAddActivity={handleAddActivity}
+                onDeleteActivity={handleDeleteActivity}
+                onActivityChange={handleActivityChange}
+              />
                 <div className="space-y-2">
                   <Label htmlFor="remarks">Feedback</Label>
                   <Textarea

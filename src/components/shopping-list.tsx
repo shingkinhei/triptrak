@@ -1,6 +1,6 @@
 "use client";
 import React, { useRef, useState, useMemo, useEffect } from "react";
-import type { ShoppingItems, Trip } from "@/lib/types";
+import type { ShoppingItems, Trip, ItineraryItem } from "@/lib/types";
 import {
   Card,
   CardContent,
@@ -80,10 +80,9 @@ import { useToast } from "@/hooks/use-toast";
 import Compressor from "compressorjs";
 import { v4 as uuidv4 } from "uuid";
 import { date } from "zod";
+import { set } from "lodash";
 
 interface ShoppingListProps {
-  list: ShoppingItems[];
-  setList: React.Dispatch<React.SetStateAction<ShoppingItems[]>>;
   onCheckChange: (itemId: string, checked: boolean) => void;
   trip: Trip;
 }
@@ -122,14 +121,10 @@ function getIconText(
 }
 
 export function ShoppingList({
-  list,
-  setList,
   onCheckChange,
   trip,
 }: ShoppingListProps) {
-  const [shoppingItems, setShoppingItems] = useState<ShoppingItems[]>(
-    trip.shoppingItems
-  );
+  const [shoppingItems, setShoppingItems] = useState<ShoppingItems[]>([]);
   const {
     tripCurrency,
     tripRate,
@@ -144,6 +139,7 @@ export function ShoppingList({
   } = useCurrency();
   const router = useRouter();
   const priceInputRef = useRef<HTMLInputElement>(null);
+  const newPriceInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const supabase = createClient();
   const { toast } = useToast();
@@ -151,6 +147,11 @@ export function ShoppingList({
     shoppingCategoryOption[]
   >([]);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [newItemFormData, setNewItemFormData] = useState<
+    Partial<ShoppingItems> & { file?: File | null; previewUrl?: string | null }
+  >({});
+  const [itinerary, setItinerary] = useState<ItineraryItem[]>([]);
   // State for main dialogs
   // State for editing items
   const [editingItem, setEditingItem] = useState<{
@@ -165,7 +166,7 @@ export function ShoppingList({
       const { data, error } = await supabase
         .from("shopping_items")
         .select(
-          "item_uuid, shopping_category, name, checked, image_url, price, user_id, store, address, trip_uuid, pcs"
+          "*"
         )
         .eq("trip_uuid", trip.trip_uuid);
 
@@ -198,13 +199,30 @@ export function ShoppingList({
       }
     };
 
+    const fetchItinerary = async () => {
+      const { data, error } = await supabase
+        .from("itinerary")
+        .select("*")
+        .eq("trip_uuid", trip.trip_uuid);
+
+      if (error) {
+        toast({
+          title: "Error fetching itinerary",
+          description: error.message,
+          variant: "destructive",
+        });
+      } else if (data) {
+        setItinerary(data as ItineraryItem[]);
+      }
+    }
+
     fetchShoppingItems();
     fetchShoppingCategoryOptions();
   }, [trip.trip_uuid]);
 
   const pointsOfInterest = useMemo(() => {
-    if (!trip || !trip.itinerary) return [];
-    const allPois = trip.itinerary.flatMap((day) =>
+    if (!trip || !itinerary) return [];
+    const allPois = itinerary.flatMap((day) =>
       day.activities.map((activity) => ({
         name: activity.name,
         address: activity.address || "",
@@ -250,8 +268,8 @@ export function ShoppingList({
     const {
       data: { user },
     } = await supabase.auth.getUser();
-    const originalState = [...list];
-    setList((prevList) =>
+    const originalState = [...shoppingItems];
+    setShoppingItems((prevList) =>
       prevList.map((i) =>
         i.item_uuid === item.item_uuid ? { ...i, checked } : i
       )
@@ -268,7 +286,7 @@ export function ShoppingList({
         description: "Failed to update list item.",
         variant: "destructive",
       });
-      setList(originalState);
+      setShoppingItems(originalState);
     }
 
     if (checked) {
@@ -410,7 +428,7 @@ export function ShoppingList({
       delete (updatedItem as any).file;
       delete (updatedItem as any).previewUrl;
 
-      setList((prevList) =>
+      setShoppingItems((prevList) =>
         prevList.map((item) =>
           item.item_uuid === editingItem.item.item_uuid ? updatedItem : item
         )
@@ -445,6 +463,120 @@ export function ShoppingList({
     setEditingItem(null);
     setEditItemFormData({});
     setIsEditDialogOpen(false);
+  };
+
+  const handleAddItem = async () => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      toast({
+        title: "Not authenticated",
+        description: "You must be logged in to add items.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!newItemFormData.name?.trim()) {
+      toast({
+        title: "Error",
+        description: "Item name is required.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!newItemFormData.shopping_category) {
+      toast({
+        title: "Error",
+        description: "Item category is required.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      let newImageUrl: string | null = null;
+
+      if (newItemFormData.file) {
+        const file = newItemFormData.file;
+        const fileExt = (file.name.split(".").pop() || "jpg").replace(
+          /[^a-z0-9]/gi,
+          ""
+        );
+        const itemUuid = uuidv4();
+        const filePath = `${user.id}/${trip.trip_uuid}/${itemUuid}-${uuidv4()}.${fileExt}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from("shopping_item_photo")
+          .upload(filePath, file, { upsert: true });
+
+        if (uploadError) {
+          toast({
+            title: "Error uploading image",
+            description: uploadError.message,
+            variant: "destructive",
+          });
+          return;
+        }
+
+        const { data: urlData } = supabase.storage
+          .from("shopping_item_photo")
+          .getPublicUrl(filePath);
+        newImageUrl = urlData.publicUrl;
+      }
+
+      const newItem = {
+        item_uuid: uuidv4(),
+        name: newItemFormData.name.trim(),
+        price: parseFloat(
+          String(
+            displayCurrency === "trip"
+              ? convertCurrencyToUsd(newItemFormData.price || 0, tripRate)
+              : convertCurrencyToUsd(newItemFormData.price || 0, homeRate)
+          )
+        ) || 0,
+        pcs: parseInt(String(newItemFormData.pcs ?? 1)) || 1,
+        shopping_category: newItemFormData.shopping_category,
+        store: newItemFormData.store || null,
+        address: newItemFormData.address || null,
+        image_url: newImageUrl,
+        checked: false,
+        trip_uuid: trip.trip_uuid,
+        user_id: user.id,
+      } as ShoppingItems;
+
+      const { data, error } = await supabase
+        .from("shopping_items")
+        .insert(newItem)
+        .select()
+        .single();
+
+      if (error) {
+        toast({
+          title: "Error adding item",
+          description: error.message,
+          variant: "destructive",
+        });
+      } else if (data) {
+        setShoppingItems((prevList) => [...prevList, data as ShoppingItems]);
+        toast({
+          title: "Item added",
+          description: `${data.name} has been added to your shopping list.`,
+        });
+        // Reset form
+        setNewItemFormData({});
+        setIsAddDialogOpen(false);
+      }
+    } catch (error) {
+      console.error("Item addition failed", error);
+      toast({
+        title: "Error",
+        description: "Failed to add item.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleDeleteItem = async () => {
@@ -494,17 +626,21 @@ export function ShoppingList({
       }
 
       // Update local UI
-      const newShoppingItems = shoppingItems.filter(
-        (d) => d.item_uuid !== itemUuid
-      );
-
-      setShoppingItems(newShoppingItems);
-      setIsEditDialogOpen(false);
-      setEditItemFormData({});
-
-      setList((shoppingItems) =>
-        shoppingItems.filter((d) => d.item_uuid !== itemUuid)
-      );
+      const fetchItems = async () => {
+        const { data, error } = await supabase
+          .from("shopping_items")
+          .select()
+          .eq("trip_uuid", trip.trip_uuid);
+        if (error) {
+          toast({
+            title: "Error",
+            description: error.message,
+            variant: "destructive",
+          });
+        } else {
+          setShoppingItems(data as ShoppingItems[]);
+        }
+      };
 
       setEditingItem(null);
       setIsEditDialogOpen(false);
@@ -597,6 +733,79 @@ export function ShoppingList({
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
+  const handleNewItemFormChange = (
+    field: keyof typeof newItemFormData,
+    value: string | File | number | null
+  ) => {
+    if (field === "file" && value instanceof File) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setNewItemFormData((prev) => ({
+          ...prev,
+          file: value,
+          previewUrl: reader.result as string,
+        }));
+      };
+      reader.readAsDataURL(value);
+    } else if (typeof value === "string") {
+      if (field === "store") {
+        setNewItemFormData((prev) => ({
+          ...prev,
+          store: value,
+          address: getAddressForStore(value),
+        }));
+      } else {
+        setNewItemFormData((prev) => ({ ...prev, [field]: value }));
+      }
+    }
+  };
+
+  const handleNewImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      new Compressor(file, {
+        maxWidth: 1200,
+        success: (compressedResult) => {
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            setNewItemFormData((prev) => ({
+              ...prev,
+              file: compressedResult as File,
+              previewUrl: reader.result as string,
+            }));
+          };
+          reader.readAsDataURL(compressedResult);
+        },
+        error: (err) => {
+          toast({
+            title: "Image compression failed",
+            description: err.message,
+            variant: "destructive",
+          });
+          // Fallback to original file
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            setNewItemFormData((prev) => ({
+              ...prev,
+              file: file,
+              previewUrl: reader.result as string,
+            }));
+          };
+          reader.readAsDataURL(file);
+        },
+      });
+    }
+  };
+
+  const handleClearNewItemImageForAdd = () => {
+    setNewItemFormData((prev) => ({
+      ...prev,
+      file: null,
+      previewUrl: null,
+    }));
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
   const calculateTotal = (items: ShoppingItems[]) => {
     return items.reduce(
       (total, item) => total + (item.price || 0) * (item.pcs ?? 1),
@@ -604,20 +813,20 @@ export function ShoppingList({
     );
   };
 
-  const baseGrandTotal = (list ?? []).reduce(
+  const baseGrandTotal = (shoppingItems ?? []).reduce(
     (total, item) => total + (item.price || 0) * (item.pcs ?? 1),
     0
   );
 
   const grouped = useMemo(() => {
     const map: Record<string, ShoppingItems[]> = {};
-    (list ?? []).forEach((i) => {
+    (shoppingItems ?? []).forEach((i) => {
       const key = i.shopping_category || "General";
       if (!map[key]) map[key] = [];
       map[key].push(i);
     });
     return Object.keys(map).map((k) => ({ name: k, items: map[k] }));
-  }, [list]);
+  }, [shoppingItems]);
 
   const grandTotalInCurrent =
     displayCurrency === "trip"
@@ -652,7 +861,12 @@ export function ShoppingList({
             </h1>
           </div>
         </div>
-        <div />
+          <Button
+            onClick={() => setIsAddDialogOpen(true)}
+            className="bg-primary hover:bg-primary/90 absolute bottom-24 right-8 h-16 w-16 rounded-full shadow-lg z-20"
+          >
+            <PlusCircle className="h-8 w-8" />
+          </Button>
       </header>
 
       <Card className="shadow-lg bg-card/80 backdrop-blur-sm border-white/20">
@@ -1050,6 +1264,197 @@ export function ShoppingList({
           </DialogContent>
         </Dialog>
       )}
+
+      {isAddDialogOpen && <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add New Shopping Item</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4 overflow-y-auto max-h-[70vh] pl-1 pr-4">
+            <div className="space-y-2">
+              <Label htmlFor="new-item-name">Item Name *</Label>
+              <Input
+                id="new-item-name"
+                value={newItemFormData.name || ""}
+                onChange={(e) =>
+                  handleNewItemFormChange("name", e.target.value)
+                }
+                placeholder="e.g. Japanese KitKats"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="new-item-price">
+                Price (
+                {displayCurrency === "trip" ? tripCurrency : homeCurrency})
+              </Label>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Input
+                  id="new-item-price"
+                  type="number"
+                  step="0.01"
+                  ref={newPriceInputRef}
+                  value={newItemFormData.price || 0}
+                  onChange={(e) =>
+                    handleNewItemFormChange("price", e.target.value)
+                  }
+                  placeholder="e.g. 15.00"
+                />
+              </div>
+              <div className="space-y-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const value = newPriceInputRef?.current?.value;
+                    if (value) {
+                      toggleCurrencyForm(parseFloat(value) || 0);
+                    }
+                  }}
+                >
+                  <Repeat className="h-4 w-4 mr-2" />
+                  <span>{currencyButtonLabel}</span>
+                </Button>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="new-item-pcs">Quantity (pcs)</Label>
+              <Input
+                id="new-item-pcs"
+                type="number"
+                step="1"
+                value={newItemFormData.pcs ?? 1}
+                onChange={(e) =>
+                  handleNewItemFormChange("pcs", e.target.value)
+                }
+                placeholder="1"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="new-item-category">Category *</Label>
+              <Select
+                value={newItemFormData.shopping_category || ""}
+                onValueChange={(value) =>
+                  handleNewItemFormChange("shopping_category", value)
+                }
+              >
+                <SelectTrigger id="new-item-category">
+                  <SelectValue placeholder="Select a category" />
+                </SelectTrigger>
+                <SelectContent>
+                  {shoppingCategoryOption.map((cat) => (
+                    <SelectItem key={cat.name} value={cat.name}>
+                      <div className="flex items-center gap-2">
+                        {(() => {
+                          const IconComp =
+                            iconMap[cat.icon_text as keyof typeof iconMap];
+                          return IconComp ? (
+                            <IconComp className="h-4 w-4" />
+                          ) : (
+                            <PlusCircle className="h-4 w-4" />
+                          );
+                        })()}
+                        <span>{cat.name}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="new-item-store">Store / POI</Label>
+              <Select
+                value={newItemFormData.store || ""}
+                onValueChange={(value) =>
+                  handleNewItemFormChange("store", value)
+                }
+                disabled={!pointsOfInterest || pointsOfInterest.length === 0}
+              >
+                <SelectTrigger id="new-item-store">
+                  <SelectValue placeholder="Select a store" />
+                </SelectTrigger>
+                <SelectContent>
+                  {pointsOfInterest.map((poi) => (
+                    <SelectItem key={poi.name} value={poi.name}>
+                      {poi.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {pointsOfInterest.find((p) => p.name === newItemFormData.store)
+                ?.address && (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {
+                    pointsOfInterest.find(
+                      (p) => p.name === newItemFormData.store
+                    )?.address
+                  }
+                  <input
+                    type="hidden"
+                    value={
+                      pointsOfInterest.find(
+                        (p) => p.name === newItemFormData.store
+                      )?.address
+                    }
+                  ></input>
+                </p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center justify-items-start gap-2">
+                <Label>Image (Optional)</Label>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <Upload className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={handleClearNewItemImageForAdd}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+              <div className="flex items-center gap-4">
+                {newItemFormData.previewUrl && (
+                  <Image
+                    src={newItemFormData.previewUrl}
+                    alt="preview"
+                    width={600}
+                    height={800}
+                    className="rounded-md object-cover"
+                  />
+                )}
+                <Input
+                  type="file"
+                  accept="image/*"
+                  ref={fileInputRef}
+                  onChange={handleNewImageChange}
+                  className="hidden"
+                />
+              </div>
+            </div>
+          </div>
+          <DialogFooter className="flex flex-row sm:flex-row items-center justify-around gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsAddDialogOpen(false);
+                setNewItemFormData({});
+              }}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleAddItem} className="w-full">
+              Add Item
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>}
     </div>
   );
 }
