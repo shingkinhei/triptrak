@@ -255,10 +255,6 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
         activities: item.activities
           ? [...item.activities.map((a) => ({ ...a }))]
           : [],
-        // tripDayPhotos: item.tripDayPhotos
-        //   ? [...item.tripDayPhotos.map((a) => ({ ...a }))]
-        //   : [],
-        // cover_image_preview: item.cover_image_url,
       });
       setIsEditDialogOpen(true);
     }, 150);
@@ -283,49 +279,6 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
     const originalDay = itinerary.find(
       (d) => d.day_uuid === itemToSave.day_uuid
     );
-    // const oldImageUrl = originalDay?.cover_image_url;
-
-    // let newImageUrl: string | null = itemToSave.cover_image_url;
-
-    // if (
-    //   (itemToSave.cover_image_file || newImageUrl === null) &&
-    //   oldImageUrl &&
-    //   oldImageUrl !== newImageUrl
-    // ) {
-    //   const oldImageKey = oldImageUrl.split("/day_cover/").pop();
-    //   if (oldImageKey) {
-    //     await supabase.storage.from("day_cover").remove([oldImageKey]);
-    //   }
-    // }
-
-    // if (itemToSave.cover_image_file) {
-    //   const file = itemToSave.cover_image_file;
-    //   const fileExt = (file.name.split(".").pop() || "jpg").replace(
-    //     /[^a-z0-9]/gi,
-    //     ""
-    //   );
-    //   const filePath = `${user.id}/${trip.trip_uuid}/${itemToSave.date}-${itemToSave.day_number}-${uuidv4()}.${fileExt}`;
-
-    //   const { error: uploadError } = await supabase.storage
-    //     .from("day_cover")
-    //     .upload(filePath, file, { upsert: true });
-
-    //   if (uploadError) {
-    //     toast({
-    //       title: "Error uploading day cover",
-    //       description: uploadError.message,
-    //       variant: "destructive",
-    //     });
-    //     return;
-    //   }
-
-    //   const { data: urlData } = supabase.storage
-    //     .from("day_cover")
-    //     .getPublicUrl(filePath);
-    //   newImageUrl = urlData.publicUrl;
-    // } else if (!itemToSave.cover_image_preview && oldImageUrl) {
-    //   newImageUrl = null;
-    // }
 
     if (!originalDay) {
       // Insert new day record when adding a fresh day
@@ -474,99 +427,6 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
         });
     }
 
-    // Upload any pending (new) trip day photos that were added during editing
-
-    // try {
-    //   const photos = (itemToSave.tripDayPhotos || []) as any[];
-
-    //   // 1) Delete photos marked pending_delete
-    //   const photosToDelete = photos.filter((p) => p.pending_delete && !p.trip_day_photo);
-    //   if (photosToDelete.length > 0) {
-    //     for (const dp of photosToDelete) {
-    //       try {
-    //         const url: string = dp.url || "";
-    //         const key = url.split("/day_feedback/").pop();
-    //         if (key) {
-    //           const { error: delErr } = await supabase.storage.from("day_feedback").remove([key]);
-    //           if (delErr) console.warn("Storage delete error", delErr.message);
-    //         }
-    //         const { error: dbErr } = await supabase.from("trip_photos").delete().eq("photo_uuid", dp.photo_uuid);
-    //         if (dbErr) console.warn("DB delete error", dbErr.message);
-    //       } catch (innerErr) {
-    //         console.error("Error deleting photo", innerErr);
-    //       }
-    //     }
-    //   }
-
-    //   // 2) Upload new pending previews (trip_day_photo)
-    //   const pendingPhotos = photos.filter((p) => !!p.trip_day_photo) as Array<any>;
-    //   if (pendingPhotos.length > 0) {
-    //     const {
-    //       data: { user },
-    //     } = await supabase.auth.getUser();
-    //     if (!user) {
-    //       toast({ title: "Not Authenticated", description: "You must be logged in to save changes.", variant: "destructive" });
-    //       return;
-    //     }
-
-    //     // find current count after deletions
-    //     const { data: existing } = await supabase.from("trip_photos").select("seq").eq("day_uuid", itemToSave.day_uuid);
-    //     let startSeq = Array.isArray(existing) ? existing.length : 0;
-
-    //     for (let i = 0; i < pendingPhotos.length; i++) {
-    //       const p = pendingPhotos[i];
-    //       const file: File = p.trip_day_photo as File;
-    //       const fileExt = (file.name.split(".").pop() || "jpg").replace(/[^a-z0-9]/gi, "");
-    //       const filePath = `${user.id}/${trip.trip_uuid}/${itemToSave.day_uuid}/${itemToSave.date}-${itemToSave.day_number}-${uuidv4}-${i + 1}.${fileExt}`;
-
-    //       const { error: uploadError } = await supabase.storage.from("day_feedback").upload(filePath, file, { upsert: false });
-    //       if (uploadError) {
-    //         toast({ title: "Photo upload failed", description: uploadError.message, variant: "destructive" });
-    //         continue;
-    //       }
-
-    //       const { data: urlData } = supabase.storage.from("day_feedback").getPublicUrl(filePath);
-    //       const publicUrl = urlData.publicUrl;
-
-    //       const photoRow = {
-    //         photo_uuid: p.photo_uuid || uuidv4(),
-    //         day_uuid: itemToSave.day_uuid,
-    //         seq: startSeq,
-    //         url: publicUrl,
-    //         user_id: user.id,
-    //       };
-
-    //       const { error: insertError } = await supabase.from("trip_photos").insert(photoRow);
-    //       if (insertError) {
-    //         toast({ title: "DB insert failed", description: insertError.message, variant: "destructive" });
-    //         console.log(insertError.message);
-    //       } else {
-    //         startSeq += 1;
-    //       }
-    //     }
-    //   }
-
-    //   // 3) Resequence remaining photos to be contiguous
-    //   const { data: remainingPhotos } = await supabase.from("trip_photos").select("*").eq("day_uuid", itemToSave.day_uuid).order("seq", { ascending: true });
-    //   if (Array.isArray(remainingPhotos)) {
-    //     for (let idx = 0; idx < remainingPhotos.length; idx++) {
-    //       const p = remainingPhotos[idx];
-    //       if (p.seq !== idx) {
-    //         await supabase.from("trip_photos").update({ seq: idx }).eq("photo_uuid", p.photo_uuid);
-    //       }
-    //     }
-    //   }
-
-    //   // 4) Refresh local photos
-    //   const { data: freshPhotos } = await supabase.from("trip_photos").select("*").eq("day_uuid", itemToSave.day_uuid).order("seq", { ascending: true });
-    //   if (freshPhotos) {
-    //     setItinerary((prev) => prev.map((d) => (d.day_uuid === itemToSave.day_uuid ? ({ ...d, tripDayPhotos: freshPhotos } as ItineraryItem) : d)));
-    //   }
-    // } catch (err: any) {
-    //   console.error("Error processing photo changes", err);
-    //   toast({ title: "Error", description: "One or more photo operations failed.", variant: "destructive" });
-    // }
-
     toast({
       title: "Day Saved!",
       description: `Changes to Day ${itemToSave.day_number} have been saved.`,
@@ -599,18 +459,6 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
             return ma - mb;
           })
         : [];
-
-      // Sort photos by seq
-      // const sortedPhotos = Array.isArray(refreshedDay.tripDayPhotos)
-      //   ? [...refreshedDay.tripDayPhotos].sort(
-      //       (a: any, b: any) => Number(a?.seq ?? 0) - Number(b?.seq ?? 0)
-      //     )
-      //   : [];
-
-      // Update editing item
-      // setEditingItem(prev =>
-      //   prev ? { ...prev, tripDayPhotos: sortedPhotos } : prev
-      // );
 
       // Update itinerary
       setItinerary(prev =>
@@ -1008,12 +856,9 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
       day_number: newDayNumber,
       title: "New Destination",
       date: newDateString,
-      //cover_image_url: `https://picsum.photos/seed/${new Date().getTime()}/600/400`,
-      //cover_image_hint: "landscape",
       activities: [],
       tripDayPhotos: [],
       isNew: true,
-      //cover_image_preview: `https://picsum.photos/seed/${new Date().getTime()}/600/400`,
     } as unknown as EditableItineraryItem;
 
     setEditingItem(newEditingItem);
@@ -1169,26 +1014,6 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
               </div>
             </div>
             <div className="p-4 space-y-4">
-              {/* {item.tripDayPhotos && item.tripDayPhotos.length > 0 && (
-                <div className="grid grid-cols-3 gap-2">
-                  {item.tripDayPhotos
-                    .filter((p) => !p.pending_delete)
-                    .map((photo) => (
-                      <button
-                        key={photo.photo_uuid}
-                        onClick={() => setViewingPhoto(photo)}
-                        className="relative block w-full aspect-square rounded-md overflow-hidden cursor-pointer"
-                      >
-                        <Image
-                          src={photo.trip_day_photo_preview ?? photo.url}
-                          alt="User photo"
-                          fill
-                          className="object-cover"
-                        />
-                      </button>
-                    ))}
-                </div>
-              )} */}
               <ul className="space-y-4">
                 {item.activities.map((activity, actIndex) => {
                   const icon = getIconText(
@@ -1270,98 +1095,6 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
                   onChange={(e) => handleFieldChange("date", e.target.value)}
                 />
               </div>
-
-              {/* <div className="space-y-2">
-                <Label>Day Cover Image</Label>
-                {editingItem.cover_image_preview && (
-                  <div className="relative w-full aspect-[4/3] rounded-md overflow-hidden">
-                    <Image
-                      src={editingItem.cover_image_preview}
-                      alt="Day cover preview"
-                      fill
-                      className="object-cover"
-                    />
-                  </div>
-                )}
-                <div className="flex gap-2">
-                  <Input
-                    type="file"
-                    accept="image/*"
-                    ref={dayCoverInputRef}
-                    onChange={handleDayCoverImageChange}
-                    className="hidden"
-                  />
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => dayCoverInputRef.current?.click()}
-                  >
-                    <Upload className="mr-2 h-4 w-4" /> Upload
-                  </Button>
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    onClick={handleRemoveDayCoverImage}
-                    disabled={!editingItem.cover_image_preview}
-                  >
-                    <Trash2 className="mr-2 h-4 w-4" /> Remove
-                  </Button>
-                </div>
-              </div> */}
-
-              {/* <div className="space-y-2">
-                <Label>Your Photos</Label>
-                <Input
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  ref={photoInputRef}
-                  onChange={handlePhotoUpload}
-                  className="hidden"
-                />
-                <div className="grid grid-cols-3 gap-2">
-                  {(editingItem.tripDayPhotos || []).map((photo) => (
-                    <div
-                      key={photo.photo_uuid}
-                      className="relative aspect-square"
-                    >
-                      <Image
-                        src={photo.trip_day_photo_preview ?? photo.url}
-                        alt="User upload"
-                        fill
-                        className={cn(
-                          "rounded-md object-cover",
-                          photo.pending_delete && "opacity-40"
-                        )}
-                      />
-                      {photo.pending_delete && (
-                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center text-white text-sm z-10">
-                          Marked for deletion
-                        </div>
-                      )}
-                      <Button
-                        variant={
-                          photo.pending_delete ? "outline" : "destructive"
-                        }
-                        size="icon"
-                        className="absolute top-1 right-1 h-6 w-6 z-20"
-                        onClick={() => handleDeletePhoto(photo.photo_uuid)}
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ))}
-                  <Button
-                    variant="outline"
-                    className="aspect-square flex-col gap-1"
-                    onClick={() => photoInputRef.current?.click()}
-                  >
-                    <Upload className="h-6 w-6" />
-                    <span className="text-xs">Upload</span>
-                  </Button>
-                </div>
-              </div> */}
-
               <div className="space-y-2">
               <DayActivities
                 activities={editingItem.activities}
@@ -1501,16 +1234,6 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
                 
           </div>
           <DialogFooter className="flex justify-end gap-2">
-            {/* <Button
-              variant="outline"
-              onClick={(e) => {
-                e.preventDefault();
-                handleCancelAIPlan();
-              }}
-              disabled={isAiPlanLoading}
-            >
-              Cancel
-            </Button> */}
             <Button 
               onClick={handleApplyAiPlan}
               disabled={isAiPlanLoading || (localAiRateLimit - localAiRate <= 0)}
@@ -1521,30 +1244,6 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
           </DialogFooter>
         </DialogContent>
       </Dialog>}
-
-      {/* {viewingPhoto && (
-        <Dialog
-          open={!!viewingPhoto}
-          onOpenChange={() => setViewingPhoto(null)}
-        >
-          <DialogContent className="max-w-3xl p-2 bg-transparent border-0 shadow-none">
-            <DialogHeader>
-              <DialogTitle className="sr-only">
-                Full screen user photo
-              </DialogTitle>
-            </DialogHeader>
-            <div className="relative w-full h-auto">
-              <Image
-                src={viewingPhoto.trip_day_photo_preview ?? viewingPhoto.url}
-                alt="Full screen user photo"
-                width={1920}
-                height={1080}
-                className="rounded-lg object-contain w-full h-auto max-h-[80vh]"
-              />
-            </div>
-          </DialogContent>
-        </Dialog>
-      )} */}
     </div>
   );
 }

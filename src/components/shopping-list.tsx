@@ -1,6 +1,6 @@
 "use client";
 import React, { useRef, useState, useMemo, useEffect } from "react";
-import type { ShoppingItems, Trip, ItineraryItem } from "@/lib/types";
+import type { ShoppingItems, Trip, Activity } from "@/lib/types";
 import {
   Card,
   CardContent,
@@ -79,6 +79,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import Compressor from "compressorjs";
 import { v4 as uuidv4 } from "uuid";
+import { formatMMDD } from "@/context/DateFormat";
 import { date } from "zod";
 import { set } from "lodash";
 
@@ -111,6 +112,15 @@ type shoppingCategoryOption = {
   description?: string | null;
   shopping_categories_seq?: number | null;
 };
+
+type PointsOfInterest = {
+  name: string;
+  address: string;
+  activity_uuid: string;
+  day_uuid: string;
+  date: string;
+}
+
 function getIconText(
   name: string,
   options: shoppingCategoryOption[],
@@ -139,27 +149,19 @@ export function ShoppingList({
   } = useCurrency();
   const router = useRouter();
   const priceInputRef = useRef<HTMLInputElement>(null);
-  const newPriceInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const supabase = createClient();
   const { toast } = useToast();
   const [shoppingCategoryOption, setShoppingCategoryOption] = useState<
     shoppingCategoryOption[]
   >([]);
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [newItemFormData, setNewItemFormData] = useState<
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [currentItem, setCurrentItem] = useState<ShoppingItems | null>(null);
+  const [itemFormData, setItemFormData] = useState<
     Partial<ShoppingItems> & { file?: File | null; previewUrl?: string | null }
   >({});
-  const [itinerary, setItinerary] = useState<ItineraryItem[]>([]);
-  // State for main dialogs
-  // State for editing items
-  const [editingItem, setEditingItem] = useState<{
-    item: ShoppingItems;
-  } | null>(null);
-  const [editItemFormData, setEditItemFormData] = useState<
-    Partial<ShoppingItems> & { file?: File | null; previewUrl?: string | null }
-  >({});
+  const [pointsOfInterest, setPointsOfInterest] = useState<PointsOfInterest[]>([]);
+
 
   useEffect(() => {
     const fetchShoppingItems = async () => {
@@ -199,40 +201,27 @@ export function ShoppingList({
       }
     };
 
-    const fetchItinerary = async () => {
+    const fetchPointsOfInterest = async () => {
       const { data, error } = await supabase
-        .from("itinerary")
+        .from("v_point_of_interest")
         .select("*")
         .eq("trip_uuid", trip.trip_uuid);
-
+        
       if (error) {
         toast({
-          title: "Error fetching itinerary",
+          title: "Error fetching Points of Interest for Store",
           description: error.message,
           variant: "destructive",
         });
       } else if (data) {
-        setItinerary(data as ItineraryItem[]);
+        setPointsOfInterest(data as PointsOfInterest[]);
       }
     }
 
     fetchShoppingItems();
     fetchShoppingCategoryOptions();
+    fetchPointsOfInterest();
   }, [trip.trip_uuid]);
-
-  const pointsOfInterest = useMemo(() => {
-    if (!trip || !itinerary) return [];
-    const allPois = itinerary.flatMap((day) =>
-      day.activities.map((activity) => ({
-        name: activity.name,
-        address: activity.address || "",
-      }))
-    );
-
-    return allPois.filter((poi) =>
-      editingItem ? poi.address === editingItem.item.address : true
-    );
-  }, [trip]);
 
   const getAddressForStore = (storeName: string) => {
     const poi = pointsOfInterest.find((poi) => poi.name === storeName);
@@ -250,16 +239,26 @@ export function ShoppingList({
   const toggleCurrencyForm = (number: number) => {
     setDisplayCurrency(displayCurrency === "trip" ? "home" : "trip");
     if (displayCurrency === "trip") {
-      setEditItemFormData((prev) => ({
+      setItemFormData((prev) => ({
         ...prev,
-        price: parseFloat(convertUsdToCurrency(convertCurrencyToUsd(number, tripRate),
-        homeRate).toFixed(2)) || 0,
+        price:
+          parseFloat(
+            convertUsdToCurrency(
+              convertCurrencyToUsd(number, tripRate),
+              homeRate
+            ).toFixed(2)
+          ) || 0,
       }));
     } else {
-      setEditItemFormData((prev) => ({
+      setItemFormData((prev) => ({
         ...prev,
-        price: parseFloat(convertUsdToCurrency(convertCurrencyToUsd(number, homeRate),
-        tripRate).toFixed(2)) || 0,
+        price:
+          parseFloat(
+            convertUsdToCurrency(
+              convertCurrencyToUsd(number, homeRate),
+              tripRate
+            ).toFixed(2)
+          ) || 0,
       }));
     }
   };
@@ -326,8 +325,8 @@ export function ShoppingList({
   // Category operations removed: categories are derived from items' `shopping_category`
   const handleEditItemClick = (item: ShoppingItems) => {
     setTimeout(() => {
-      setEditingItem({ item });
-      setEditItemFormData({
+      setCurrentItem(item);
+      setItemFormData({
         ...item,
         price:
           displayCurrency === "trip"
@@ -335,7 +334,7 @@ export function ShoppingList({
             : parseFloat((item.price * homeRate || 0).toFixed(2)),
         previewUrl: item.image_url,
       });
-      setIsEditDialogOpen(true);
+      setIsDialogOpen(true);
     }, 150);
   };
 
@@ -346,41 +345,43 @@ export function ShoppingList({
     if (!user) {
       toast({
         title: "Not authenticated",
-        description: "You must be logged in to create a trip.",
+        description: "You must be logged in to update items.",
         variant: "destructive",
       });
       return;
     }
 
-    if (!editingItem) return;
+    if (!currentItem) return;
 
-    if (!editingItem.item.name.trim()) {
+    if (!itemFormData.name?.trim()) {
       toast({
         title: "Error",
         description: "Item name is required.",
         variant: "destructive",
       });
+      return;
     }
 
-    if (!editingItem.item.shopping_category) {
+    if (!itemFormData.shopping_category) {
       toast({
         title: "Error",
         description: "Item category is required.",
         variant: "destructive",
       });
+      return;
     }
 
     try {
-      let newImageUrl: string | `https://rodtfkraukblqbshlazo.supabase.co/storage/v1/object/public/shopping_item_photo/933747f2-ccbb-4668-b661-c73e69ba0fbb/d4e1cbfb-5cf8-4317-857e-d101d26b1b07/2d63da87-0a12-4130-8fd0-3c366729d054-e7e4f3d5-9f89-47ac-b076-24ba3d034bf7.jpg`;
+      let newImageUrl: string | null = null;
 
-      if (editItemFormData.file) {
-        const file = editItemFormData.file;
+      if (itemFormData.file) {
+        const file = itemFormData.file;
         const fileExt = (file.name.split(".").pop() || "jpg").replace(
           /[^a-z0-9]/gi,
           ""
         );
         const filePath = `${user.id}/${trip.trip_uuid}/${
-          editingItem.item.item_uuid
+          currentItem.item_uuid
         }-${uuidv4()}.${fileExt}`;
 
         const { error: uploadError } = await supabase.storage
@@ -389,7 +390,7 @@ export function ShoppingList({
 
         if (uploadError) {
           toast({
-            title: "Error uploading day cover",
+            title: "Error uploading image",
             description: uploadError.message,
             variant: "destructive",
           });
@@ -400,44 +401,42 @@ export function ShoppingList({
           .from("shopping_item_photo")
           .getPublicUrl(filePath);
         newImageUrl = urlData.publicUrl;
-      } else if (!editItemFormData.previewUrl) {
+      } else if (!itemFormData.previewUrl) {
         newImageUrl = null;
       }
 
       const updatedItem = {
-        ...editingItem.item,
-        ...editItemFormData,
+        ...currentItem,
+        ...itemFormData,
         price:
           parseFloat(
             String(
               displayCurrency === "trip"
-                ? convertCurrencyToUsd(editItemFormData.price || 0, tripRate)
-                : editItemFormData.price ||
-                    convertCurrencyToUsd(
-                      editItemFormData.price || 0,
-                      homeRate
-                    ) ||
+                ? convertCurrencyToUsd(itemFormData.price || 0, tripRate)
+                : itemFormData.price ||
+                    convertCurrencyToUsd(itemFormData.price || 0, homeRate) ||
                     0
             )
           ) || 0,
         pcs:
-          parseInt(String(editItemFormData.pcs ?? editingItem.item.pcs ?? 1)) ||
-          1,
-        image_url: editItemFormData.previewUrl || newImageUrl,
+          parseInt(String(itemFormData.pcs ?? currentItem.pcs ?? 1)) || 1,
+        image_url: itemFormData.previewUrl || newImageUrl,
       } as ShoppingItems;
       delete (updatedItem as any).file;
       delete (updatedItem as any).previewUrl;
 
       setShoppingItems((prevList) =>
         prevList.map((item) =>
-          item.item_uuid === editingItem.item.item_uuid ? updatedItem : item
+          item.item_uuid === currentItem.item_uuid ? updatedItem : item
         )
       );
 
+      const { item_id, created_at, ...payload } = updatedItem as any;
+
       const { data, error } = await supabase
         .from("shopping_items")
-        .update(updatedItem)
-        .eq("item_uuid", updatedItem.item_uuid)
+        .update(payload)
+        .eq("item_uuid", payload.item_uuid)
         .select()
         .single();
       if (error) {
@@ -460,9 +459,9 @@ export function ShoppingList({
         variant: "destructive",
       });
     }
-    setEditingItem(null);
-    setEditItemFormData({});
-    setIsEditDialogOpen(false);
+    setCurrentItem(null);
+    setItemFormData({});
+    setIsDialogOpen(false);
   };
 
   const handleAddItem = async () => {
@@ -478,7 +477,7 @@ export function ShoppingList({
       return;
     }
 
-    if (!newItemFormData.name?.trim()) {
+    if (!itemFormData.name?.trim()) {
       toast({
         title: "Error",
         description: "Item name is required.",
@@ -487,7 +486,7 @@ export function ShoppingList({
       return;
     }
 
-    if (!newItemFormData.shopping_category) {
+    if (!itemFormData.shopping_category) {
       toast({
         title: "Error",
         description: "Item category is required.",
@@ -499,8 +498,8 @@ export function ShoppingList({
     try {
       let newImageUrl: string | null = null;
 
-      if (newItemFormData.file) {
-        const file = newItemFormData.file;
+      if (itemFormData.file) {
+        const file = itemFormData.file;
         const fileExt = (file.name.split(".").pop() || "jpg").replace(
           /[^a-z0-9]/gi,
           ""
@@ -529,18 +528,18 @@ export function ShoppingList({
 
       const newItem = {
         item_uuid: uuidv4(),
-        name: newItemFormData.name.trim(),
+        name: itemFormData.name.trim(),
         price: parseFloat(
           String(
             displayCurrency === "trip"
-              ? convertCurrencyToUsd(newItemFormData.price || 0, tripRate)
-              : convertCurrencyToUsd(newItemFormData.price || 0, homeRate)
+              ? convertCurrencyToUsd(itemFormData.price || 0, tripRate)
+              : convertCurrencyToUsd(itemFormData.price || 0, homeRate)
           )
         ) || 0,
-        pcs: parseInt(String(newItemFormData.pcs ?? 1)) || 1,
-        shopping_category: newItemFormData.shopping_category,
-        store: newItemFormData.store || null,
-        address: newItemFormData.address || null,
+        pcs: parseInt(String(itemFormData.pcs ?? 1)) || 1,
+        shopping_category: itemFormData.shopping_category,
+        store: itemFormData.store || null,
+        address: itemFormData.address || null,
         image_url: newImageUrl,
         checked: false,
         trip_uuid: trip.trip_uuid,
@@ -565,9 +564,8 @@ export function ShoppingList({
           title: "Item added",
           description: `${data.name} has been added to your shopping list.`,
         });
-        // Reset form
-        setNewItemFormData({});
-        setIsAddDialogOpen(false);
+        setItemFormData({});
+        setIsDialogOpen(false);
       }
     } catch (error) {
       console.error("Item addition failed", error);
@@ -580,9 +578,9 @@ export function ShoppingList({
   };
 
   const handleDeleteItem = async () => {
-    if (!editingItem) return;
+    if (!currentItem) return;
 
-    const itemUuid = editItemFormData.item_uuid;
+    const itemUuid = currentItem.item_uuid;
 
     try {
       const { data: photo, error: photosErr } = await supabase
@@ -642,14 +640,14 @@ export function ShoppingList({
         }
       };
 
-      setEditingItem(null);
-      setIsEditDialogOpen(false);
-      setEditItemFormData({});
-
+      setShoppingItems((prev) =>
+        prev.filter((item) => item.item_uuid !== itemUuid)
+      );
       toast({
         title: "Item deleted",
-        description: `${editingItem.item.name} removed.`,
+        description: `${currentItem?.name} removed.`,
       });
+      handleCancelDialog();
     } catch (err: any) {
       console.error("Item deletion failed", err);
       toast({
@@ -660,14 +658,14 @@ export function ShoppingList({
     }
   };
 
-  const handleEditItemFormChange = (
-    field: keyof typeof editItemFormData,
+  const handleItemFormChange = (
+    field: keyof typeof itemFormData,
     value: string | File | number | null
   ) => {
     if (field === "file" && value instanceof File) {
       const reader = new FileReader();
       reader.onloadend = () => {
-        setEditItemFormData((prev) => ({
+        setItemFormData((prev) => ({
           ...prev,
           file: value,
           previewUrl: reader.result as string,
@@ -676,18 +674,18 @@ export function ShoppingList({
       reader.readAsDataURL(value);
     } else if (typeof value === "string") {
       if (field === "store") {
-        setEditItemFormData((prev) => ({
+        setItemFormData((prev) => ({
           ...prev,
           store: value,
           address: getAddressForStore(value),
         }));
       } else {
-        setEditItemFormData((prev) => ({ ...prev, [field]: value }));
+        setItemFormData((prev) => ({ ...prev, [field]: value }));
       }
     }
   };
 
-  const handleEditImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       new Compressor(file, {
@@ -695,7 +693,7 @@ export function ShoppingList({
         success: (compressedResult) => {
           const reader = new FileReader();
           reader.onloadend = () => {
-            setEditItemFormData((prev) => ({
+            setItemFormData((prev) => ({
               ...prev,
               file: compressedResult as File,
               previewUrl: reader.result as string,
@@ -709,10 +707,9 @@ export function ShoppingList({
             description: err.message,
             variant: "destructive",
           });
-          // Fallback to original file
           const reader = new FileReader();
           reader.onloadend = () => {
-            setEditItemFormData((prev) => ({
+            setItemFormData((prev) => ({
               ...prev,
               file: file,
               previewUrl: reader.result as string,
@@ -724,81 +721,8 @@ export function ShoppingList({
     }
   };
 
-  const handleClearNewItemImage = () => {
-    setEditItemFormData((prev) => ({
-      ...prev,
-      file: null,
-      previewUrl: null,
-    }));
-    if (fileInputRef.current) fileInputRef.current.value = "";
-  };
-
-  const handleNewItemFormChange = (
-    field: keyof typeof newItemFormData,
-    value: string | File | number | null
-  ) => {
-    if (field === "file" && value instanceof File) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setNewItemFormData((prev) => ({
-          ...prev,
-          file: value,
-          previewUrl: reader.result as string,
-        }));
-      };
-      reader.readAsDataURL(value);
-    } else if (typeof value === "string") {
-      if (field === "store") {
-        setNewItemFormData((prev) => ({
-          ...prev,
-          store: value,
-          address: getAddressForStore(value),
-        }));
-      } else {
-        setNewItemFormData((prev) => ({ ...prev, [field]: value }));
-      }
-    }
-  };
-
-  const handleNewImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      new Compressor(file, {
-        maxWidth: 1200,
-        success: (compressedResult) => {
-          const reader = new FileReader();
-          reader.onloadend = () => {
-            setNewItemFormData((prev) => ({
-              ...prev,
-              file: compressedResult as File,
-              previewUrl: reader.result as string,
-            }));
-          };
-          reader.readAsDataURL(compressedResult);
-        },
-        error: (err) => {
-          toast({
-            title: "Image compression failed",
-            description: err.message,
-            variant: "destructive",
-          });
-          // Fallback to original file
-          const reader = new FileReader();
-          reader.onloadend = () => {
-            setNewItemFormData((prev) => ({
-              ...prev,
-              file: file,
-              previewUrl: reader.result as string,
-            }));
-          };
-          reader.readAsDataURL(file);
-        },
-      });
-    }
-  };
-
-  const handleClearNewItemImageForAdd = () => {
-    setNewItemFormData((prev) => ({
+  const handleClearItemImage = () => {
+    setItemFormData((prev) => ({
       ...prev,
       file: null,
       previewUrl: null,
@@ -838,9 +762,10 @@ export function ShoppingList({
       ? `${tripCurrency} \u2194 ${homeCurrency}`
       : `${homeCurrency} \u2194 ${tripCurrency}`;
 
-  const handleCancelEdit = () => {
-    setIsEditDialogOpen(false);
-    setEditingItem(null);
+  const handleCancelDialog = () => {
+    setIsDialogOpen(false);
+    setCurrentItem(null);
+    setItemFormData({});
   };
 
   return (
@@ -862,7 +787,11 @@ export function ShoppingList({
           </div>
         </div>
           <Button
-            onClick={() => setIsAddDialogOpen(true)}
+            onClick={() => {
+              setCurrentItem(null);
+              setItemFormData({});
+              setIsDialogOpen(true);
+            }}
             className="bg-primary hover:bg-primary/90 absolute bottom-24 right-8 h-16 w-16 rounded-full shadow-lg z-20"
           >
             <PlusCircle className="h-8 w-8" />
@@ -973,14 +902,12 @@ export function ShoppingList({
                         </DropdownMenu> */}
 
                         <div className="relative aspect-square w-full">
-                          {item.image_url && (
-                            <Image
-                              src={item.image_url}
-                              alt={item.name}
-                              fill
-                              className="object-cover"
-                            />
-                          )}
+                          <Image
+                            src={item.image_url || "/images/shopping_item_sample.jpeg"}
+                            alt={item.name}
+                            fill
+                            className="object-cover"
+                          />
                           {item.checked && (
                             <div className="absolute inset-0 bg-background/60"></div>
                           )}
@@ -1043,28 +970,29 @@ export function ShoppingList({
         })}
       </div>
 
-      {editingItem && (
+      {isDialogOpen && (
         <Dialog
-          open={isEditDialogOpen}
+          open={isDialogOpen}
           onOpenChange={(isOpen) => {
             if (!isOpen) {
-              handleCancelEdit()
-              setEditingItem(null)
-            };
+              handleCancelDialog();
+            }
           }}
         >
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Edit: {editingItem.item.name}</DialogTitle>
+              <DialogTitle>
+                {currentItem ? `${currentItem.name}` : "Add New Shopping Item"}
+              </DialogTitle>
             </DialogHeader>
             <div className="grid gap-4 py-4 overflow-y-auto max-h-[70vh] pl-1 pr-4">
               <div className="space-y-2">
                 <Label htmlFor="item-name">Item Name</Label>
                 <Input
                   id="item-name"
-                  value={editItemFormData.name || ""}
+                  value={itemFormData.name || ""}
                   onChange={(e) =>
-                    handleEditItemFormChange("name", e.target.value)
+                    handleItemFormChange("name", e.target.value)
                   }
                   placeholder="e.g. Japanese KitKats"
                 />
@@ -1082,9 +1010,9 @@ export function ShoppingList({
                     type="number"
                     step="0.01"
                     ref={priceInputRef}
-                    value={editItemFormData.price || 0}
+                    value={itemFormData.price || 0}
                     onChange={(e) =>
-                      handleEditItemFormChange("price", e.target.value)
+                      handleItemFormChange("price", e.target.value)
                     }
                     placeholder="e.g. 15.00"
                   />
@@ -1112,9 +1040,9 @@ export function ShoppingList({
                   id="item-pcs"
                   type="number"
                   step="1"
-                  value={editItemFormData.pcs ?? 1}
+                  value={itemFormData.pcs ?? 1}
                   onChange={(e) =>
-                    handleEditItemFormChange("pcs", e.target.value)
+                    handleItemFormChange("pcs", e.target.value)
                   }
                   placeholder="1"
                 />
@@ -1122,9 +1050,9 @@ export function ShoppingList({
               <div className="space-y-2">
                 <Label htmlFor="item-category">Category</Label>
                 <Select
-                  value={editItemFormData.shopping_category || ""}
+                  value={itemFormData.shopping_category || ""}
                   onValueChange={(value) =>
-                    handleEditItemFormChange("shopping_category", value)
+                    handleItemFormChange("shopping_category", value)
                   }
                 >
                   <SelectTrigger id="item-category">
@@ -1153,9 +1081,9 @@ export function ShoppingList({
               <div className="space-y-2">
                 <Label htmlFor="item-store">Store / POI</Label>
                 <Select
-                  value={editItemFormData.store || ""}
+                  value={itemFormData.store || ""}
                   onValueChange={(value) =>
-                    handleEditItemFormChange("store", value)
+                    handleItemFormChange("store", value)
                   }
                   disabled={!pointsOfInterest || pointsOfInterest.length === 0}
                 >
@@ -1164,25 +1092,25 @@ export function ShoppingList({
                   </SelectTrigger>
                   <SelectContent>
                     {pointsOfInterest.map((poi) => (
-                      <SelectItem key={poi.name} value={poi.name}>
-                        {poi.name}
+                      <SelectItem key={poi.activity_uuid} value={poi.name}>
+                        {formatMMDD(poi.date)} - {poi.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-                {pointsOfInterest.find((p) => p.name === editItemFormData.store)
+                {pointsOfInterest.find((p) => p.name === itemFormData.store)
                   ?.address && (
                   <p className="mt-1 text-xs text-muted-foreground">
                     {
                       pointsOfInterest.find(
-                        (p) => p.name === editItemFormData.store
+                        (p) => p.name === itemFormData.store
                       )?.address
                     }
                     <input
                       type="hidden"
                       value={
                         pointsOfInterest.find(
-                          (p) => p.name === editItemFormData.store
+                          (p) => p.name === itemFormData.store
                         )?.address
                       }
                     ></input>
@@ -1202,33 +1130,31 @@ export function ShoppingList({
                   <Button
                     variant="outline"
                     size="icon"
-                    onClick={handleClearNewItemImage}
+                    onClick={handleClearItemImage}
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
                 <div className="flex items-center gap-4">
-                  {editItemFormData.previewUrl && (
-                    <Image
-                      src={editItemFormData.previewUrl}
-                      alt="preview"
-                      width={600}
-                      height={800}
-                      className="rounded-md object-cover"
-                    />
-                  )}
+                  <Image
+                    src={itemFormData.previewUrl || "/images/shopping_item_sample.jpeg"}
+                    alt="preview"
+                    width={600}
+                    height={800}
+                    className="rounded-md object-cover"
+                  />
                   <Input
                     type="file"
                     accept="image/*"
                     ref={fileInputRef}
-                    onChange={handleEditImageChange}
+                    onChange={handleImageChange}
                     className="hidden"
                   />
                 </div>
               </div>
             </div>
             <DialogFooter className="flex flex-row sm:flex-row items-center justify-around gap-2">
-              <div>
+              {currentItem && (
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
                     <Button variant="outline" size="icon">
@@ -1253,208 +1179,18 @@ export function ShoppingList({
                     </AlertDialogFooter>
                   </AlertDialogContent>
                 </AlertDialog>
-              </div>
-                {/* <Button variant="outline" onClick={() => setEditingItem(null)}>
-                  Cancel
-                </Button> */}
-              <Button onClick={handleUpdateItem} className="w-full">
-                Save Changes
+              )}
+              <Button
+                onClick={currentItem ? handleUpdateItem : handleAddItem}
+                className="w-full"
+              >
+                {currentItem ? "Save Changes" : "Add Item"}
               </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
       )}
 
-      {isAddDialogOpen && <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Add New Shopping Item</DialogTitle>
-          </DialogHeader>
-          <div className="grid gap-4 py-4 overflow-y-auto max-h-[70vh] pl-1 pr-4">
-            <div className="space-y-2">
-              <Label htmlFor="new-item-name">Item Name *</Label>
-              <Input
-                id="new-item-name"
-                value={newItemFormData.name || ""}
-                onChange={(e) =>
-                  handleNewItemFormChange("name", e.target.value)
-                }
-                placeholder="e.g. Japanese KitKats"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="new-item-price">
-                Price (
-                {displayCurrency === "trip" ? tripCurrency : homeCurrency})
-              </Label>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Input
-                  id="new-item-price"
-                  type="number"
-                  step="0.01"
-                  ref={newPriceInputRef}
-                  value={newItemFormData.price || 0}
-                  onChange={(e) =>
-                    handleNewItemFormChange("price", e.target.value)
-                  }
-                  placeholder="e.g. 15.00"
-                />
-              </div>
-              <div className="space-y-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    const value = newPriceInputRef?.current?.value;
-                    if (value) {
-                      toggleCurrencyForm(parseFloat(value) || 0);
-                    }
-                  }}
-                >
-                  <Repeat className="h-4 w-4 mr-2" />
-                  <span>{currencyButtonLabel}</span>
-                </Button>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="new-item-pcs">Quantity (pcs)</Label>
-              <Input
-                id="new-item-pcs"
-                type="number"
-                step="1"
-                value={newItemFormData.pcs ?? 1}
-                onChange={(e) =>
-                  handleNewItemFormChange("pcs", e.target.value)
-                }
-                placeholder="1"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="new-item-category">Category *</Label>
-              <Select
-                value={newItemFormData.shopping_category || ""}
-                onValueChange={(value) =>
-                  handleNewItemFormChange("shopping_category", value)
-                }
-              >
-                <SelectTrigger id="new-item-category">
-                  <SelectValue placeholder="Select a category" />
-                </SelectTrigger>
-                <SelectContent>
-                  {shoppingCategoryOption.map((cat) => (
-                    <SelectItem key={cat.name} value={cat.name}>
-                      <div className="flex items-center gap-2">
-                        {(() => {
-                          const IconComp =
-                            iconMap[cat.icon_text as keyof typeof iconMap];
-                          return IconComp ? (
-                            <IconComp className="h-4 w-4" />
-                          ) : (
-                            <PlusCircle className="h-4 w-4" />
-                          );
-                        })()}
-                        <span>{cat.name}</span>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="new-item-store">Store / POI</Label>
-              <Select
-                value={newItemFormData.store || ""}
-                onValueChange={(value) =>
-                  handleNewItemFormChange("store", value)
-                }
-                disabled={!pointsOfInterest || pointsOfInterest.length === 0}
-              >
-                <SelectTrigger id="new-item-store">
-                  <SelectValue placeholder="Select a store" />
-                </SelectTrigger>
-                <SelectContent>
-                  {pointsOfInterest.map((poi) => (
-                    <SelectItem key={poi.name} value={poi.name}>
-                      {poi.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {pointsOfInterest.find((p) => p.name === newItemFormData.store)
-                ?.address && (
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {
-                    pointsOfInterest.find(
-                      (p) => p.name === newItemFormData.store
-                    )?.address
-                  }
-                  <input
-                    type="hidden"
-                    value={
-                      pointsOfInterest.find(
-                        (p) => p.name === newItemFormData.store
-                      )?.address
-                    }
-                  ></input>
-                </p>
-              )}
-            </div>
-            <div className="space-y-2">
-              <div className="flex items-center justify-items-start gap-2">
-                <Label>Image (Optional)</Label>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  <Upload className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={handleClearNewItemImageForAdd}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
-              <div className="flex items-center gap-4">
-                {newItemFormData.previewUrl && (
-                  <Image
-                    src={newItemFormData.previewUrl}
-                    alt="preview"
-                    width={600}
-                    height={800}
-                    className="rounded-md object-cover"
-                  />
-                )}
-                <Input
-                  type="file"
-                  accept="image/*"
-                  ref={fileInputRef}
-                  onChange={handleNewImageChange}
-                  className="hidden"
-                />
-              </div>
-            </div>
-          </div>
-          <DialogFooter className="flex flex-row sm:flex-row items-center justify-around gap-2">
-            <Button
-              variant="outline"
-              onClick={() => {
-                setIsAddDialogOpen(false);
-                setNewItemFormData({});
-              }}
-            >
-              Cancel
-            </Button>
-            <Button onClick={handleAddItem} className="w-full">
-              Add Item
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>}
     </div>
   );
 }

@@ -76,6 +76,7 @@ export type ShoppingItems = {
   pcs: number;
   user_id: string | null;
   created_at?: string | null;
+  item_id?: number;
 };
 
 export type Currency = string;
