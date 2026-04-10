@@ -9,7 +9,7 @@ export type Activity = {
   name: string;
   description: string;
   address?: string | null;
-  activity_type: string;
+  activity_type?: string;
   ai_plan?: boolean | false;
 };
 
@@ -20,7 +20,7 @@ export type TripDayPhotos = {
     url: string;
     trip_day_photo?: File | null; 
     trip_day_photo_preview?: string | null;
-  pending_delete?: boolean;
+    pending_delete?: boolean;
 };
 
 export type ChecklistItem = {
@@ -41,19 +41,16 @@ export type ItineraryItem = {
   title: string;
   date: string;
   feedback: string | null;
-  cover_image_url: string | null;
-  cover_image_hint: string | null;
   activities: Activity[];
   weather_icon: string | null;
   temperature: number | null;
-  tripDayPhotos: TripDayPhotos[];
 };
 
 // export type ExpenseCategory = 'Food' | 'Transport' | 'Shopping' | 'Accommodation' | 'Other';
 
 export type Expenses = {
   expense_uuid: string;
-  trip_uuid: string;
+  trip_uuid?: string;
   name: string;
   expense_category: string;
   amount: number;

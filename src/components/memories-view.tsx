@@ -214,13 +214,13 @@ export const MemoriesView: FC<MemoriesViewProps> = ({ trip, setTrip }) => {
 
     // 4. 更新狀態
     setAllPhotos((prev) => [...prev, ...photoRows]);
-    setItinerary((prev) =>
-      prev.map((day) =>
-        day.day_uuid === selectedDayId
-          ? { ...day, tripDayPhotos: [...(day.tripDayPhotos || []), ...photoRows] }
-          : day
-      )
-    );
+    // setItinerary((prev) =>
+    //   prev.map((day) =>
+    //     day.day_uuid === selectedDayId
+    //       ? { ...day, tripDayPhotos: [...(day.tripDayPhotos || []), ...photoRows] }
+    //       : day
+    //   )
+    // );
   } catch (error: any) {
     toast({
       title: "上傳失敗",
@@ -289,18 +289,18 @@ export const MemoriesView: FC<MemoriesViewProps> = ({ trip, setTrip }) => {
         prev.filter((p) => p.photo_uuid !== photoToDelete.photo_uuid)
       );
 
-      setItinerary((prev) =>
-        prev.map((day) =>
-          day.day_uuid === selectedDayId
-            ? {
-                ...day,
-                tripDayPhotos: day.tripDayPhotos?.filter(
-                  (p) => p.photo_uuid !== photoToDelete.photo_uuid
-                ),
-              }
-            : day
-        )
-      );
+      // setItinerary((prev) =>
+      //   prev.map((day) =>
+      //     day.day_uuid === selectedDayId
+      //       ? {
+      //           ...day,
+      //           tripDayPhotos: day.tripDayPhotos?.filter(
+      //             (p) => p.photo_uuid !== photoToDelete.photo_uuid
+      //           ),
+      //         }
+      //       : day
+      //   )
+      // );
 
       setViewingPhoto(null);
       setPhotoToDelete(null);

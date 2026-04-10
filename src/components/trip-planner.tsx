@@ -25,11 +25,13 @@ import {
   Train, 
   UtensilsCrossed,
   MoreVertical,
-  PlusCircle,
+  Plus,
+  CirclePlus,
   Trash2,
   Upload,
   X,
   MapPin,
+  Map,
   type LucideIcon,
   Ticket,
   Mountain,
@@ -38,6 +40,7 @@ import {
   CheckCircle2,
   Edit,
   GripVertical,
+  EllipsisVertical,
   Brain,
 } from "lucide-react";
 import { Button } from "./ui/button";
@@ -87,7 +90,8 @@ import { Description } from "@radix-ui/react-toast";
 import { match } from "assert/strict";
 import { getAiPlan } from "@/api/generateDayActivities";
 import { PreTripChecklist } from "./pre-trip-checklist";
-import { DayActivities } from "./day-activities";
+// import { DayActivities } from "./day-activities";
+import { set } from "lodash";
 
 const iconMap: Record<string, LucideIcon> = {
   Plane,
@@ -105,14 +109,6 @@ interface TripPlannerProps {
   aiRate?: number;
   aiRateLimit?: number;
 }
-
-type EditableTripDayPhoto = TripDayPhotos;
-
-type EditableItineraryItem = ItineraryItem & {
-  cover_image_file?: File | null;
-  cover_image_preview?: string | null;
-  isNew?: boolean;
-};
 
 function getIconText(
   activityType: string,
@@ -146,12 +142,27 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
   const [itinerary, setItinerary] = useState<ItineraryItem[]>([]);
   const [tripState, setTripState] = useState<Trip>(trip);
   const [checklist, setChecklist] = useState<ChecklistItem[]>([]);
-  const [editingItem, setEditingItem] = useState<EditableItineraryItem | null>(
+  const [editingItem, setEditingItem] = useState<ItineraryItem | null>(
     null
   );
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isAiPlanDialogOpen, setIsAiPlanDialogOpen] = useState(false);
   const [isAiPlanLoading, setIsAiPlanLoading] = useState(false);
+  
+  const [isActivityDialogOpen, setIsActivityDialogOpen] = useState(false);
+  const [currentEditingActivity, setCurrentEditingActivity]=useState<Activity>(null);
+  const [activityFormData,setActivityFormData] = useState<Activity>(
+    {
+      activity_uuid: "",
+      day_uuid: "",
+      activity_type: "Sightseeing",
+      name: "",
+      description: "",
+      time: "00:00",
+      address: "",
+    }
+  );
+
   const [localAiRate, setLocalAiRate] = useState(aiRate);
   const [localAiRateLimit, setLocalAiRateLimit] = useState(aiRateLimit);
   const [aiPreferences, setAiPreferences] = useState({
@@ -159,14 +170,9 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
     suggestions: null,
   });
   const [aiPreferencesOptions, setAIPreferencesOptions] = useState<ActivityOptions[]>([]);
-
   const [activeView, setActiveView] = useState<string>("day-1");
   const [checklistOpen, setChecklistOpen] = useState(false);
-
-  // const [viewingPhoto, setViewingPhoto] = useState<TripDayPhotos | null>(null);
   const [activityOptions, setActivityOptions] = useState<ActivityOptions[]>([]);
-  const photoInputRef = useRef<HTMLInputElement>(null);
-  // const dayCoverInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
   const supabase = createClient();
   const { toast } = useToast();
@@ -251,10 +257,7 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
   const handleEditClick = (item: ItineraryItem) => {
     setTimeout(() => {
       setEditingItem({
-        ...item,
-        activities: item.activities
-          ? [...item.activities.map((a) => ({ ...a }))]
-          : [],
+        ...item
       });
       setIsEditDialogOpen(true);
     }, 150);
@@ -281,7 +284,6 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
     );
 
     if (!originalDay) {
-      // Insert new day record when adding a fresh day
       const dayInsertPayload = {
         day_uuid: itemToSave.day_uuid,
         trip_uuid: trip.trip_uuid,
@@ -289,8 +291,6 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
         title: itemToSave.title,
         date: itemToSave.date,
         feedback: itemToSave.feedback,
-        // cover_image_hint: itemToSave.cover_image_hint,
-        // cover_image_url: newImageUrl,
         user_id: user.id,
       };
 
@@ -316,8 +316,6 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
         title: itemToSave.title,
         date: itemToSave.date,
         feedback: itemToSave.feedback,
-        // cover_image_hint: itemToSave.cover_image_hint,
-        // cover_image_url: newImageUrl,
       };
 
       const { error: dayError } = await supabase
@@ -333,98 +331,6 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
         });
         return;
       }
-    }
-
-    const originalActivities = originalDay?.activities || [];
-
-    const newActivities = itemToSave.activities.filter(
-      (act) =>
-        !originalActivities.some((oa) => oa.activity_uuid === act.activity_uuid)
-    ); //.filter(act => act.activity_uuid.startsWith('act_'));
-    const updatedActivities = itemToSave.activities.filter((act) => {
-      const original = originalActivities.find(
-        (oa) => oa.activity_uuid === act.activity_uuid
-      );
-      if (!original) return true; // new activity not in original list
-
-      // Compare relevant fields
-      return (
-        act.time !== original.time ||
-        act.description !== original.description ||
-        act.activity_type !== original.activity_type ||
-        act.address !== original.address ||
-        act.name !== original.name
-      );
-    });
-
-    const deletedActivities = originalActivities.filter(
-      (oa) =>
-        !itemToSave.activities.some(
-          (ea) => ea.activity_uuid === oa.activity_uuid
-        )
-    );
-
-    if (deletedActivities.length > 0) {
-      const { error } = await supabase
-        .from("activities")
-        .delete()
-        .in(
-          "activity_uuid",
-          deletedActivities.map((a) => a.activity_uuid)
-        );
-      if (error)
-        toast({
-          title: "Error Deleting Activities",
-          description: error.message,
-          variant: "destructive",
-        });
-    }
-
-    if (updatedActivities.length > 0) {
-      for (const act of updatedActivities) {
-        const { error } = await supabase
-          .from("activities")
-          .update({
-            time: act.time,
-            name: act.name,
-            description: act.description,
-            activity_type: act.activity_type,
-            address: act.address,
-            day_uuid: itemToSave.day_uuid, // keep consistent day_uuid
-            ai_plan: act.ai_plan,
-          })
-          .eq("activity_uuid", act.activity_uuid); // WHERE clause
-
-        if (error) {
-          toast({
-            title: "Error Updating Activity",
-            description: error.message,
-            variant: "destructive",
-          });
-        }
-      }
-    }
-
-    if (newActivities.length > 0) {
-      const { error } = await supabase
-        .from("activities")
-        .insert(
-          newActivities.map((act) => ({
-            day_uuid: itemToSave.day_uuid,
-            name: act.name,
-            time: act.time,
-            description: act.description,
-            address: act.address,
-            activity_type: act.activity_type,
-            ai_plan: act.ai_plan,
-          }))
-        );
-      if (error)
-        toast({
-          title: "Error Adding New Activities",
-          description: error.message,
-          variant: "destructive",
-        });
     }
 
     toast({
@@ -467,7 +373,6 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
             ? ({
                 ...refreshedDay,
                 activities: sortedActivities,
-                //tripDayPhotos: sortedPhotos,
               } as ItineraryItem)
             : item
         )
@@ -576,18 +481,6 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
       return;
     }
 
-    if (editingItem?.activities?.length > 0) {
-      // the exist acitivites will be replaced by AI
-      const existingActivities = editingItem.activities;
-      //confirm the existing activities will be replaced by AI suggestions
-
-      // Clear existing activities
-      setEditingItem({
-        ...editingItem,
-        activities: [],
-        feedback: `Existing activities will be replaced by AI suggestions.`,
-      })
-    }
     setIsAiPlanLoading(true);
     const loadingToastId = toast({
       title: "Generating AI plan...",
@@ -596,6 +489,7 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
 
     try {
       const result = await getAiPlan(
+        editingItem.trip_uuid,
         editingItem.day_uuid,
         aiPreferences.preferences,
         aiPreferences.suggestions
@@ -604,7 +498,7 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
       if (!result) {
         toast({
           title: "AI Plan Failed",
-          description: "Failed to generate AI plan.",
+          description: result.error.message,
           variant: "destructive",
         });
         return;
@@ -634,21 +528,65 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
           }))
         : [];
 
-      // Update editingItem with new activities
-      setEditingItem((prev) =>
-        prev
-          ? {
-              ...prev,
-              activities: [...prev.activities, ...aiActivities],
-              feedback: `AI Plan Applied (${aiActivities.length} activities suggested)`,
-            }
-          : prev
-      );
+
+      // delete old activities form supabase
+      const { error: deleteError } = await supabase
+        .from("activities")
+        .delete()
+        .eq("day_uuid", editingItem.day_uuid);
+      if (deleteError) {
+        toast({
+          title: "Error deleting old activities",
+          description: deleteError.message,
+          variant: "destructive",
+        });
+      }
+
+      //insert AI generated activities
+      const { data: inserted, error: insertError } = await supabase
+        .from("activities")
+        .insert(aiActivities);
+      if (insertError) {
+        toast({
+          title: "Error inserting new activities",
+          description: insertError.message,
+          variant: "destructive",
+        });
+      }
+
+        //resort activities
+        if (inserted) {
+          const { data: sortedData, error: sortErr } = await supabase
+            .from("activities")
+            .select("*")
+            .eq("day_uuid", editingItem.day_uuid)
+            .order("time", { ascending: true });
+          if (sortErr) {
+            throw new Error(sortErr.message);
+          }
+          if (sortedData) {
+            const sortedActivities = sortedData as Activity[];
+            const newItinerary = itinerary.map((item) => {
+              if (item.day_uuid === editingItem.day_uuid) {
+                return {
+                  ...item,
+                  activities: sortedActivities,
+                };
+              }
+              return item;
+            });
+            setItinerary(newItinerary);
+          }
+        }
+        setActiveView(`day-${editingItem?.day_number}`);
+        setActivityFormData(null);
+        handleCancelActivityDialog();
 
       toast({
         title: "AI Plan Applied",
         description: `${aiActivities.length} activity(ies) added to your day.`,
       });
+
     } catch (error) {
       console.error("Error applying AI plan:", error);
       toast({
@@ -662,13 +600,16 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
         suggestions: null,
       });
       setIsAiPlanLoading(false);
+      setIsAiPlanDialogOpen(false);
+      setEditingItem(null);
+      setIsEditDialogOpen(false);
     }
   };
 
   const handleFieldChange = (
     field: keyof Omit<
-      EditableItineraryItem,
-      "activities" | "userPhotos" | "checklist"
+      ItineraryItem,
+      "activities" | "checklist"
     >,
     value: string | null
   ) => {
@@ -690,32 +631,14 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
     }
   };
 
-  const handleAddActivity = () => {
-    if (editingItem) {
-      const newActivity: Activity = {
-        activity_uuid: uuidv4(),
-        day_uuid: editingItem.day_uuid,
-        name: "",
-        time: "00:00",
-        description: "",
-        address: null,
-        activity_type: "Sightseeing",
-      };
-      setEditingItem({
-        ...editingItem,
-        activities: [...editingItem.activities, newActivity],
-      });
-    }
-  };
-
-  const handleDeleteActivity = (actId: string) => {
-    if (editingItem) {
-      const updatedActivities = editingItem.activities.filter(
-        (act) => act.activity_uuid !== actId
-      );
-      setEditingItem({ ...editingItem, activities: updatedActivities });
-    }
-  };
+  // const handleAddActivity = (newActivity: Activity) => {
+  //   if (editingItem) {
+  //     setEditingItem({
+  //       ...editingItem,
+  //       activities: [...editingItem.activities, newActivity],
+  //     });
+  //   }
+  // };
 
   const handleDeleteDay = async () => {
     if (!editingItem) return;
@@ -813,7 +736,7 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
 
       const { data: refreshedDays, error: refreshErr } = await supabase
         .from("trip_days")
-        .select(`*, activities:activities (*), tripDayPhotos:trip_photos (*)`)
+        .select(`*, activities:activities (*)`)
         .eq("trip_uuid", tripUuid)
         .order("day_number", { ascending: true });
       if (!refreshErr && Array.isArray(refreshedDays)) {
@@ -821,10 +744,7 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
           const acts = Array.isArray(d.activities)
             ? [...d.activities].sort((a: any, b: any) => timeToMinutes(a?.time ?? null) - timeToMinutes(b?.time ?? null))
             : [];
-          const photos = Array.isArray(d.tripDayPhotos)
-            ? [...d.tripDayPhotos].sort((a: any, b: any) => Number(a?.seq ?? 0) - Number(b?.seq ?? 0))
-            : [];
-          return { ...d, activities: acts, tripDayPhotos: photos } as ItineraryItem;
+          return { ...d, activities: acts } as ItineraryItem;
         });
         setItinerary(normalized as ItineraryItem[]);
       }
@@ -850,16 +770,13 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
     }
     const newDateString = newDate.toISOString().split("T")[0];
 
-    const newEditingItem: EditableItineraryItem = {
+    const newEditingItem: ItineraryItem = {
       day_uuid: uuidv4(),
       trip_uuid: trip.trip_uuid,
       day_number: newDayNumber,
-      title: "New Destination",
+      title: `Day ${newDayNumber}`,
       date: newDateString,
-      activities: [],
-      tripDayPhotos: [],
-      isNew: true,
-    } as unknown as EditableItineraryItem;
+    } as unknown as ItineraryItem;
 
     setEditingItem(newEditingItem);
     setIsEditDialogOpen(true);
@@ -869,6 +786,180 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
     (item) => `day-${item.day_number}` === activeView
   );
 
+  const handleCancelActivityDialog = () => {
+    setIsActivityDialogOpen(false);
+    setCurrentEditingActivity(null);
+    setActivityFormData(null);
+  };
+
+  const handleAddActivity = () => {
+    setCurrentEditingActivity(null);
+    setActivityFormData(    {
+      activity_uuid: "",
+      day_uuid: "",
+      activity_type: "Sightseeing",
+      name: "",
+      description: "",
+      time: "00:00",
+      address: "",
+    });
+    setIsActivityDialogOpen(true);
+  }
+
+  const handleEditActivity = (activity: Activity) => {
+    setCurrentEditingActivity(activity);
+    setActivityFormData({ ...activity });
+    setIsActivityDialogOpen(true);
+  }
+  const validateActivityForm = (): { 
+    valid: boolean;  
+    message?: string 
+  } => {
+    const errors: Record<string, string> = {};
+
+    // .trim() already handles empty strings (""), so you don't need both checks
+    if (!activityFormData.name?.trim()) {
+      errors.name = "Activity name is required";
+    }
+    
+    if (!activityFormData.time) {
+      errors.time = "Time is required";
+    }
+
+    if (!activityFormData.activity_type) {
+      errors.activity_type = "Please select an activity type";
+    }
+
+    const isValid = Object.keys(errors).length === 0;
+
+    return {
+      valid: isValid,
+      // This grabs the first error message available in the object
+      message: isValid ? undefined : Object.values(errors)[0]
+    };
+  };
+
+  const handleSaveActivity = async() => {
+    try{
+      const { valid, message } = validateActivityForm();
+      if (!valid) {
+        toast({ title: "Error", description: message, variant: "destructive" });
+        return;
+      }
+      if (activityFormData) {
+        // Edit mode: update all fields
+        const updatedActivity: Activity = {
+          ...currentEditingActivity,
+          day_uuid: activeItineraryItem.day_uuid,
+          name: activityFormData.name || "",
+          time: activityFormData.time || "00:00",
+          description: activityFormData.description || "",
+          address: activityFormData.address || null,
+          activity_type: activityFormData.activity_type || "Sightseeing",
+          ai_plan: false
+        };
+      
+        //upsert activity
+        const { data: upserted, error: upsertErr } = await supabase
+        .from("activities")
+        .upsert([updatedActivity])
+        .eq("activity_uuid", updatedActivity.activity_uuid)
+        .select()
+        .single();
+
+        if (upsertErr) {
+          throw new Error (upsertErr.message);
+        }
+
+        //resort activities
+        if (upserted) {
+          const { data: sortedData, error: sortErr } = await supabase
+            .from("activities")
+            .select("*")
+            .eq("day_uuid", upserted.day_uuid)
+            .order("time", { ascending: true });
+          if (sortErr) {
+            throw new Error(sortErr.message);
+          }
+          if (sortedData) {
+            const sortedActivities = sortedData as Activity[];
+            const newItinerary = itinerary.map((item) => {
+              if (item.day_uuid === upserted.day_uuid) {
+                return {
+                  ...item,
+                  activities: sortedActivities,
+                };
+              }
+              return item;
+            });
+            setItinerary(newItinerary);
+          }
+        }
+        //setActiveView(`day-${upserted?.day_number}`);
+        setActivityFormData(null);
+        handleCancelActivityDialog();
+        
+      }else {
+        throw new Error("No activity to save");
+      }
+    } catch (err) {
+      console.error("Failed to save activity", err);
+      toast({
+        title: "Error",
+        description: Error(err).message,
+        variant: "destructive",
+      })
+      handleCancelActivityDialog();
+    }
+  };
+
+  //delete activity
+  const handleDeleteActivity = async () => {
+    try {
+      if (currentEditingActivity) {
+        const { error } = await supabase
+          .from("activities")
+          .delete()
+          .eq("activity_uuid", currentEditingActivity.activity_uuid);
+        if (error) {
+          throw new Error(error.message);
+        }
+        //resort activities
+        const { data: sortedData, error: sortErr } = await supabase
+          .from("activities")
+          .select("*")
+          .eq("day_uuid", currentEditingActivity.day_uuid)
+          .order("time", { ascending: true });
+        if (sortErr) {
+          throw new Error(sortErr.message);
+        }
+        if (sortedData) {
+          const sortedActivities = sortedData as Activity[];
+          const newItinerary = itinerary.map((item) => {
+            if (item.day_uuid === currentEditingActivity.day_uuid) {
+              return {
+                ...item,
+                activities: sortedActivities,
+              };
+            }
+            return item;
+          });
+          setItinerary(newItinerary);
+        }
+      } else {
+        throw new Error("No activity to delete");
+      }
+    } catch (err) {
+      console.error("Failed to delete activity", err);
+      toast({
+        title: "Error",
+        description: Error(err).message,
+        variant: "destructive",
+      });
+    } finally {
+      handleCancelActivityDialog();
+    }
+  }
   return (
     <div className="space-y-4 pb-20">
       <header className="flex justify-between items-center">
@@ -900,37 +991,9 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
           variant="outline"
           className="bg-white/10 border-white/20 text-white hover:bg-white/20 hover:text-white shrink-0"
         >
-          <PlusCircle className="mr-2 h-4 w-4" /> Add Day
+          <Plus className="mr-2 h-4 w-4" /> Add Day
         </Button>
       </header>
-      
-      {/* <div className="flex items-end gap-2 h-80">
-        <div className="flex flex-col gap-5">
-          <span className="box-decoration-clone text-5xl font-semibold text-primary-foreground bg-gradient-to-r from-cyan-500 to-blue-500 rounded-lg px-4 py-2 ">
-            {trip.name}
-          </span>
-          <span className="text-3xl text-primary-foreground">
-            {(tripState.start_date || tripState.end_date) && (
-              <div className="text-sm text-primary-foreground">
-                {formatMMDD(tripState.start_date)}
-                {tripState.start_date && tripState.end_date ? " - " : ""}
-                {formatMMDD(tripState.end_date)}
-              </div>
-            )}
-          </span>
-        </div>
-      </div> */}
-                {/* <Button
-            variant={activeView === "checklist" ? "default" : "outline"}
-            onClick={() => setActiveView("checklist")}
-            className={cn(
-              "shrink-0",
-              activeView !== "checklist" &&
-                "bg-white/10 border-white/20 text-white hover:bg-white/20 hover:text-white"
-            )}
-          >
-            Checklist
-          </Button> */}
           <div className={`border-b border-white/20 ${checklistOpen ? "bg-white/80 rounded-lg border-b-0" : ""}`}>
           <div
             onClick={() => setChecklistOpen(!checklistOpen)}
@@ -982,22 +1045,15 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
           <Card className="overflow-hidden bg-card/80 backdrop-blur-sm border-white/20 shadow-lg">
             <div className="relative">
               <div className="relative w-full h-32 rounded-t-lg overflow-hidden">
-                  {item.weather_icon && (
+                  
                     <WeatherCard
                     temperature={item.temperature}
                       wmoCode={item.weather_icon}
                     />
-                  ) ||
-                  (<Image
-                    src="/images/background.jpeg"
-                    alt="Trip Cover Image"
-                    fill
-                    className="object-cover"
-                    data-ai-hint={item.title || ""}
-                  />) }
+                  
                 <div className="absolute inset-0 flex items-end p-4">
-                  <div className="text-primary flex-grow text-left">
-                    <h2 className="font-bold text-lg font-headline">
+                  <div className="text-slate-600 flex-grow text-left">
+                    <h2 className="font-bold text-3xl font-headline">
                       {item.title}
                     </h2>
                     <p className="text-sm">{item.date}</p>
@@ -1014,7 +1070,7 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
               </div>
             </div>
             <div className="p-4 space-y-4">
-              <ul className="space-y-4">
+              <ul className="flex flex-col gap-1">
                 {item.activities.map((activity, actIndex) => {
                   const icon = getIconText(
                     activity.activity_type,
@@ -1022,10 +1078,10 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
                   );
                   const ActivityIcon = iconMap[icon];
                   return (
-                    <li key={activity.activity_uuid} className="flex items-stretch gap-4"> 
+                    <li key={activity.activity_uuid} className="relative flex items-stretch pb-2 gap-4 border-b last:border-b-0 border-gray-400"> 
                       <div className="flex flex-col items-center justify-center">
-                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/20 text-primary">
-                          {ActivityIcon && <ActivityIcon className="h-4 w-4" />}
+                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-muted bg-primary">
+                          {ActivityIcon && <ActivityIcon className="h-7 w-7" />}
                         </div>
                         
                         {/* {actIndex < item.activities.length - 1 && (
@@ -1047,15 +1103,50 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
                         </div>
                         {activity.address && activity.address.length > 0 && (
                         <div className="flex items-center">
-                          <MapPin className="mr-1 h-4 w-4 text-primary" />
+                          <MapPin className="mr-2 h-4 w-4 text-primary" />
                           <p className="text-muted-foreground italic">{activity.address}</p>
                         </div>
                         )}
+                      </div>
+                      <div className="flex items-center justify-center ml-auto mr-4">
+                        <a 
+                          href={activity.address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(activity.address)}` : "#"}
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className={cn(
+                            "flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-colors",
+                            // If no address, disable clicks and look "faded"
+                            !activity.address ? "pointer-events-none bg-gray-100 text-gray-300" : "bg-gray-200 text-gray-500 hover:bg-gray-400 hover:text-white"
+                          )}
+                          onClick={(e) => {
+                            // Extra safety: stop the click if no address exists
+                            if (!activity.address) e.preventDefault();
+                          }}
+                        >
+                          <button 
+                          className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gray-200 text-gray-500 hover:bg-gray-400 hover:text-white transition-colors ",
+                            !activity.address ? "pointer-events-none bg-gray-100 text-gray-300" : "bg-gray-200 text-gray-500 hover:bg-gray-400 hover:text-white")}
+                          >
+                          <Map className="h-5 w-5"/>
+                        </button>
+                        </a>
+                      </div>
+                      <div className="absolute top-1 right-0 z-10 text-gray-400 hover:cursor-pointer" onClick={() => handleEditActivity(activity)}>
+                        <EllipsisVertical className="h-4 w-4" />
                       </div>
                     </li>
                   );
                 })}
               </ul>
+              <div className="flex justify-center items-center gap-2">
+                <a
+                   onClick={handleAddActivity}
+                  className="bg-white border-white text-slate-600 hover:bg-primary hover:text-white shrink-0 flex flex-col lg:flex-row justify-center items-center gap-3 p-4 rounded-lg hover:cursor-pointer"
+                >
+                  <CirclePlus className=" h-8 w-8" /> 
+                  <span className="text-xl font-bold">Add Activity</span>
+                </a>
+              </div>
               {item.feedback && (
                 <div className="prose prose-sm max-w-none text-card-foreground">
                   <p>{item.feedback}</p>
@@ -1075,7 +1166,7 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
         >
           <DialogContent className="max-h-[90vh] flex flex-col shadow-lg">
             <DialogHeader>
-              <DialogTitle>Day {editingItem.day_number}</DialogTitle>
+              <DialogTitle>Day {editingItem.day_number}: {editingItem.date}</DialogTitle>
             </DialogHeader>
             <div className="flex flex-col gap-4 overflow-y-auto max-h-[70vh] pl-1 pr-4">
               <div className="space-y-2">
@@ -1086,7 +1177,7 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
                   onChange={(e) => handleFieldChange("title", e.target.value)}
                 />
               </div>
-              <div className="space-y-2">
+              {/* <div className="space-y-2">
                 <Label htmlFor="date">Date</Label>
                 <Input
                   id="date"
@@ -1094,15 +1185,15 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
                   value={editingItem.date}
                   onChange={(e) => handleFieldChange("date", e.target.value)}
                 />
-              </div>
+              </div> */}
               <div className="space-y-2">
-              <DayActivities
+              {/* <DayActivities
                 activities={editingItem.activities}
                 activityOptions={activityOptions}
                 onAddActivity={handleAddActivity}
                 onDeleteActivity={handleDeleteActivity}
                 onActivityChange={handleActivityChange}
-              />
+              /> */}
                 <div className="space-y-2">
                   <Label htmlFor="remarks">Feedback</Label>
                   <Textarea
@@ -1244,6 +1335,143 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
           </DialogFooter>
         </DialogContent>
       </Dialog>}
+
+      {isActivityDialogOpen && (
+              <Dialog
+                open={isActivityDialogOpen}
+                onOpenChange={(isOpen) => {
+                  if (!isOpen) {
+                    handleCancelActivityDialog();
+                  }
+                }}
+              >
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>
+                      {currentEditingActivity ? "Edit Activity" : "Add New Activity"}
+                    </DialogTitle>
+                  </DialogHeader>
+      
+                  <div className="grid gap-4 py-4">
+                    <div className="grid gap-2">
+                      <Label htmlFor="act-type">Activity Type</Label>
+                      <Select
+                        value={activityFormData?.activity_type || "Sightseeing"}
+                        onValueChange={(val) =>
+                          setActivityFormData({ ...activityFormData, activity_type: val })
+                        }
+                      >
+                        <SelectTrigger id="act-type">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {activityOptions.map((opt) => (
+                            <SelectItem key={opt.icon_text} value={opt.activity_type}>
+                              <div className="flex items-center gap-2">
+                                {(() => {
+                                  const IconComponent = iconMap[opt.icon_text];
+                                  return IconComponent ? (
+                                    <IconComponent className="h-4 w-4" />
+                                  ) : null;
+                                })()}
+                                <span>{opt.activity_type}</span>
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+      
+                    <div className="grid gap-2">
+                      <Label htmlFor="act-time">Time</Label>
+                      <Input
+                        id="act-time"
+                        type="time"
+                        value={activityFormData?.time || "00:00"}
+                        onChange={(e) =>
+                          setActivityFormData({ ...activityFormData, time: e.target.value })
+                        }
+                      />
+                    </div>
+      
+                    <div className="grid gap-2">
+                      <Label htmlFor="act-name">Activity Name*</Label>
+                      <Input
+                        id="act-name"
+                        value={activityFormData?.name || ""}
+                        onChange={(e) =>
+                          setActivityFormData({ ...activityFormData, name: e.target.value })
+                        }
+                        placeholder="e.g. Visit Museum"
+                      />
+                    </div>
+      
+                    <div className="grid gap-2">
+                      <Label htmlFor="act-desc">Description</Label>
+                      <Input
+                        id="act-desc"
+                        value={activityFormData?.description || ""}
+                        onChange={(e) =>
+                          setActivityFormData({
+                            ...activityFormData,
+                            description: e.target.value,
+                          })
+                        }
+                        placeholder="Activity details"
+                      />
+                    </div>
+      
+                    <div className="grid gap-2">
+                      <Label htmlFor="act-addr">Address</Label>
+                      <Input
+                        id="act-addr"
+                        value={activityFormData?.address || ""}
+                        onChange={(e) =>
+                          setActivityFormData({
+                            ...activityFormData,
+                            address: e.target.value,
+                          })
+                        }
+                        placeholder="Location"
+                      />
+                    </div>
+                  </div>
+      
+                  <DialogFooter className="flex flex-row items-center justify-between gap-2 sm:justify-between">
+                    {currentEditingActivity && (
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="outline" size="icon">
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Delete Activity</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              This will permanently delete this activity. This action cannot
+                              be undone.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={handleDeleteActivity}
+                              className="bg-destructive hover:bg-destructive/90"
+                            >
+                              Delete
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    )}
+                    <Button type="button" onClick={handleSaveActivity} className="w-full">
+                      {currentEditingActivity ? "Save Changes" : "Add Activity"}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            )}
     </div>
   );
 }

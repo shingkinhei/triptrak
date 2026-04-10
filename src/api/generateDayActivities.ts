@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase/client";
 import { NextResponse } from 'next/server';
 
 
-export async function getAiPlan(day_uuid: string, user_preference: string,user_suggestion: string) {
+export async function getAiPlan(trip_uuid: string, day_uuid: string, user_preference: string,user_suggestion: string) {
   try{
 
     const supabase = createClient();
@@ -26,6 +26,15 @@ export async function getAiPlan(day_uuid: string, user_preference: string,user_s
       .single();
 
     const dateInfo = dayData ? `Date: ${dayData.date}` : "Date information not available";
+
+    const { data: tripData } = await supabase
+      .from('trips')
+      .select('destination')
+      .eq("trip_uuid", trip_uuid)
+      .single();
+
+    const destination = tripData ? `Destination: ${tripData.destination}` : "Destination information not available";
+
     // 3. call OpenRouter
     const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
@@ -40,7 +49,7 @@ export async function getAiPlan(day_uuid: string, user_preference: string,user_s
         "messages": [
           {
             "role": "user",
-            "content": `You are a professional tour guide. Please provide suggestions based on the user's existing itinerary. Please be sure to return array objects in plain JSON format.\nExisting Itinerary:\n${contextText}\n\nDay Information:\n${dateInfo}\n\nUser Preferences: the day mainly focus on ${user_preference} \n\nUser Request: ${user_suggestion}\n\nactivity_type must be ${user_preference}\n\nPlease provide suggested activities that match the following JSON format:
+            "content": `You are a professional tour guide. Please provide suggestions based on the user's existing itinerary. Please be sure to return array objects in plain JSON format.\nDestination: ${destination}\nExisting Itinerary:\n${contextText}\n\nDay Information:\n${dateInfo}\n\nUser Preferences: the whole trip not only mainly focus on ${user_preference},but also may be include 'Accommodation','Outdoor','City','Event','Food','Plane','Sightseeing'.\nUser Request: ${user_suggestion}\nPlease provide suggested activities that match the following JSON format:
             [{"time": "HH:mm:ss", "name": "...", "description": "...", "activity_type": "must be one of the activity options", "address": "..."}]`
           }
         ],

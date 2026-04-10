@@ -435,7 +435,7 @@ export function ShoppingList({
 
       const { data, error } = await supabase
         .from("shopping_items")
-        .update(payload)
+        .upsert(payload)
         .eq("item_uuid", payload.item_uuid)
         .select()
         .single();
@@ -458,10 +458,11 @@ export function ShoppingList({
         description: "Failed to update item.",
         variant: "destructive",
       });
+    } finally {
+      setIsDialogOpen(false);
+      setCurrentItem(null);
+      setItemFormData({});
     }
-    setCurrentItem(null);
-    setItemFormData({});
-    setIsDialogOpen(false);
   };
 
   const handleAddItem = async () => {
@@ -811,6 +812,7 @@ export function ShoppingList({
               variant="outline"
               size="sm"
               onClick={() => toggleCurrency()}
+              className= {displayCurrency === "trip" ? `bg-primary text-white` : `text-black bg-white`}
             >
               <Repeat className="h-4 w-4 mr-2" />
               <span>{currencyButtonLabel}</span>

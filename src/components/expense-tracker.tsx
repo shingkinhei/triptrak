@@ -92,6 +92,7 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { Checkbox } from "./ui/checkbox";
 import { set } from "lodash";
+import { userInfo } from "os";
 
 interface ExpenseTrackerProps {
   expensesInfo: Expenses[];
@@ -202,7 +203,6 @@ interface ChartCategory {
 }
 
 export function ExpenseTracker({ trip }: ExpenseTrackerProps) {
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [expenseCategoryOption, setExpenseCategoryOption] = useState<
     ExpenseCategoryOption[]
   >([]);
@@ -211,11 +211,15 @@ export function ExpenseTracker({ trip }: ExpenseTrackerProps) {
     expense_category: string;
     amount: number;
     date: string;
+    currency_code: string;
+    trip_uuid: string;
   }>({
     name: "",
     expense_category: "",
     amount: 0,
     date: Date.now().toString(),
+    currency_code: "USD",
+    trip_uuid: trip.trip_uuid
   });
   const {
     tripCurrency,
@@ -231,9 +235,16 @@ export function ExpenseTracker({ trip }: ExpenseTrackerProps) {
     rates,
   } = useCurrency();
   const [expenses, setExpenses] = useState<Expenses[]>([]);
-  const [editingExpense, setEditingExpense] = useState<{
-    item: Expenses;
-  } | null>(null);
+  const [editingExpense, setEditingExpense] = useState<
+    Partial<Expenses>
+  >({
+    name: "",
+    expense_category: "",
+    amount: 0,
+    date: new Date().toISOString().split('T')[0],
+    currency_code: "",
+    trip_uuid: trip.trip_uuid
+  });
   const [editExpenseFormData, setEditExpenseFormData] = useState<
     Partial<Expenses>
   >({});
@@ -351,62 +362,65 @@ export function ExpenseTracker({ trip }: ExpenseTrackerProps) {
   //   if (!trip.trip_uuid) return;
 
   // }, [trip.trip_uuid]);
-  const handleAddExpense = async () => {
-    if (
-      !newExpense.name ||
-      !newExpense.expense_category ||
-      !newExpense.amount ||
-      !newExpense.date
-    ) {
-      toast({
-        title: "Incomplete Data",
-        description: "Please fill in all the required fields.",
-        variant: "destructive",
-      });
-      return;
-    }
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+  // const handleAddExpense = async () => {
+  //   if (
+  //     !newExpense.name ||
+  //     !newExpense.expense_category ||
+  //     !newExpense.amount ||
+  //     !newExpense.date
+  //   ) {
+  //     toast({
+  //       title: "Incomplete Data",
+  //       description: "Please fill in all the required fields.",
+  //       variant: "destructive",
+  //     });
+  //     return;
+  //   }
 
-    const newTx: Expenses = {
-      expense_uuid: uuidv4(),
-      trip_uuid: trip.trip_uuid,
-      name: newExpense.name,
-      expense_category: newExpense.expense_category,
-      amount:
-        displayCurrency === "trip"
-          ? convertCurrencyToUsd(newExpense.amount, tripRate)
-          : convertUsdToCurrency(newExpense.amount, homeRate),
-      date: new Date().toISOString().split("T")[0],
-      currency_code: displayCurrency === "trip" ? tripCurrency : homeCurrency,
-      user_id: user?.id ?? null,
-    };
+  //   const {
+  //     data: { user },
+  //   } = await supabase.auth.getUser();
 
-    // Add the new transaction to the list
-    const { data, error } = await supabase.from("expenses").insert([newTx]);
+  //   const newTx: Expenses = {
+  //     expense_uuid: uuidv4(),
+  //     trip_uuid: trip.trip_uuid,
+  //     name: newExpense.name,
+  //     expense_category: newExpense.expense_category,
+  //     amount:
+  //       displayCurrency === "trip"
+  //         ? convertCurrencyToUsd(newExpense.amount, tripRate)
+  //         : convertUsdToCurrency(newExpense.amount, homeRate),
+  //     date: new Date().toISOString().split("T")[0],
+  //     currency_code: displayCurrency === "trip" ? tripCurrency : homeCurrency,
+  //     user_id: user?.id ?? null,
+  //   };
 
-    if (error) {
-      console.error("Error adding transaction:", error);
-      toast({
-        title: "Error",
-        description: "Failed to add transaction.",
-        variant: "destructive",
-      });
-      return;
-      // }
-    } else if (data) {
-      setExpenses([newTx, ...expenses]);
-      setNewExpense({
-        name: "",
-        expense_category: "",
-        amount: 0,
-        date: new Date().toString(),
-      });
-      setIsAddDialogOpen(false);
-    }
-  };
+  //   // Add the new transaction to the list
+  //   const { data, error } = await supabase.from("expenses").insert([newTx]);
+
+  //   if (error) {
+  //     console.error("Error adding transaction:", error);
+  //     toast({
+  //       title: "Error",
+  //       description: "Failed to add transaction.",
+  //       variant: "destructive",
+  //     });
+  //     return;
+  //     // }
+  //   } else if (data) {
+  //     setExpenses([newTx, ...expenses]);
+  //     setNewExpense({
+  //       name: "",
+  //       expense_category: "",
+  //       amount: 0,
+  //       date: new Date().toString(),
+  //       currency_code: displayCurrency === "trip" ? tripCurrency : homeCurrency,
+  //       trip_uuid: trip.trip_uuid,
+  //     });
+  //     setIsAddDialogOpen(false);
+  //   }
+  // };
 
   const toggleCurrency = () => {
     setDisplayCurrency(displayCurrency === "trip" ? "home" : "trip");
@@ -463,8 +477,20 @@ export function ExpenseTracker({ trip }: ExpenseTrackerProps) {
   const handleCancelEdit = () => {
     setIsEditDialogOpen(false);
     setEditingExpense(null);
+    setEditExpenseFormData(null);
   };
 
+  const validateExpenseForm = (): { valid: boolean; message?: string } => {
+    if (
+      !editExpenseFormData.name ||
+      !editExpenseFormData.expense_category ||
+      !editExpenseFormData.amount ||
+      !editExpenseFormData.date
+    ) {
+      return { valid: false, message: 'Please fill out all fields to create a trip.' };
+    }
+    return { valid: true };
+  }
   const handleUpdateExpense = async () => {
     const {
       data: { user },
@@ -480,25 +506,15 @@ export function ExpenseTracker({ trip }: ExpenseTrackerProps) {
 
     if (!editingExpense) return;
 
-    if (!editingExpense.item.name.trim()) {
-      toast({
-        title: "Error",
-        description: "Item name is required.",
-        variant: "destructive",
-      });
-    }
-
-    if (!editingExpense.item.expense_category) {
-      toast({
-        title: "Error",
-        description: "Item category is required.",
-        variant: "destructive",
-      });
+    const { valid, message } = validateExpenseForm();
+    if (!valid) {
+      toast({ title: 'Invalid Information', description: message, variant: 'destructive' });
+      return;
     }
 
     try {
       const updateExpense = {
-        ...editingExpense.item,
+        ...editingExpense,
         ...editExpenseFormData,
         amount:
           parseFloat(
@@ -516,13 +532,13 @@ export function ExpenseTracker({ trip }: ExpenseTrackerProps) {
                     0
             )
           ) || 0,
+          trip_uuid: trip.trip_uuid,
+          currency_code: displayCurrency === "trip" ? tripCurrency : homeCurrency
       } as Expenses;
-      delete (updateExpense as any).file;
-      delete (updateExpense as any).previewUrl;
 
       setExpenses((prevList) =>
         prevList.map((item) =>
-          item.expense_uuid === editingExpense.item.expense_uuid
+          item.expense_uuid === editingExpense.expense_uuid
             ? updateExpense
             : item
         )
@@ -530,7 +546,7 @@ export function ExpenseTracker({ trip }: ExpenseTrackerProps) {
 
       const { data, error } = await supabase
         .from("expenses")
-        .update(updateExpense)
+        .upsert(updateExpense)
         .eq("expense_uuid", updateExpense.expense_uuid)
         .select()
         .single();
@@ -554,6 +570,8 @@ export function ExpenseTracker({ trip }: ExpenseTrackerProps) {
         variant: "destructive",
       });
     }
+
+    
     setEditingExpense(null);
     setEditExpenseFormData({});
     setIsEditDialogOpen(false);
@@ -562,7 +580,7 @@ export function ExpenseTracker({ trip }: ExpenseTrackerProps) {
   const handleDeleteExpense = async () => {
     if (!editingExpense) return;
 
-    const expenseUuid = editingExpense.item.expense_uuid;
+    const expenseUuid = editingExpense.expense_uuid;
 
     // Delete DB row: Expenses
     try {
@@ -598,7 +616,7 @@ export function ExpenseTracker({ trip }: ExpenseTrackerProps) {
 
       toast({
         title: "Item deleted",
-        description: `${editingExpense.item.name} removed.`,
+        description: `${editingExpense.name} removed.`,
       });
     } catch (err: any) {
       console.error("Item deletion failed", err);
@@ -611,7 +629,7 @@ export function ExpenseTracker({ trip }: ExpenseTrackerProps) {
   };
   const handleEditExpenseClick = (item: Expenses) => {
     setTimeout(() => {
-      setEditingExpense({ item });
+      setEditingExpense(item as Expenses);
       setEditExpenseFormData({
         ...item,
         amount:
@@ -751,15 +769,17 @@ export function ExpenseTracker({ trip }: ExpenseTrackerProps) {
         <h2 className="font-semibold font-headline text-primary-foreground">
           Recent Transactions
         </h2>
-        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-          <DialogTrigger asChild>
-            <Button
+        <Button
               size="sm"
               variant="outline"
               className="bg-white/10 border-white/20 text-white hover:bg-white/20 hover:text-white"
+              onClick={() => setIsEditDialogOpen(true)}
             >
               <PlusCircle className="mr-2 h-4 w-4" /> Add
             </Button>
+        {/* <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+          <DialogTrigger asChild>
+            
           </DialogTrigger>
           <DialogContent className="shadow-lg">
             <DialogHeader>
@@ -872,7 +892,7 @@ export function ExpenseTracker({ trip }: ExpenseTrackerProps) {
               <Button onClick={handleAddExpense} className="w-full">Add Expense</Button>
             </DialogFooter>
           </DialogContent>
-        </Dialog>
+        </Dialog> */}
       </div>
       <div className="space-y-4">
         {grouped.map((group) => {
@@ -946,7 +966,7 @@ export function ExpenseTracker({ trip }: ExpenseTrackerProps) {
         })}
       </div>
 
-      {editingExpense && (
+      {isEditDialogOpen && (
         <Dialog
           open={isEditDialogOpen}
           onOpenChange={(isOpen) => {
@@ -958,14 +978,14 @@ export function ExpenseTracker({ trip }: ExpenseTrackerProps) {
         >
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Edit: {editingExpense?.item.name}</DialogTitle>
+              <DialogTitle>{editingExpense?.name || "New Expense"}</DialogTitle>
             </DialogHeader>
             <div className="grid gap-4 py-4 overflow-y-auto max-h-[70vh] pl-1 pr-4">
               <div className="space-y-2">
                 <Label htmlFor="item-name">Item Name</Label>
                 <Input
                   id="item-name"
-                  value={editExpenseFormData.name || ""}
+                  value={editExpenseFormData?.name || ""}
                   onChange={(e) =>
                     handleEditExpenseFormChange("name", e.target.value)
                   }
@@ -984,7 +1004,7 @@ export function ExpenseTracker({ trip }: ExpenseTrackerProps) {
                     type="number"
                     step="0.01"
                     ref={amountInputRef}
-                    value={editExpenseFormData.amount || 0}
+                    value={editExpenseFormData?.amount || 0}
                     onChange={(e) =>
                       handleEditExpenseFormChange("amount", e.target.value)
                     }
@@ -1000,17 +1020,18 @@ export function ExpenseTracker({ trip }: ExpenseTrackerProps) {
                         toggleCurrencyForm(parseFloat(value) || 0);
                       }
                     }}
+                    className= {displayCurrency === "trip" ? `bg-primary text-white` : `text-black bg-white`}
                   >
                     <Repeat className="h-4 w-4 mr-2" />
                     <span>{currencyButtonLabel}</span>
                   </Button>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="date">Date</Label>
+                <Label htmlFor="date">Date*</Label>
                 <Input
                   id="date"
                   type="date"
-                  value={editExpenseFormData.date || Date.now().toString()}
+                  value={editExpenseFormData?.date || new Date().toISOString().split('T')[0]}
                   onChange={(e) =>
                     handleEditExpenseFormChange("date", e.target.value)
                   }
@@ -1019,7 +1040,7 @@ export function ExpenseTracker({ trip }: ExpenseTrackerProps) {
               <div className="space-y-2">
                 <Label htmlFor="item-category">Category</Label>
                 <Select
-                  value={editExpenseFormData.expense_category || ""}
+                  value={editExpenseFormData?.expense_category || ""}
                   onValueChange={(value) =>
                     handleEditExpenseFormChange("expense_category", value)
                   }
@@ -1081,7 +1102,9 @@ export function ExpenseTracker({ trip }: ExpenseTrackerProps) {
                 >
                   Cancel
                 </Button> */}
-                <Button onClick={handleUpdateExpense} className="w-full">Save Changes</Button>
+                <Button onClick={handleUpdateExpense} className="w-full">
+                  {editingExpense ? "Add New Expense" : "Save Changes"}
+                </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
