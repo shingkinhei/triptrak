@@ -108,25 +108,6 @@ export const MemoriesView: FC<MemoriesViewProps> = ({ trip, setTrip }) => {
     ensureItinerary();
   }, [trip, selectedDayId, setTrip, supabase, toast]);
 
-//   const allPhotos = useMemo(() => {
-//     const photos: Array<
-//       TripDayPhotos & { day_title: string; day_date: string | null }
-//     > = [];
-//     trip.itinerary.forEach((day) => {
-//       (day.tripDayPhotos || []).forEach((p) => {
-//         photos.push({
-//           ...(p as TripDayPhotos),
-//           day_title: day.title,
-//           day_date: day.date,
-//         });
-//       });
-//     });
-//     return photos.sort((a, b) => {
-//       const da = a.day_date || "";
-//       const db = b.day_date || "";
-//       return da.localeCompare(db);
-//     });
-//   }, [trip]);
 
   useEffect(() => {
     const fetchPhotes = async () => {
@@ -159,36 +140,30 @@ export const MemoriesView: FC<MemoriesViewProps> = ({ trip, setTrip }) => {
   setIsUploading(true);
 
   try {
-    // 1. 身份檢查
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Not Authenticated");
 
     const currentDay = allPhotos.find(d => d.day_uuid === selectedDayId);
     let startSeq = currentDay?.day_uuid?.length ?? 0;
 
-    // 2. 併發處理所有文件 (壓縮 -> 上傳 -> 寫入 DB)
+    //Compress files and upload
     const uploadPromises = files.map(async (file, i) => {
-      // A. 壓縮圖片
       const compressedFile = await compressFile(file);
       
-      // B. 準備路徑
       const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
       const filePath = `${user.id}/${trip.trip_uuid}/${selectedDayId}/${Date.now()}-${i}.${ext}`;
 
-      // C. 上傳至 Supabase Storage
       const { error: uploadError } = await supabase.storage
         .from("day_feedback")
         .upload(filePath, compressedFile); // 使用壓縮後的檔案
 
       if (uploadError) throw uploadError;
 
-      // D. 獲取 Public URL
       const { data: { publicUrl } } = supabase.storage
         .from("day_feedback")
         .getPublicUrl(filePath);
 
-      // E. 準備寫入資料庫的物件
-      return {
+        return {
         photo_uuid: uuidv4(),
         day_uuid: selectedDayId,
         seq: startSeq + i,
@@ -199,7 +174,6 @@ export const MemoriesView: FC<MemoriesViewProps> = ({ trip, setTrip }) => {
 
     const photoRows = await Promise.all(uploadPromises);
 
-    // 3. 一次性寫入資料庫 (更有效率)
     const { error: insertError } = await supabase
       .from("trip_photos")
       .insert(photoRows);
@@ -212,18 +186,11 @@ export const MemoriesView: FC<MemoriesViewProps> = ({ trip, setTrip }) => {
       `已上傳照片` 
     });
 
-    // 4. 更新狀態
     setAllPhotos((prev) => [...prev, ...photoRows]);
-    // setItinerary((prev) =>
-    //   prev.map((day) =>
-    //     day.day_uuid === selectedDayId
-    //       ? { ...day, tripDayPhotos: [...(day.tripDayPhotos || []), ...photoRows] }
-    //       : day
-    //   )
-    // );
+
   } catch (error: any) {
     toast({
-      title: "上傳失敗",
+      title: "Error uploading photo",
       description: error.message,
       variant: "destructive",
     });
@@ -288,19 +255,6 @@ export const MemoriesView: FC<MemoriesViewProps> = ({ trip, setTrip }) => {
       setAllPhotos((prev) =>
         prev.filter((p) => p.photo_uuid !== photoToDelete.photo_uuid)
       );
-
-      // setItinerary((prev) =>
-      //   prev.map((day) =>
-      //     day.day_uuid === selectedDayId
-      //       ? {
-      //           ...day,
-      //           tripDayPhotos: day.tripDayPhotos?.filter(
-      //             (p) => p.photo_uuid !== photoToDelete.photo_uuid
-      //           ),
-      //         }
-      //       : day
-      //   )
-      // );
 
       setViewingPhoto(null);
       setPhotoToDelete(null);

@@ -8,3 +8,14 @@ export const formatMMDD = (dateStr?: string | null) => {
   const dd = String(d.getDate()).padStart(2, "0");
   return `${mm}/${dd}`;
 };
+
+export const timeToMinutes = (time?: string | null) => {
+  if (!time) return Number.MAX_SAFE_INTEGER;
+  const t = time.toString().trim();
+  const m = t.match(/^(\d{1,2}):(\d{2})/);
+  if (!m) return Number.MAX_SAFE_INTEGER;
+  const hh = parseInt(m[1], 10);
+  const mm = parseInt(m[2], 10);
+  if (Number.isNaN(hh) || Number.isNaN(mm)) return Number.MAX_SAFE_INTEGER;
+  return hh * 60 + mm;
+};

@@ -574,7 +574,10 @@ export default function TripDetailsPage() {
   };
 
   if (!trip) {
-    return <div className="p-4 text-center text-muted-foreground">Loading trip...</div>;
+    return (<div className="flex flex-col items-center justify-center flex-grow gap-4 text-center text-muted-foreground">
+            <Loader2 className="h-10 w-10 animate-spin text-primary" />
+            <div>Loading trip...</div>
+      </div>);
   }
 
   return (

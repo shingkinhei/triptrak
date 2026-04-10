@@ -54,7 +54,6 @@ type EditableTrip = Partial<
     | "start_date"
     | "end_date"
     | "cover_image_url"
-    | "cover_image_hint"
   >
 > & {
   cover_image_file?: File | null;
@@ -287,7 +286,6 @@ export default function TripsPage() {
       end_date: newTrip.end_date,
       status: 'U' as TripStatus,
       cover_image_url: coverImageUrl || null,
-      cover_image_hint: coverImageHint,
     };
     
     const { data, error } = await supabase.from('trips').insert([newTripData]).select().single();
@@ -358,7 +356,6 @@ export default function TripsPage() {
       start_date: trip.start_date || '',
       end_date: trip.end_date || '',
       cover_image_url: trip.cover_image_url || '',
-      cover_image_hint: trip.cover_image_hint || '',
       cover_image_preview: trip.cover_image_url || '',
     });
     setIsEditDialogOpen(true);
@@ -379,7 +376,6 @@ export default function TripsPage() {
       country_code: tripForm.country_code,
       start_date: tripForm.start_date,
       end_date: tripForm.end_date,
-      cover_image_hint: tripForm.cover_image_hint,
       cover_image_url: tripForm.cover_image_url || null,
     };
     const oldImageUrl = editingTrip.cover_image_url;
@@ -527,9 +523,9 @@ export default function TripsPage() {
   };
 
   const statusMap: Record<TripStatus, { label: string; color: string }> = {
-    A: { label: 'Active', color: 'bg-green-500 text-white' },
-    U: { label: 'Upcoming', color: 'bg-blue-500 text-white' },
-    E: { label: 'Expired', color: 'bg-gray-500 text-white' },
+    A: { label: 'Active', color: 'bg-green-500/50 text-white' },
+    U: { label: 'Upcoming', color: 'bg-blue-500/50 text-white' },
+    E: { label: 'Expired', color: 'bg-gray-500/50 text-white' },
   };
 
   //AI Trip Planning
@@ -578,25 +574,17 @@ export default function TripsPage() {
   }
 
   const handleApplyAiTrip = async () => {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) {
-      toast({
-        title: "Not Authenticated",
-        description: "You must be logged in to create a trip.",
-        variant: "destructive",
-      });
-      setIsAiTripLoading(false);
-      setIsAiTripDialogOpen(false);
-      setAiPreferences(null);
-      fetchTrips();
-      setNewTrip({ name: '', destination: '', country_code: '', currency_code: '',start_date: '', end_date: '', cover_image_file: null, cover_image_preview: null });
-      setIsAddDialogOpen(false);
-      return;
-    }
+    setIsAiTripDialogOpen(false);
+    setIsEditDialogOpen(false);
+    setIsAiTripLoading(true);
 
     try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error("User not found");
+      }
       // Make Sure latest AI rate is checked before applying plan
       const { data: usersInfoData, error: usersInfoError } = await supabase
         .from('users_info')
@@ -614,31 +602,28 @@ export default function TripsPage() {
       }
 
       // set loading state and toast
-      setIsAiTripLoading(true);
       const loadingToastId = toast({
         title: "Generating AI plan...",
         description: "Please wait while we generate your itinerary suggestions.",
       });
       
       let aiResult;
-      try {
-        const aiResponse = await getAiTrip(
-        newTrip.start_date,
-        newTrip.end_date,
-        countryOptions.find(country => country.country_code === newTrip.country_code)?.name || newTrip.country_code,
-        newTrip.destination,
-        aiPreferences.preferences || '',
-        aiPreferences.suggestions || ''
-        );
-        aiResult = [...aiResponse];
-      } catch (error) {
-        throw new Error(error.message || "An unexpected error occurred.");
+
+      const { data: aiResponse, error: aiError } = await getAiTrip(
+      newTrip.start_date,
+      newTrip.end_date,
+      countryOptions.find(country => country.country_code === newTrip.country_code)?.name || newTrip.country_code,
+      newTrip.destination,
+      aiPreferences.preferences || '',
+      aiPreferences.suggestions || ''
+      );
+    
+      if (aiError || !aiResponse) {
+        throw new Error(aiError || 'Error generating AI plan');
       }
 
-      if (!aiResult) {
-        throw new Error('Error generating AI trip');
-      }
-
+      aiResult = [...aiResponse];
+      
       // Insert Trip (Trigger creates trip_days automatically)
       const { data: newTripData, error: newTripError } = await handleCreateTrip(user);
 
@@ -704,14 +689,6 @@ export default function TripsPage() {
       } else {
         setLocalAiRate(prev => prev + 1);
       };
-      
-      setIsAiTripLoading(false);
-      setIsAiTripDialogOpen(false);
-      setAiPreferences(null);
-      fetchTrips();
-      setNewTrip({ name: '', destination: '', country_code: '', currency_code: '',start_date: '', end_date: '', cover_image_file: null, cover_image_preview: null });
-      setIsAddDialogOpen(false);
-      router.push(`/trip/${tripId}`);
 
     } catch (error) {
       toast({
@@ -719,14 +696,32 @@ export default function TripsPage() {
         description: error instanceof Error ? error.message : "An unknown error occurred.",
         variant: "destructive",
       });
+    } finally {
       setIsAiTripLoading(false);
       setIsAiTripDialogOpen(false);
-      setAiPreferences(null);
+      setAiPreferences({
+        preferences: null,
+        suggestions: null,
+      });
       fetchTrips();
       setNewTrip({ name: '', destination: '', country_code: '', currency_code: '',start_date: '', end_date: '', cover_image_file: null, cover_image_preview: null });
       setIsAddDialogOpen(false);
-      return;
-    };
+      // Navigate to the trip after successful creation
+      // Get the latest trip to navigate to it
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: latestTrip } = await supabase
+          .from('trips')
+          .select('trip_uuid')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .single();
+        if (latestTrip) {
+          router.push(`/trip/${latestTrip.trip_uuid}`);
+        }
+      }
+    }
   };
 
   return (
@@ -759,76 +754,175 @@ export default function TripsPage() {
             ) ||
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 lg:gap-8 overflow-y-scroll w-full pb-16">
             {trips.map(trip => (
-                <Card key={trip.trip_uuid} className={cn("overflow-hidden w-full h-[16rem] lg:h-[30rem] bg-white transition-all hover:shadow-lg relative", {'border-primary border-2': trip.status === 'A'})}>
-                    <CardContent className="p-0">
-                        <div className="flex flex-col">
-                            <Link href={`/trip/${trip.trip_uuid}`} className="relative w-full h-[16rem] lg:h-[30rem] shrink-0 object-fill block hover:opacity-90 transition-opacity " aria-label={`View trip: ${trip.name}`}>
-                                <Image
-                                    src={trip.cover_image_url || 'https://rodtfkraukblqbshlazo.supabase.co/storage/v1/object/public/trip_cover/trip_cover_sample.jpg'}
-                                    alt={trip.name || ''}
-                                    fill
-                                    sizes="100%"
-                                    className="object-cover h-[16rem] lg:h-[30rem] w-full"
-                                    data-ai-hint={trip.cover_image_hint || ''}
-                                />
-                            </Link>
-                            <div className="absolute bottom-0 z-10 w-full flex flex-col justify-between p-3 flex-grow bg-gradient-to-b from-black/0 to-black/60">
-                                <Link href={`/trip/${trip.trip_uuid}`} className="flex-grow flex flex-col justify-start cursor-pointer hover:opacity-80 transition-opacity" aria-label={`View trip: ${trip.name}`}>
-                                  <div>
-                                    <h2 className="text-white text-lg font-bold font-headline leading-tight">{trip.name}</h2>
-                                    <p className="text-white text-sm text-muted-foreground">{countryOptions.find(country => country.country_code === trip.country_code)?.name || trip.country_code}</p>
-                                    <p className="text-white text-xs text-muted-foreground mt-1">{new Date(trip.start_date).toLocaleDateString()} - {new Date(trip.end_date).toLocaleDateString()}</p>
-                                  </div>
-                                </Link>
-                                <div className='flex items-center justify-between gap-2 mt-2 z-20 pointer-events-auto'>
-                                  <Select value={trip.status} onValueChange={(value) => handleSetStatus(trip.trip_uuid, value as TripStatus)}>
-                                      <SelectTrigger className={cn("h-7 text-xs w-auto capitalize focus:ring-0 border-none", statusMap[trip.status]?.color)}>
-                                          <SelectValue placeholder="Set status" />
-                                      </SelectTrigger>
-                                      <SelectContent>
-                                          {statusOptions.map((option) => (
-                                            <SelectItem key={option.status} value={option.status}>{option.description || option.status}</SelectItem>
-                                          ))}
-                                      </SelectContent>
-                                  </Select>
-                                  <div className="flex items-center">
-                                    <Button variant="ghost" size="icon" className="h-7 w-7 pointer-events-auto" onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleEditClick(trip); }}>
-                                      <Edit className="h-4 w-4" color="white"/>
-                                      <span className="sr-only">Edit Trip</span>
-                                    </Button>
-                                  </div>
-                                </div>
-                            </div>
-                            {/* g-gradient-to-t from-yellow/600/0 to-black/40 */}
-                            <div className="absolute z-2 left-1/2 top-0 transform -translate-x-1/2 w-full h-full overflow-hidden pointer-events-none ">
-                              <div
-                                className="absolute z-2 w-full h-[120%] bottom-0 flex items-end overflow-hidden blur-[4px] scale-x-100 scale-y-110 "
-                              >
-                                <div
-                                  className="absolute z-2 bottom-0 left-0 w-full h-[45%] lg:h-[25%] flex items-end overflow-hidden pointer-events-none "
-                                >
-                                  <img
-                                    src={trip.cover_image_url || 'https://rodtfkraukblqbshlazo.supabase.co/storage/v1/object/public/trip_cover/trip_cover_sample.jpg'}
-                                    alt={trip.name || ''}
-                                    className="object-cover h-[16rem] lg:h-[30rem] w-full"
-                                    data-ai-hint={trip.cover_image_hint || ''}
-                                  />
-                                </div>
-                              </div>
-                               <Image
-                                src={trip.cover_image_url || 'https://rodtfkraukblqbshlazo.supabase.co/storage/v1/object/public/trip_cover/trip_cover_sample.jpg'}
-                                alt={trip.name || ''}
-                                fill
-                                sizes="100%"
-                                className="object-cover absolute z-1 left-0 top-[4%] blur-[8px] h-[16rem] lg:h-[30rem] w-full opacity-20 rotate-4 scale-102 rounded-[30px] elchi"
-                                data-ai-hint={trip.cover_image_hint || ''}
-                              />
-                            </div>
+<Card 
+  key={trip.trip_uuid} 
+  className={cn(
+    "overflow-hidden w-full h-[20rem] lg:h-[30rem] bg-white transition-all relative group border-none", 
+    {'border-primary border-2': trip.status === 'A'}
+  )}
+>
+  <CardContent className="p-0 h-full w-full relative">
+    
+    {/* 1. THE MAIN LINK (Entire Surface) */}
+    <Link 
+      href={`/trip/${trip.trip_uuid}`} 
+      className="absolute inset-0 z-0 block overflow-hidden" 
+    >
+      {/* BACKGROUND: The Clear Image (Top is visible) */}
+      <Image
+        src={trip.cover_image_url || 'https://rodtfkraukblqbshlazo.supabase.co/storage/v1/object/public/trip_cover/trip_cover_sample.jpg'}
+        alt={trip.name}
+        fill
+        className="object-cover z-0"
+      />
 
-                        </div>
-                    </CardContent>
-                </Card>
+      {/* BLUR LAYER: Only at the bottom */}
+      <div className="absolute inset-0 z-10 flex items-end overflow-hidden pointer-events-none">
+        {/* This container defines the height of the blur zone (e.g., bottom 50%) */}
+        <div className="relative w-full h-[50%] lg:h-[35%] flex items-end overflow-hidden blur-[8px] scale-x-110 scale-y-120 origin-bottom">
+           <div className="absolute bottom-0 left-0 w-full h-[200%] flex items-end overflow-hidden">
+              <img
+                src={trip.cover_image_url || 'https://rodtfkraukblqbshlazo.supabase.co/storage/v1/object/public/trip_cover/trip_cover_sample.jpg'}
+                className="object-cover w-full h-[20rem] lg:h-[30rem]"
+                alt=""
+              />
+           </div>
+        </div>
+        {/* Subtle Gradient to smooth the transition between clear top and blurry bottom */}
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-black/5 to-black/40 z-20" />
+      </div>
+    </Link>
+
+    {/* 2. EXTERNAL GLOW (Behind the card) */}
+    <img
+      src={trip.cover_image_url || 'https://rodtfkraukblqbshlazo.supabase.co/storage/v1/object/public/trip_cover/trip_cover_sample.jpg'}
+      className="object-cover absolute z-[-1] left-0 top-[4%] blur-[12px] opacity-25 rotate-3 scale-105 pointer-events-none"
+      alt=""
+      style={{ width: '100%', height: '100%' }}
+    />
+
+    {/* 3. UI CONTENT (Text & Buttons) */}
+    <div className="absolute inset-0 z-30 flex flex-col justify-end p-4 pointer-events-none">
+      <div className="mb-4 text-white">
+        <h2 className="text-2xl font-bold leading-tight drop-shadow-md">
+          {trip.name}
+        </h2>
+        <p className="opacity-80 text-sm mt-1 font-medium tracking-wide">
+          {countryOptions.find(c => c.country_code === trip.country_code)?.name || trip.country_code}
+        </p>
+        <p className="opacity-80 text-sm mt-1 font-medium tracking-wide">
+          {trip.start_date} - {trip.end_date}        
+        </p>
+      </div>
+
+      <div className="flex items-center justify-between pointer-events-auto">
+        <Select 
+          value={trip.status} 
+          onValueChange={(v) => handleSetStatus(trip.trip_uuid, v as TripStatus)}
+          
+        >
+          <SelectTrigger 
+          
+            className={cn("h-8 w-auto bg-black/50 backdrop-blur-lg border-none text-white rounded-full px-4 focus:ring-0",(statusMap[trip.status]?.color))}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {statusOptions.map((opt) => (
+              <SelectItem key={opt.status} value={opt.status}>{opt.description}</SelectItem>
             ))}
+          </SelectContent>
+        </Select>
+
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          className="h-10 w-10 rounded-full bg-white text-black shadow-lg hover:bg-white/90 transition-transform active:scale-95"
+          onClick={(e) => { 
+            e.preventDefault(); 
+            e.stopPropagation(); 
+            handleEditClick(trip); 
+          }}
+        >
+          <Edit className="h-4.5 w-4.5" />
+        </Button>
+      </div>
+    </div>
+  </CardContent>
+</Card>)
+                // <Card key={trip.trip_uuid} className={cn("overflow-hidden w-full h-[16rem] lg:h-[30rem] bg-white transition-all hover:shadow-lg relative", {'border-primary border-2': trip.status === 'A'})}>
+                //     <CardContent className="p-0">
+                //         <div className="flex flex-col">
+                //             <Link href={`/trip/${trip.trip_uuid}`} className="relative w-full h-[16rem] lg:h-[30rem] shrink-0 object-fill block hover:opacity-90 transition-opacity " aria-label={`View trip: ${trip.name}`}>
+                //                 <Image
+                //                     src={trip.cover_image_url || 'https://rodtfkraukblqbshlazo.supabase.co/storage/v1/object/public/trip_cover/trip_cover_sample.jpg'}
+                //                     alt={trip.name || ''}
+                //                     fill
+                //                     sizes="100%"
+                //                     className="object-cover h-[16rem] lg:h-[30rem] w-full"
+                //                     data-ai-hint={trip.name|| ''}
+                //                 />
+                //             </Link>
+                //             <div className="absolute bottom-0 z-10 w-full flex flex-col justify-between p-3 flex-grow bg-gradient-to-b from-black/0 to-black/60">
+                //                 <Link href={`/trip/${trip.trip_uuid}`} className="flex-grow flex flex-col justify-start cursor-pointer hover:opacity-80 transition-opacity" aria-label={`View trip: ${trip.name}`}>
+                //                   <div>
+                //                     <h2 className="text-white text-lg font-bold font-headline leading-tight">{trip.name}</h2>
+                //                     <p className="text-white text-sm text-muted-foreground">{countryOptions.find(country => country.country_code === trip.country_code)?.name || trip.country_code}</p>
+                //                     <p className="text-white text-xs text-muted-foreground mt-1">{trip.start_date||` - `||trip.end_date}</p>
+                //                   </div>
+                //                 </Link>
+                //                 <div className='flex items-center justify-between gap-2 mt-2 z-20 pointer-events-auto'>
+                //                   <Select value={trip.status} onValueChange={(value) => handleSetStatus(trip.trip_uuid, value as TripStatus)}>
+                //                       <SelectTrigger className={cn("h-7 text-xs w-auto capitalize focus:ring-0 border-none", statusMap[trip.status]?.color)}>
+                //                           <SelectValue placeholder="Set status" />
+                //                       </SelectTrigger>
+                //                       <SelectContent>
+                //                           {statusOptions.map((option) => (
+                //                             <SelectItem key={option.status} value={option.status}>{option.description || option.status}</SelectItem>
+                //                           ))}
+                //                       </SelectContent>
+                //                   </Select>
+                //                   <div className="flex items-center">
+                //                     <Button variant="ghost" size="icon" className="h-7 w-7 pointer-events-auto" onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleEditClick(trip); }}>
+                //                       <Edit className="h-4 w-4" color="white"/>
+                //                       <span className="sr-only">Edit Trip</span>
+                //                     </Button>
+                //                   </div>
+                //                 </div>
+                //             </div>
+                //             {/* g-gradient-to-t from-yellow/600/0 to-black/40 */}
+                //             <div className="absolute z-2 left-1/2 top-0 transform -translate-x-1/2 w-full h-full overflow-hidden pointer-events-none ">
+                //               <div
+                //                 className="absolute z-2 w-full h-[120%] bottom-0 flex items-end overflow-hidden blur-[4px] scale-x-100 scale-y-110 "
+                //               >
+                //                 <div
+                //                   className="absolute z-2 bottom-0 left-0 w-full h-[45%] lg:h-[25%] flex items-end overflow-hidden pointer-events-none "
+                //                 >
+                //                   <img
+                //                     src={trip.cover_image_url || 'https://rodtfkraukblqbshlazo.supabase.co/storage/v1/object/public/trip_cover/trip_cover_sample.jpg'}
+                //                     alt={trip.name || ''}
+                //                     className="object-cover h-[16rem] lg:h-[30rem] w-full"
+                //                     data-ai-hint={trip.name || ''}
+                //                   />
+                //                 </div>
+                //               </div>
+                //                <Image
+                //                 src={trip.cover_image_url || 'https://rodtfkraukblqbshlazo.supabase.co/storage/v1/object/public/trip_cover/trip_cover_sample.jpg'}
+                //                 alt={trip.name || ''}
+                //                 fill
+                //                 sizes="100%"
+                //                 className="object-cover absolute z-1 left-0 top-[4%] blur-[8px] h-[16rem] lg:h-[30rem] w-full opacity-20 rotate-4 scale-102 rounded-[30px] elchi"
+                //                 data-ai-hint={trip.name || ''}
+                //               />
+                //             </div>
+
+                //         </div>
+                //     </CardContent>
+                // </Card>
+                // )
+              )
+            }
             </div>
             }
             </div>
@@ -869,10 +963,6 @@ export default function TripsPage() {
               <div className="space-y-2">
                 <Label htmlFor="edit-end-date" className="text-right">End Date</Label>
                 <Input id="edit-end-date" type="date" value={tripForm.end_date || ''} onChange={(e) => handleFormChange('end_date', e.target.value)} className="col-span-3" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-image-hint" className="text-right">Image Hint</Label>
-                <Input id="edit-image-hint" value={tripForm.cover_image_hint || ''} onChange={(e) => handleFormChange('cover_image_hint', e.target.value)} className="col-span-3" />
               </div>
               <div className="space-y-2">
                 <div className="flex items-center justify-items-start gap-2">

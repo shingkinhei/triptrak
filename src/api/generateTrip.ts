@@ -38,13 +38,16 @@ export async function getAiTrip(start_date:string, end_date:string, country_code
 
     try {
       const cleanJsonString = aiContent.replace(/```json|```/g, "").trim();
-      return JSON.parse(cleanJsonString);
+      return { data: JSON.parse(cleanJsonString), error: null };
     } catch (parseErr) {
       console.error("Failed to parse AI JSON:", aiContent);
       throw new Error("AI_PARSE: The AI returned an invalid format. Please try again.");
     }
   } catch (error: any) {
-    // Re-throw the error so page.tsx can catch it
-    throw error;
+    console.error("Internal AI Error:", error);
+    return {
+        data: null,
+        error: error.message || "Failed to fetch AI plan"
+    };
   }
 }

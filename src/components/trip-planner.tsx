@@ -90,6 +90,8 @@ import { Description } from "@radix-ui/react-toast";
 import { match } from "assert/strict";
 import { getAiPlan } from "@/api/generateDayActivities";
 import { PreTripChecklist } from "./pre-trip-checklist";
+import { LoadingOverlay } from "./loading-overlay";
+import { formatMMDD, timeToMinutes} from "@/context/DateFormat";
 // import { DayActivities } from "./day-activities";
 import { set } from "lodash";
 
@@ -118,25 +120,6 @@ function getIconText(
   const match = options.find((opt) => opt.activity_type === activityType);
   return match ? match.icon_text : fallback;
 }
-
-const formatMMDD = (dateStr?: string | null) => {
-  if (!dateStr) return "";
-  const d = new Date(dateStr);
-  if (Number.isNaN(d.getTime())) return "";
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `${mm}/${dd}`;
-};
-const timeToMinutes = (time?: string | null) => {
-  if (!time) return Number.MAX_SAFE_INTEGER;
-  const t = time.toString().trim();
-  const m = t.match(/^(\d{1,2}):(\d{2})/);
-  if (!m) return Number.MAX_SAFE_INTEGER;
-  const hh = parseInt(m[1], 10);
-  const mm = parseInt(m[2], 10);
-  if (Number.isNaN(hh) || Number.isNaN(mm)) return Number.MAX_SAFE_INTEGER;
-  return hh * 60 + mm;
-};
 
 export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
   const [itinerary, setItinerary] = useState<ItineraryItem[]>([]);
@@ -435,73 +418,56 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
   }
   const handleApplyAiPlan = async () => {
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) {
-      toast({
-        title: "Not Authenticated",
-        description: "You must be logged in to upload photos.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!editingItem?.day_uuid) {
-      toast({
-        title: "Error",
-        description: "No day selected.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Make Sure latest AI rate is checked before applying plan
-    const { data: usersInfoData, error: usersInfoError } = await supabase
-      .from('users_info')
-      .select('ai_rate, ai_rate_limit')
-      .eq('user_id', user.id).single();
-    const aiRateCheck = usersInfoData?.ai_rate || localAiRate;
-    const aiRateLimitCheck = usersInfoData?.ai_rate_limit || localAiRateLimit;
-    if (aiRateCheck >= aiRateLimitCheck) {
-      toast({
-        title: "AI Rate Limit Reached",
-        description: `You have reached the AI rate limit of ${aiRateLimitCheck}.`,
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!aiPreferences.preferences) {
-      toast({
-        title: "Incomplete Input",
-        description: "Please provide your preferences.",
-        variant: "destructive",
-      });
-      return;
-    }
-
+    setIsEditDialogOpen(false);
+    setIsAiPlanDialogOpen(false);
     setIsAiPlanLoading(true);
-    const loadingToastId = toast({
-      title: "Generating AI plan...",
-      description: "Please wait while we generate your itinerary suggestions.",
-    });
-
+    
     try {
-      const result = await getAiPlan(
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error("User not found");
+      }
+
+      if (!editingItem?.day_uuid) {
+        throw new Error("Day not found");
+      }
+
+      // Make Sure latest AI rate is checked before applying plan
+      const { data: usersInfoData, error: usersInfoError } = await supabase
+        .from('users_info')
+        .select('ai_rate, ai_rate_limit')
+        .eq('user_id', user.id).single();
+      const aiRateCheck = usersInfoData?.ai_rate || localAiRate;
+      const aiRateLimitCheck = usersInfoData?.ai_rate_limit || localAiRateLimit;
+      if (aiRateCheck >= aiRateLimitCheck) {
+        throw new Error("AI rate limit exceeded");
+      }
+
+      if (!aiPreferences.preferences) {
+        toast({
+          title: "Incomplete Input",
+          description: "Please provide your preferences.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const loadingToastId = toast({
+        title: "Generating AI plan...",
+        description: "Please wait while we generate your itinerary suggestions.",
+      });
+
+      const { data: result, error: aiPlanError } = await getAiPlan(
         editingItem.trip_uuid,
         editingItem.day_uuid,
         aiPreferences.preferences,
         aiPreferences.suggestions
       );
 
-      if (!result) {
-        toast({
-          title: "AI Plan Failed",
-          description: result.error.message,
-          variant: "destructive",
-        });
-        return;
+      if (aiPlanError) {
+        throw new Error(aiPlanError || "Failed to generate AI plan");
       }
 
       //AI Rate limit handling - this is a fallback in case the backend doesn't enforce it
@@ -510,7 +476,7 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
         .update({ ai_rate_count: aiRate + 1 })
         .eq("user_id", user?.id);
       if (rateLimitError) {
-        console.warn("Failed to update AI rate", rateLimitError.message);
+        throw new Error(rateLimitError.message || "Failed to update AI rate");
       }
 
       // Convert AI response to Activity objects
@@ -535,11 +501,7 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
         .delete()
         .eq("day_uuid", editingItem.day_uuid);
       if (deleteError) {
-        toast({
-          title: "Error deleting old activities",
-          description: deleteError.message,
-          variant: "destructive",
-        });
+        throw new Error(deleteError.message || "Failed to delete activities");
       }
 
       //insert AI generated activities
@@ -547,38 +509,42 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
         .from("activities")
         .insert(aiActivities);
       if (insertError) {
-        toast({
-          title: "Error inserting new activities",
-          description: insertError.message,
-          variant: "destructive",
-        });
+        throw new Error(insertError.message || "Failed to insert activities");
       }
 
-        //resort activities
-        if (inserted) {
-          const { data: sortedData, error: sortErr } = await supabase
-            .from("activities")
-            .select("*")
-            .eq("day_uuid", editingItem.day_uuid)
-            .order("time", { ascending: true });
-          if (sortErr) {
-            throw new Error(sortErr.message);
+      // Refresh the entire day with all updated activities
+      const { data: refreshedDay, error: refreshErr } = await supabase
+        .from("trip_days")
+        .select(`*, activities:activities (*)`)
+        .eq("day_uuid", editingItem.day_uuid)
+        .single();
+
+      if (refreshErr) {
+        throw new Error(refreshErr.message || "Failed to refresh day");
+      }
+
+      if (refreshedDay) {
+        // Sort activities by time
+        const sortedActivities = Array.isArray(refreshedDay.activities)
+          ? [...refreshedDay.activities].sort((a: Activity, b: Activity) => 
+              (a.time || "00:00").localeCompare(b.time || "00:00")
+            )
+          : [];
+
+        // Update itinerary with refreshed day
+        const newItinerary = itinerary.map((item) => {
+          if (item.day_uuid === editingItem.day_uuid) {
+            return {
+              ...refreshedDay,
+              activities: sortedActivities,
+            } as ItineraryItem;
           }
-          if (sortedData) {
-            const sortedActivities = sortedData as Activity[];
-            const newItinerary = itinerary.map((item) => {
-              if (item.day_uuid === editingItem.day_uuid) {
-                return {
-                  ...item,
-                  activities: sortedActivities,
-                };
-              }
-              return item;
-            });
-            setItinerary(newItinerary);
-          }
-        }
-        setActiveView(`day-${editingItem?.day_number}`);
+          return item;
+        });
+        setItinerary(newItinerary);
+      }
+
+      setActiveView(`day-${editingItem?.day_number}`);
         setActivityFormData(null);
         handleCancelActivityDialog();
 
@@ -591,7 +557,7 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
       console.error("Error applying AI plan:", error);
       toast({
         title: "Error",
-        description: "Failed to process AI plan.",
+        description: (error as Error).message,
         variant: "destructive",
       });
     } finally {
@@ -600,7 +566,6 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
         suggestions: null,
       });
       setIsAiPlanLoading(false);
-      setIsAiPlanDialogOpen(false);
       setEditingItem(null);
       setIsEditDialogOpen(false);
     }
@@ -630,15 +595,6 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
       setEditingItem({ ...editingItem, activities: updatedActivities });
     }
   };
-
-  // const handleAddActivity = (newActivity: Activity) => {
-  //   if (editingItem) {
-  //     setEditingItem({
-  //       ...editingItem,
-  //       activities: [...editingItem.activities, newActivity],
-  //     });
-  //   }
-  // };
 
   const handleDeleteDay = async () => {
     if (!editingItem) return;
@@ -724,7 +680,7 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
         if (tripErr) console.warn("Failed to update trip dates", tripErr.message);
       }
 
-      // Refresh trip record and local itinerary with latest days, activities and photos
+      // Refresh trip record and local itinerary with latest days, activities
       const { data: refreshedTrip, error: tripFetchErr } = await supabase
         .from("trips")
         .select("*")
@@ -1472,6 +1428,12 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
                 </DialogContent>
               </Dialog>
             )}
+            {isAiPlanLoading &&
+              <LoadingOverlay
+                isLoading={isAiPlanLoading}
+                message="AI is thinking..."
+              /> 
+            }
     </div>
   );
 }
