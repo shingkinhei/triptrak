@@ -22,6 +22,7 @@ import {
   Mountain,
   Building,
   PlusCircle,
+  Plus,
   Repeat,
   ArrowLeft,
   Home,
@@ -670,9 +671,15 @@ export function ExpenseTracker({ trip }: ExpenseTrackerProps) {
                 {currentFormatter(totalExpensesInCurrent)}
               </CardTitle>
             </div>
-            <Button variant="outline" size="sm" onClick={toggleCurrency}>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={toggleCurrency}
+              className= {displayCurrency === "trip" ? `bg-primary text-white` : `text-black bg-white`}
+            >
               <Repeat className="h-4 w-4 mr-2" />
               <span>{currencyButtonLabel}</span>
+              
             </Button>
           </div>
         </CardHeader>
@@ -775,7 +782,7 @@ export function ExpenseTracker({ trip }: ExpenseTrackerProps) {
               className="bg-white/10 border-white/20 text-white hover:bg-white/20 hover:text-white"
               onClick={() => setIsEditDialogOpen(true)}
             >
-              <PlusCircle className="mr-2 h-4 w-4" /> Add
+              <Plus className="mr-2 h-4 w-4" /> Add
             </Button>
         {/* <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
           <DialogTrigger asChild>

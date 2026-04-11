@@ -45,7 +45,7 @@ export function BottomNav({ activeItem, setActiveTab }: BottomNavProps) {
 
 
   return (
-    <nav className="absolute left-1/2 -translate-x-1/2 bottom-0 w-[96vw] lg:w-[40vw] flex items-center justify-around border-t shrink-0 bg-background/70 border-border backdrop-blur-sm rounded-full mb-3">
+    <nav className="absolute left-1/2 -translate-x-1/2 bottom-0 w-[96vw] lg:w-[40vw] flex items-center justify-around border-t shrink-0 bg-background/70 border-border backdrop-blur-sm rounded-full mb-3 z-[50]">
       {filteredNavItems.map((item) => (
         <button
           key={item.id}

@@ -779,7 +779,7 @@ export default function TripsPage() {
       {/* BLUR LAYER: Only at the bottom */}
       <div className="absolute inset-0 z-10 flex items-end overflow-hidden pointer-events-none">
         {/* This container defines the height of the blur zone (e.g., bottom 50%) */}
-        <div className="relative w-full h-[50%] lg:h-[35%] flex items-end overflow-hidden blur-[8px] scale-x-110 scale-y-120 origin-bottom">
+        <div className="relative w-full h-[50%] lg:h-[35%] flex items-end overflow-hidden blur-[5px] scale-x-110 scale-y-120 origin-bottom">
            <div className="absolute bottom-0 left-0 w-full h-[200%] flex items-end overflow-hidden">
               <img
                 src={trip.cover_image_url || 'https://rodtfkraukblqbshlazo.supabase.co/storage/v1/object/public/trip_cover/trip_cover_sample.jpg'}

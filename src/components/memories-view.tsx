@@ -36,13 +36,13 @@ import {
 } from "lucide-react";
 import Compressor from "compressorjs";
 import type { Trip, TripDayPhotos, ItineraryItem } from "@/lib/types";
+import { formatMMDD } from "@/context/DateFormat";
 
 const compressFile = (file: File): Promise<File> => {
   return new Promise((resolve, reject) => {
     new Compressor(file, {
       quality: 0.6,
       maxWidth: 1200,
-      // 轉換成與原始檔案同名但內容壓縮後的 File 物件
       success(result: Blob) {
         const compressedFile = new File([result], file.name, {
           type: result.type,
@@ -51,7 +51,7 @@ const compressFile = (file: File): Promise<File> => {
         resolve(compressedFile);
       },
       error(err) {
-        console.error('壓縮失敗:', err.message);
+        console.error('Image failed to compressed :', err.message);
         reject(err);
       },
     });
@@ -181,9 +181,9 @@ export const MemoriesView: FC<MemoriesViewProps> = ({ trip, setTrip }) => {
     if (insertError) throw insertError;
 
     toast({ 
-      title: "成功", 
+      title: "Success", 
       description: 
-      `已上傳照片` 
+      `The Photo is uploaded`
     });
 
     setAllPhotos((prev) => [...prev, ...photoRows]);
@@ -305,7 +305,7 @@ export const MemoriesView: FC<MemoriesViewProps> = ({ trip, setTrip }) => {
             <SelectContent>
               {itinerary.map((day) => (
                 <SelectItem key={day.day_uuid} value={day.day_uuid}>
-                  Day {day.day_number}: {day.title}
+                  {formatMMDD(day.date)} - {day.title}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -323,8 +323,8 @@ export const MemoriesView: FC<MemoriesViewProps> = ({ trip, setTrip }) => {
           <Button
             onClick={() => fileInputRef.current?.click()}
             disabled={isUploading || !selectedDayId}
-            className="h-9"
             variant="outline"
+            className="bg-white/10 border-white/20 text-white hover:bg-white/20 hover:text-white shrink-0 h-9"
           >
             <Upload className="h-4 w-4 mr-2" />
             {isUploading ? "Uploading..." : "Upload"}
@@ -333,7 +333,7 @@ export const MemoriesView: FC<MemoriesViewProps> = ({ trip, setTrip }) => {
       </div>
 
       {allPhotos.length === 0 ? (
-        <div className="flex flex-1 items-center justify-center rounded-lg border-2 border-dashed border-border/60 bg-card/40 p-6 text-center">
+        <div className="flex flex-1 items-center justify-center rounded-lg p-6 text-center">
           <div>
             <Camera className="mx-auto mb-2 h-8 w-8 text-primary" />
             <p className="text-sm text-primary-foreground">

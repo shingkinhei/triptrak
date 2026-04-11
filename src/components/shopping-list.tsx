@@ -14,6 +14,7 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import {
   PlusCircle,
+  Plus,
   ListPlus,
   MoreVertical,
   Edit,
@@ -793,9 +794,10 @@ export function ShoppingList({
               setItemFormData({});
               setIsDialogOpen(true);
             }}
-            className="bg-primary hover:bg-primary/90 absolute bottom-24 right-8 h-16 w-16 rounded-full shadow-lg z-20"
+            className="bg-primary hover:bg-primary/90 absolute bottom-24 right-8 h-16 w-16 rounded-full shadow-lg z-20 p-0"
+            size="icon"
           >
-            <PlusCircle className="h-8 w-8" />
+            <Plus className="!h-8 !w-8" />
           </Button>
       </header>
 
