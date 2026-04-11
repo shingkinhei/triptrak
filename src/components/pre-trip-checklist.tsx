@@ -27,6 +27,7 @@ import {
 } from "@hello-pangea/dnd";
 import { v4 as uuidv4 } from "uuid";
 import type { ChecklistItem } from "@/lib/types";
+import { useTranslations } from 'next-intl';
 
 interface PreTripChecklistProps {
   checklist: ChecklistItem[];
@@ -41,6 +42,9 @@ export const PreTripChecklist = ({
   const [newItemLabel, setNewItemLabel] = useState("");
   const supabase = createClient();
   const { toast } = useToast();
+
+  const t = useTranslations('preTripChecklist');
+  const ct = useTranslations('common');
 
   useEffect(() => {
     setChecklist(initialChecklist.sort((a, b) => (a.seq ?? 0) - (b.seq ?? 0)));
@@ -285,14 +289,14 @@ export const PreTripChecklist = ({
 
         <div className="flex items-center gap-2 pt-4 border-t mt-4">
           <Input
-            placeholder="Add new item..."
+            placeholder={t("addItem")}
             value={newItemLabel}
             onChange={(e) => setNewItemLabel(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleAddItem()}
           />
           <Button onClick={handleAddItem} className="shrink-0">
             <PlusCircle className="mr-2 h-4 w-4" />
-            Add
+            {ct("add")}
           </Button>
         </div>
       </CardContent>

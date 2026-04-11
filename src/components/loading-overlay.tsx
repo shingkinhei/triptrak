@@ -1,5 +1,6 @@
 import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils"; // Standard in Shadcn/ui
+import {useTranslations} from 'next-intl';
 
 interface LoadingOverlayProps {
   isLoading: boolean;
@@ -9,11 +10,13 @@ interface LoadingOverlayProps {
 
 export function LoadingOverlay({ 
   isLoading, 
-  message = "AI is thinking...", 
+  message = "aiIsThinking", 
   className 
 }: LoadingOverlayProps) {
   
   if (!isLoading) return null;
+  
+  const ct = useTranslations('common');
 
   return (
 
@@ -21,7 +24,7 @@ export function LoadingOverlay({
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center justify-center gap-3 p-6 bg-white dark:bg-zinc-900 shadow-xl rounded-2xl border border-zinc-200 dark:border-zinc-800">
             <Loader2 className="h-10 w-10 animate-spin text-primary" />
             <p className="text-sm font-medium text-zinc-600 dark:text-zinc-300 animate-pulse">
-              {message}
+              {ct(message)}
             </p>
           </div>
         </div>

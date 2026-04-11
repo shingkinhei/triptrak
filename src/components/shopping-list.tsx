@@ -83,6 +83,7 @@ import { v4 as uuidv4 } from "uuid";
 import { formatMMDD } from "@/context/DateFormat";
 import { date } from "zod";
 import { set } from "lodash";
+import { useTranslations } from 'next-intl';
 
 interface ShoppingListProps {
   onCheckChange: (itemId: string, checked: boolean) => void;
@@ -162,7 +163,8 @@ export function ShoppingList({
     Partial<ShoppingItems> & { file?: File | null; previewUrl?: string | null }
   >({});
   const [pointsOfInterest, setPointsOfInterest] = useState<PointsOfInterest[]>([]);
-
+  const t = useTranslations('shoppingList');
+  const ct = useTranslations('common');
 
   useEffect(() => {
     const fetchShoppingItems = async () => {
@@ -784,7 +786,7 @@ export function ShoppingList({
           </Button>
           <div>
             <h1 className="text-2xl font-bold font-headline text-primary-foreground">
-              Shopping List
+              {t(`title`)}
             </h1>
           </div>
         </div>
@@ -805,7 +807,7 @@ export function ShoppingList({
         <CardHeader>
           <div className="flex justify-between items-start">
             <div>
-              <CardDescription>Grand Total ({currentCurrency})</CardDescription>
+              <CardDescription>{t(`grandTotal`)} ({currentCurrency})</CardDescription>
               <CardTitle className="text-card-foreground">
                 {currentFormatter(grandTotalInCurrent)}
               </CardTitle>
@@ -950,7 +952,7 @@ export function ShoppingList({
                                   : "text-card-foreground"
                               )}
                             >
-                              {qty} pcs
+                              {qty} {t("pcs")}
                             </p>
                             <p
                               className={cn(
@@ -986,12 +988,12 @@ export function ShoppingList({
           <DialogContent>
             <DialogHeader>
               <DialogTitle>
-                {currentItem ? `${currentItem.name}` : "Add New Shopping Item"}
+                {currentItem ? `${currentItem.name}` : t(`addItem`)}
               </DialogTitle>
             </DialogHeader>
             <div className="grid gap-4 py-4 overflow-y-auto max-h-[70vh] pl-1 pr-4">
               <div className="space-y-2">
-                <Label htmlFor="item-name">Item Name</Label>
+                <Label htmlFor="item-name">{t(`itemName`)}*</Label>
                 <Input
                   id="item-name"
                   value={itemFormData.name || ""}
@@ -1003,8 +1005,8 @@ export function ShoppingList({
               </div>
               <div className="space-y-2">
                 <Label htmlFor="item-price">
-                  Price (
-                  {displayCurrency === "trip" ? tripCurrency : homeCurrency})
+                  {t(`price`)} (
+                  {displayCurrency === "trip" ? tripCurrency : homeCurrency})*
                 </Label>
               </div>
               <div className="grid grid-cols-2 gap-4">
@@ -1039,7 +1041,7 @@ export function ShoppingList({
                 </div>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="item-pcs">Quantity (pcs)</Label>
+                <Label htmlFor="item-pcs">{t(`quantity`)}*</Label>
                 <Input
                   id="item-pcs"
                   type="number"
@@ -1052,7 +1054,7 @@ export function ShoppingList({
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="item-category">Category</Label>
+                <Label htmlFor="item-category">{t(`category`)}*</Label>
                 <Select
                   value={itemFormData.shopping_category || ""}
                   onValueChange={(value) =>
@@ -1060,7 +1062,7 @@ export function ShoppingList({
                   }
                 >
                   <SelectTrigger id="item-category">
-                    <SelectValue placeholder="Select a category" />
+                    <SelectValue placeholder={t('selectCategory')} />
                   </SelectTrigger>
                   <SelectContent>
                     {shoppingCategoryOption.map((cat) => (
@@ -1083,7 +1085,7 @@ export function ShoppingList({
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="item-store">Store / POI</Label>
+                <Label htmlFor="item-store">{t(`store`)}</Label>
                 <Select
                   value={itemFormData.store || ""}
                   onValueChange={(value) =>
@@ -1092,7 +1094,7 @@ export function ShoppingList({
                   disabled={!pointsOfInterest || pointsOfInterest.length === 0}
                 >
                   <SelectTrigger id="item-store">
-                    <SelectValue placeholder="Select a store" />
+                    <SelectValue placeholder={t('selectStore')} />
                   </SelectTrigger>
                   <SelectContent>
                     {pointsOfInterest.map((poi) => (
@@ -1123,7 +1125,7 @@ export function ShoppingList({
               </div>
               <div className="space-y-2">
                 <div className="flex items-center justify-items-start gap-2">
-                  <Label>Image (Optional)</Label>
+                  <Label>{t(`image`)}</Label>
                   <Button
                     variant="outline"
                     size="icon"
@@ -1167,18 +1169,18 @@ export function ShoppingList({
                   </AlertDialogTrigger>
                   <AlertDialogContent>
                     <AlertDialogHeader>
-                      <AlertDialogTitle>Delete</AlertDialogTitle>
+                      <AlertDialogTitle>{ct("delete")} - {currentItem.name}</AlertDialogTitle>
                       <AlertDialogDescription>
-                        This will permanently delete this shopping item.
+                        {t(`deleteConfirmation`)}
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogCancel>{ct("cancel")}</AlertDialogCancel>
                       <AlertDialogAction
                         onClick={handleDeleteItem}
                         className="bg-destructive hover:bg-destructive/90"
                       >
-                        Delete
+                        {ct("delete")}
                       </AlertDialogAction>
                     </AlertDialogFooter>
                   </AlertDialogContent>
@@ -1188,7 +1190,7 @@ export function ShoppingList({
                 onClick={currentItem ? handleUpdateItem : handleAddItem}
                 className="w-full"
               >
-                {currentItem ? "Save Changes" : "Add Item"}
+                {currentItem ? t("saveChanges") : t("addNewItem")}
               </Button>
             </DialogFooter>
           </DialogContent>

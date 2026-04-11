@@ -19,3 +19,10 @@ export const timeToMinutes = (time?: string | null) => {
   if (Number.isNaN(hh) || Number.isNaN(mm)) return Number.MAX_SAFE_INTEGER;
   return hh * 60 + mm;
 };
+
+export const formatTimeHHMM = (time: string | null): string => {
+  if (!time) return "--:--";
+  
+  // Simply take the first 5 characters
+  return time.slice(0, 5);
+};

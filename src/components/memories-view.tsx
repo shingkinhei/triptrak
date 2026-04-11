@@ -37,6 +37,8 @@ import {
 import Compressor from "compressorjs";
 import type { Trip, TripDayPhotos, ItineraryItem } from "@/lib/types";
 import { formatMMDD } from "@/context/DateFormat";
+import { useTranslations } from 'next-intl';
+
 
 const compressFile = (file: File): Promise<File> => {
   return new Promise((resolve, reject) => {
@@ -73,6 +75,8 @@ export const MemoriesView: FC<MemoriesViewProps> = ({ trip, setTrip }) => {
   const [photoToDelete, setPhotoToDelete] = useState<TripDayPhotos | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const router = useRouter();
+  const t = useTranslations('memoriesView');
+  const ct = useTranslations('common');
 
   useEffect(() => {
     const ensureItinerary = async () => {
@@ -155,7 +159,7 @@ export const MemoriesView: FC<MemoriesViewProps> = ({ trip, setTrip }) => {
 
       const { error: uploadError } = await supabase.storage
         .from("day_feedback")
-        .upload(filePath, compressedFile); // 使用壓縮後的檔案
+        .upload(filePath, compressedFile);
 
       if (uploadError) throw uploadError;
 
@@ -289,7 +293,7 @@ export const MemoriesView: FC<MemoriesViewProps> = ({ trip, setTrip }) => {
         <div>
 
           <h1 className="text-2xl font-bold font-headline text-primary-foreground">
-            Photos & Memories
+            {t(`title`)}
           </h1>
         </div>
       </header>
@@ -327,7 +331,7 @@ export const MemoriesView: FC<MemoriesViewProps> = ({ trip, setTrip }) => {
             className="bg-white/10 border-white/20 text-white hover:bg-white/20 hover:text-white shrink-0 h-9"
           >
             <Upload className="h-4 w-4 mr-2" />
-            {isUploading ? "Uploading..." : "Upload"}
+            {isUploading ? ct("uploading") : ct("upload")}
           </Button>
         </div>
       </div>
@@ -337,7 +341,7 @@ export const MemoriesView: FC<MemoriesViewProps> = ({ trip, setTrip }) => {
           <div>
             <Camera className="mx-auto mb-2 h-8 w-8 text-primary" />
             <p className="text-sm text-primary-foreground">
-              No memories yet. Upload some photos to start your trip gallery.
+              {t("noMemories")}
             </p>
           </div>
         </div>

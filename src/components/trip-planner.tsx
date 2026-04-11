@@ -91,7 +91,8 @@ import { match } from "assert/strict";
 import { getAiPlan } from "@/api/generateDayActivities";
 import { PreTripChecklist } from "./pre-trip-checklist";
 import { LoadingOverlay } from "./loading-overlay";
-import { formatMMDD, timeToMinutes} from "@/context/DateFormat";
+import { formatMMDD, timeToMinutes , formatTimeHHMM } from "@/context/DateFormat";
+import { useTranslations } from 'next-intl';
 // import { DayActivities } from "./day-activities";
 import { set } from "lodash";
 
@@ -159,6 +160,8 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
   const router = useRouter();
   const supabase = createClient();
   const { toast } = useToast();
+  const t = useTranslations("tripPlanner");
+  const ct = useTranslations('common');
 
   useEffect(() => {
     const fetchActivityOptions = async () => {
@@ -947,7 +950,7 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
           variant="outline"
           className="bg-white/10 border-white/20 text-white hover:bg-white/20 hover:text-white shrink-0"
         >
-          <Plus className="mr-2 h-4 w-4" /> Add Day
+          <Plus className="mr-2 h-4 w-4" /> {t("addDay")}
         </Button>
       </header>
           <div className={`border-b border-white/20 ${checklistOpen ? "bg-white/80 rounded-lg border-b-0" : ""}`}>
@@ -984,7 +987,7 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
               )}
             >
               <span className={cn("font-medium")}>{formatMMDD(item.date)}</span>
-              <span className={cn("font-bold")}>Day {item.day_number}</span>
+              <span className={cn("font-bold")}>{t("dayNumber", {dayNumber:item.day_number})}</span>
             </Button>
           ))}
         </div>
@@ -1047,7 +1050,7 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
 
                       <div className="flex flex-col gap-0">
                         <div>
-                          <p className="font-semibold text-card-foreground">{activity.time} </p>
+                          <p className="font-semibold text-slate-700">{formatTimeHHMM(activity.time)} </p>
                         </div>
                         <div className="flex items-center">
                           <p className="font-semibold text-primary">{activity.name} 
@@ -1080,8 +1083,8 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
                           }}
                         >
                           <button 
-                          className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gray-200 text-gray-500 hover:bg-gray-400 hover:text-white transition-colors ",
-                            !activity.address ? "pointer-events-none bg-gray-100 text-gray-300" : "bg-gray-200 text-gray-500 hover:bg-gray-400 hover:text-white")}
+                          className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gray-200 text-gray-500 hover:bg-primary hover:text-white transition-colors ",
+                            !activity.address ? "pointer-events-none bg-gray-100 text-gray-300" : "bg-gray-200 text-gray-500 hover:bg-primary hover:text-white")}
                           >
                           <Map className="h-5 w-5"/>
                         </button>
@@ -1097,10 +1100,10 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
               <div className="flex justify-center items-center gap-2">
                 <a
                    onClick={handleAddActivity}
-                  className="bg-white border-white text-slate-600 hover:bg-primary hover:text-white shrink-0 flex flex-col lg:flex-row justify-center items-center gap-3 p-4 rounded-lg hover:cursor-pointer"
+                  className="bg-gray-200 border-white text-slate-600 hover:bg-primary hover:text-white shrink-0 flex flex-col lg:flex-row justify-center items-center gap-3 p-4 rounded-lg hover:cursor-pointer transition-colors"
                 >
                   <CirclePlus className=" h-8 w-8" /> 
-                  <span className="text-xl font-bold">Add Activity</span>
+                  <span className="text-xl font-bold">{t("addNewActivity")}</span>
                 </a>
               </div>
               {item.feedback && (
@@ -1122,11 +1125,11 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
         >
           <DialogContent className="max-h-[90vh] flex flex-col shadow-lg">
             <DialogHeader>
-              <DialogTitle>Day {editingItem.day_number}: {editingItem.date}</DialogTitle>
+              <DialogTitle>{t("dayNumber", {dayNumber : editingItem.day_number})} : {editingItem.date}</DialogTitle>
             </DialogHeader>
             <div className="flex flex-col gap-4 overflow-y-auto max-h-[70vh] pl-1 pr-4">
               <div className="space-y-2">
-                <Label htmlFor="title">Title</Label>
+                <Label htmlFor="title">{t("dayTitle")}</Label>
                 <Input
                   id="title"
                   value={editingItem.title}
@@ -1151,14 +1154,14 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
                 onActivityChange={handleActivityChange}
               /> */}
                 <div className="space-y-2">
-                  <Label htmlFor="remarks">Feedback</Label>
+                  <Label htmlFor="remarks">{t("feedback")}</Label>
                   <Textarea
                     id="remarks"
                     value={editingItem.feedback || ""}
                     onChange={(e) =>
                       handleFieldChange("feedback", e.target.value)
                     }
-                    placeholder="Write your feelings or reflections..."
+                    placeholder={t("feedbackPlaceholder")}
                   />
                 </div>
               </div>
@@ -1167,7 +1170,7 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
               <div  className="flex gap-2">
                 <Button variant="outline" onClick={handleOpenAiPlan} className="w-full">
                   <Brain className="h-4 w-4" />
-                  AI Plan
+                  {t("aiPlan")}
                 </Button>
               </div>
               <div className="flex gap-2 justify-around">
@@ -1180,19 +1183,18 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
                     </AlertDialogTrigger>
                     <AlertDialogContent>
                       <AlertDialogHeader>
-                        <AlertDialogTitle>Delete Day</AlertDialogTitle>
+                        <AlertDialogTitle>{t("deleteDay", {dayNumber : editingItem.day_number})}</AlertDialogTitle>
                         <AlertDialogDescription>
-                          This will permanently delete the day, its activities,
-                          and photos. This action cannot be undone.
+                          {t("deleteDayWarning")}
                         </AlertDialogDescription>
                       </AlertDialogHeader>
                       <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogCancel>{ct("cancel")}</AlertDialogCancel>
                         <AlertDialogAction
                           onClick={handleDeleteDay}
                           className="bg-destructive hover:bg-destructive/90"
                         >
-                          Delete Day
+                          {ct("delete")}
                         </AlertDialogAction>
                       </AlertDialogFooter>
                     </AlertDialogContent>
@@ -1204,7 +1206,7 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
                 </Button>
               </div> */}
                 <div className="w-full">
-                  <Button onClick={handleSave} className="w-full">Save Changes</Button>
+                  <Button onClick={handleSave} className="w-full">{t("addDay")}</Button>
                 </div>
               </div>
             </DialogFooter>
@@ -1222,18 +1224,18 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
       >
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>AI Trip Preferences</DialogTitle>
+            <DialogTitle>{t("aiPlan")}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3 py-2">
             <p className="text-sm text-muted-foreground">
-              Choose the preferences to guide the AI itinerary suggestions. 
+              {t("aiTripPreferencesDescription")} 
             </p>
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
               <p className="text-sm font-semibold text-blue-900">
-                Remaining AI Requests: <span className="text-lg font-bold text-blue-600">{Math.max(0, localAiRateLimit - localAiRate)}/{localAiRateLimit}</span>
+                {ct("remainingAiRequests")} <span className="text-lg font-bold text-blue-600">{Math.max(0, localAiRateLimit - localAiRate)}/{localAiRateLimit}</span>
               </p>
               {localAiRateLimit - localAiRate <= 0 && (
-                <p className="text-xs text-red-600 mt-1">You have reached your daily AI limit. Try again tomorrow.</p>
+                <p className="text-xs text-red-600 mt-1">{ct("reacheAILimitTmr")}</p>
               )}
             </div>
             <div className="flex items-center gap-2">
@@ -1265,11 +1267,11 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Label>Suggestion</Label>
+                  <Label className="w-1/6">{ct("suggestions")}</Label>
                   <Input
                     id="ai-suggestions"
                     type="text"
-                    placeholder="Add more local food spots?"
+                    placeholder={ct("suggestionsPlaceholder")}
                     value= {aiPreferences.suggestions || ""}
                     onChange={(e) =>
                       handleAiPlanChange("suggestions", e.target.value)
@@ -1284,9 +1286,9 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
             <Button 
               onClick={handleApplyAiPlan}
               disabled={isAiPlanLoading || (localAiRateLimit - localAiRate <= 0)}
-              title={localAiRateLimit - localAiRate <= 0 ? "You have reached your daily AI limit" : ""}
+              title={localAiRateLimit - localAiRate <= 0 ? ct("reacheAILimit") : ""}
             >
-              {isAiPlanLoading ? "Generating..." : localAiRateLimit - localAiRate <= 0 ? "Limit Reached" : "Apply"}
+              {isAiPlanLoading ? ct("Generateloading") : localAiRateLimit - localAiRate <= 0 ? ct("limitReached") : ct("Apply")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1304,13 +1306,24 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
                 <DialogContent>
                   <DialogHeader>
                     <DialogTitle>
-                      {currentEditingActivity ? "Edit Activity" : "Add New Activity"}
+                      {currentEditingActivity ? t("editActivity") + " - " + currentEditingActivity?.name : t("addNewActivity")}
                     </DialogTitle>
                   </DialogHeader>
       
                   <div className="grid gap-4 py-4">
                     <div className="grid gap-2">
-                      <Label htmlFor="act-type">Activity Type</Label>
+                      <Label htmlFor="act-name">{t("activityName")}*</Label>
+                      <Input
+                        id="act-name"
+                        value={activityFormData?.name || ""}
+                        onChange={(e) =>
+                          setActivityFormData({ ...activityFormData, name: e.target.value })
+                        }
+                        placeholder={t("activityNamePlaceholder")}
+                      />
+                    </div>                    
+                    <div className="grid gap-2">
+                      <Label htmlFor="act-type">{t("activityType")}*</Label>
                       <Select
                         value={activityFormData?.activity_type || "Sightseeing"}
                         onValueChange={(val) =>
@@ -1339,7 +1352,7 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
                     </div>
       
                     <div className="grid gap-2">
-                      <Label htmlFor="act-time">Time</Label>
+                      <Label htmlFor="act-time">{t("activityTime")}*</Label>
                       <Input
                         id="act-time"
                         type="time"
@@ -1348,22 +1361,9 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
                           setActivityFormData({ ...activityFormData, time: e.target.value })
                         }
                       />
-                    </div>
-      
+                    </div>      
                     <div className="grid gap-2">
-                      <Label htmlFor="act-name">Activity Name*</Label>
-                      <Input
-                        id="act-name"
-                        value={activityFormData?.name || ""}
-                        onChange={(e) =>
-                          setActivityFormData({ ...activityFormData, name: e.target.value })
-                        }
-                        placeholder="e.g. Visit Museum"
-                      />
-                    </div>
-      
-                    <div className="grid gap-2">
-                      <Label htmlFor="act-desc">Description</Label>
+                      <Label htmlFor="act-desc">{t("activityDescription")}</Label>
                       <Input
                         id="act-desc"
                         value={activityFormData?.description || ""}
@@ -1373,12 +1373,12 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
                             description: e.target.value,
                           })
                         }
-                        placeholder="Activity details"
+                        placeholder={t("activityDescriptionPlaceholder")}
                       />
                     </div>
       
                     <div className="grid gap-2">
-                      <Label htmlFor="act-addr">Address</Label>
+                      <Label htmlFor="act-addr">{t("activityAddress")}</Label>
                       <Input
                         id="act-addr"
                         value={activityFormData?.address || ""}
@@ -1388,7 +1388,7 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
                             address: e.target.value,
                           })
                         }
-                        placeholder="Location"
+                        placeholder={t("activityAddressPlaceholder")}
                       />
                     </div>
                   </div>
@@ -1422,7 +1422,7 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
                       </AlertDialog>
                     )}
                     <Button type="button" onClick={handleSaveActivity} className="w-full">
-                      {currentEditingActivity ? "Save Changes" : "Add Activity"}
+                      {currentEditingActivity ? t("saveChanges") : t("addActivity")}
                     </Button>
                   </DialogFooter>
                 </DialogContent>

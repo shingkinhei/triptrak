@@ -1,5 +1,6 @@
 "use client";
 import { use, useEffect, useState, useRef, useMemo } from "react";
+import {useTranslations} from 'next-intl';
 import {
   Pie,
   PieChart,
@@ -251,6 +252,8 @@ export function ExpenseTracker({ trip }: ExpenseTrackerProps) {
   >({});
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [chartConfig, setChartConfig] = useState<ChartConfig>({});
+  const t = useTranslations('expenseTracker');
+  const ct = useTranslations('common');
 
   const router = useRouter();
   const supabase = createClient();
@@ -655,7 +658,7 @@ export function ExpenseTracker({ trip }: ExpenseTrackerProps) {
         </Button>
         <div>
           <h1 className="text-2xl font-bold font-headline text-primary-foreground">
-            Expense Tracker
+            {t('title')}
           </h1>
         </div>
       </header>
@@ -665,7 +668,7 @@ export function ExpenseTracker({ trip }: ExpenseTrackerProps) {
           <div className="flex justify-between items-start">
             <div>
               <CardDescription>
-                Total Expenses ({currentCurrency})
+                 {t('totalExpenses')} ({currentCurrency})
               </CardDescription>
               <CardTitle className="text-card-foreground">
                 {currentFormatter(totalExpensesInCurrent)}
@@ -774,7 +777,7 @@ export function ExpenseTracker({ trip }: ExpenseTrackerProps) {
 
       <div className="flex justify-between items-center">
         <h2 className="font-semibold font-headline text-primary-foreground">
-          Recent Transactions
+          {t('recentTransactions')}
         </h2>
         <Button
               size="sm"
@@ -782,7 +785,7 @@ export function ExpenseTracker({ trip }: ExpenseTrackerProps) {
               className="bg-white/10 border-white/20 text-white hover:bg-white/20 hover:text-white"
               onClick={() => setIsEditDialogOpen(true)}
             >
-              <Plus className="mr-2 h-4 w-4" /> Add
+              <Plus className="mr-2 h-4 w-4" /> {ct('add')}
             </Button>
         {/* <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
           <DialogTrigger asChild>
@@ -989,7 +992,7 @@ export function ExpenseTracker({ trip }: ExpenseTrackerProps) {
             </DialogHeader>
             <div className="grid gap-4 py-4 overflow-y-auto max-h-[70vh] pl-1 pr-4">
               <div className="space-y-2">
-                <Label htmlFor="item-name">Item Name</Label>
+                <Label htmlFor="item-name">{t(`itemName`)}</Label>
                 <Input
                   id="item-name"
                   value={editExpenseFormData?.name || ""}
@@ -1001,7 +1004,7 @@ export function ExpenseTracker({ trip }: ExpenseTrackerProps) {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="item-price">
-                  Price (
+                  {t(`price`)} (
                   {displayCurrency === "trip" ? tripCurrency : homeCurrency})
                 </Label>
               </div>
@@ -1034,7 +1037,7 @@ export function ExpenseTracker({ trip }: ExpenseTrackerProps) {
                   </Button>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="date">Date*</Label>
+                <Label htmlFor="date">{t(`date`)}*</Label>
                 <Input
                   id="date"
                   type="date"
@@ -1045,7 +1048,7 @@ export function ExpenseTracker({ trip }: ExpenseTrackerProps) {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="item-category">Category</Label>
+                <Label htmlFor="item-category">{t(`category`)}</Label>
                 <Select
                   value={editExpenseFormData?.expense_category || ""}
                   onValueChange={(value) =>
@@ -1086,13 +1089,13 @@ export function ExpenseTracker({ trip }: ExpenseTrackerProps) {
                   </AlertDialogTrigger>
                   <AlertDialogContent>
                     <AlertDialogHeader>
-                      <AlertDialogTitle>Delete</AlertDialogTitle>
+                      <AlertDialogTitle>{ct(`delete`)}</AlertDialogTitle>
                       <AlertDialogDescription>
-                        This will permanently delete this shopping item.
+                        {t(`deleteExpense`)}
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogCancel>{ct(`cancel`)}</AlertDialogCancel>
                       <AlertDialogAction
                         onClick={handleDeleteExpense}
                         className="bg-destructive hover:bg-destructive/90"
@@ -1110,7 +1113,7 @@ export function ExpenseTracker({ trip }: ExpenseTrackerProps) {
                   Cancel
                 </Button> */}
                 <Button onClick={handleUpdateExpense} className="w-full">
-                  {editingExpense ? "Add New Expense" : "Save Changes"}
+                  {editingExpense ? t(`saveChanges`) : t(`addExpense`)}
                 </Button>
             </DialogFooter>
           </DialogContent>

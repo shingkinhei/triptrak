@@ -1,13 +1,14 @@
+import createMiddleware from "next-intl/middleware";
+import { routing } from "@/i18n/routing";
+import { createServerClient, type CookieOptions } from "@supabase/ssr";
+import { NextResponse, type NextRequest } from "next/server";
 
-import { createServerClient, type CookieOptions } from '@supabase/ssr'
-import { NextResponse, type NextRequest } from 'next/server'
+const intlMiddleware = createMiddleware(routing);
 
 export async function middleware(request: NextRequest) {
-  let response = NextResponse.next({
-    request: {
-      headers: request.headers,
-    },
-  })
+  const pathname = request.nextUrl.pathname;
+
+  let response = intlMiddleware(request);
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -15,54 +16,52 @@ export async function middleware(request: NextRequest) {
     {
       cookies: {
         get(name: string) {
-          return request.cookies.get(name)?.value
+          return request.cookies.get(name)?.value;
         },
         set(name: string, value: string, options: CookieOptions) {
-          // If the cookie is generated on the server, set it on the response
-          response.cookies.set({
-            name,
-            value,
-            ...options,
-          })
+          response.cookies.set({ name, value, ...options });
         },
         remove(name: string, options: CookieOptions) {
-          // If the cookie is removed on the server, remove it from the response
-          response.cookies.set({
-            name,
-            value: '',
-            ...options,
-          })
+          response.cookies.set({ name, value: "", ...options });
         },
       },
     }
-  )
+  );
 
   const {
     data: { user },
-  } = await supabase.auth.getUser()
+  } = await supabase.auth.getUser();
 
-  // if user is signed in and the current path is not an auth page, redirect to /
-  if (user && ['/login', '/signup', '/forgot-password'].includes(request.nextUrl.pathname)) {
-    return NextResponse.redirect(new URL('/trips', request.url))
+  const localeMatch = pathname.match(/^\/(en|zh-TW)/);
+  const locale = localeMatch ? localeMatch[1] : routing.defaultLocale;
+
+  const authPages = ["login", "signup", "forgot-password"];
+  const isAuthPage = authPages.some((page) => pathname.includes(`/${page}`));
+
+  const isLocalizedRoot = /^\/(en|zh-TW)\/?$/.test(pathname);
+
+  if (user && isAuthPage) {
+    const url = request.nextUrl.clone();
+    url.pathname = `/${locale}/trips`;
+    return NextResponse.redirect(url);
   }
 
-  // if user is not signed in and the current path is not / or an auth page, redirect to login
-  if (!user && !['/', '/login', '/signup', '/forgot-password'].includes(request.nextUrl.pathname)) {
-     return NextResponse.redirect(new URL('/login', request.url))
+  if (
+    !user &&
+    !isAuthPage &&
+    !isLocalizedRoot &&
+    /^\/(en|zh-TW)\//.test(pathname)
+  ) {
+    const url = request.nextUrl.clone();
+    url.pathname = `/${locale}/login`;
+    return NextResponse.redirect(url);
   }
 
-  return response
+  return response;
 }
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - images/ (public asset folder)
-     */
-    '/((?!_next/static|_next/image|favicon.ico|images/).*)',
+    "/((?!_next/static|_next/image|favicon.ico|images/|api/).*)",
   ],
-}
+};
