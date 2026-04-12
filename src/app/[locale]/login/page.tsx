@@ -117,7 +117,7 @@ export default function LoginPage() {
             </Button>
             <Button variant="outline" className="w-full" onClick={handleFacebookLogin}>
                 <Facebook className="mr-2 h-4 w-4" />
-                Login with Facebook
+                {t('loginWithFacebook')}
             </Button>
             </div>
             <div className="mt-4 text-center text-sm">

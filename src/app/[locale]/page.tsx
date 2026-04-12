@@ -26,10 +26,10 @@ export default function Home() {
 
   const ct = useTranslations('common');
   return (
-    <main className="flex min-h-screen gap-2 items-center justify-center p-4 font-body bg-background">
+    <main className="flex flex-col min-h-screen gap-2 items-center justify-center p-4 font-body bg-background">
       <Loader2 className="h-10 w-10 animate-spin text-primary" />
       <div className="text-center">
-        <p>ct('loading')</p>
+        <p>{ct('loading')}</p>
       </div>
     </main>
   );

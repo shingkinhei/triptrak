@@ -88,7 +88,8 @@
     "signupTitle": "建立您的帳戶",
     "loginTitle": "歡迎回來",
     "dontHaveAnAccount?": "還沒有帳戶?",
-    "loginAsGuest": "以遊客身份登錄"
+    "loginAsGuest": "以遊客身份登錄",
+    "loginWithFacebook": "使用Facebook登錄"
   },
   "memoriesView": {
     "title": "照片與回憶",

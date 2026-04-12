@@ -198,7 +198,7 @@ export default function TripsPage() {
           .from('users_info')
           .select('display_name').eq('user_id', user.id).single();
          const displayName = usersInfoData?.display_name || user.user_metadata.full_name;
-         setUserName(displayName ? displayName : 'My');
+         setUserName(displayName ? displayName : '');
       }
     };
     fetchUser();

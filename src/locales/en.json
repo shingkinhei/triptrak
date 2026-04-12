@@ -88,7 +88,8 @@
     "signupTitle": "Create your account",
     "loginTitle": "Welcome back",
     "dontHaveAnAccount?": "Don&apos;t have an account?",
-    "loginAsGuest": "Login as Guest"
+    "loginAsGuest": "Login as Guest",
+    "loginWithFacebook": "Login with Facebook"
   },
   "memoriesView": {
     "title": "Photos & Memories",
