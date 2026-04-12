@@ -322,7 +322,7 @@ export default function SettingsPage() {
              <div className="space-y-4 pt-4">
                  <Button variant="destructive" className="w-full" onClick={handleLogout}>
                     <LogOut className="mr-2 h-4 w-4" />
-                    Logout
+                    {t("logout")}
                 </Button>
             </div>
         </div>

@@ -2,7 +2,7 @@
   "common": {
     "language": "語言",
     "english": "English",
-    "chineseTraditional": "中文 (繁体)",
+    "chineseTraditional": "中文 (繁體)",
     "save": "保存",
     "cancel": "取消",
     "delete": "刪除",
@@ -86,7 +86,9 @@
     "password": "密碼",
     "confirmPassword": "確認密碼",
     "signupTitle": "建立您的帳戶",
-    "loginTitle": "歡迎回來"
+    "loginTitle": "歡迎回來",
+    "dontHaveAnAccount?": "還沒有帳戶?",
+    "loginAsGuest": "以遊客身份登錄"
   },
   "memoriesView": {
     "title": "照片與回憶",
@@ -161,7 +163,8 @@
     "activityAddress":"地址",
     "activityAddressPlaceholder":"輸入地址...",
     "addActivity":"添加活動",
-    "saveChanges":"保存更改"
+    "saveChanges":"保存更改",
+    "preTripChecklist": "預備清單"
   },
   "settings": {
     "title": "設定",
@@ -186,6 +189,6 @@
     "languageUpdated": "語言已更新",
     "languageUpdatedDescription": "您的主要語言偏好已儲存。",
     "languageUpdateError": "無法更新語言",
-    "Logout": "登出"
+    "logout": "登出"
   }
 }

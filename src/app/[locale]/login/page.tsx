@@ -40,6 +40,20 @@ export default function LoginPage() {
         }
     };
 
+     const handleGuestLogin = async () => {
+        const { data, error } = await supabase.auth.signInAnonymously();
+
+        if (error) {
+            toast({
+                title: 'Error logging in',
+                description: error.message,
+                variant: 'destructive',
+            });
+        } else {
+            router.push(`/${locale}/trips`);
+            router.refresh();
+        }
+    };
     const handleFacebookLogin = async () => {
         const { error } = await supabase.auth.signInWithOAuth({
             provider: 'facebook',
@@ -98,13 +112,16 @@ export default function LoginPage() {
             <Button type="submit" className="w-full" onClick={handleLogin}>
                 {t('login')}
             </Button>
+            <Button variant="outline" className="w-full" onClick={handleGuestLogin}>
+                {t('loginAsGuest')}
+            </Button>
             <Button variant="outline" className="w-full" onClick={handleFacebookLogin}>
                 <Facebook className="mr-2 h-4 w-4" />
                 Login with Facebook
             </Button>
             </div>
             <div className="mt-4 text-center text-sm">
-            Don&apos;t have an account?{' '}
+            {t("dontHaveAnAccount?")}{' '}
             <Link href={`/${locale}/signup`} className="underline">
                 {t('signup')}
             </Link>

@@ -44,7 +44,7 @@ ${todaysContext}
 ALREADY PLANNED ON OTHER DAYS (DO NOT DUPLICATE THESE):
 ${alreadyPlannedContext}
 
-USER PREFERENCE: the whole trip not only mainly focus on ${user_preference}, but also may be include 'Accommodation','Outdoor','City','Event','Food','Plane','Sightseeing'.
+USER PREFERENCE: the whole trip not only mainly focus on ${user_preference}, but also maybe include 'Accommodation','Outdoor','City','Event','Food','Plane','Sightseeing'.Each activity should be one of the following: 'Accommodation','Outdoor','City','Event','Food','Plane','Sightseeing'.
 User Request: ${user_suggestion || "No further request"}
 
 Provide NEW activity suggestions for TODAY.

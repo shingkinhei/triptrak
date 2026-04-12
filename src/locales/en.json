@@ -86,7 +86,9 @@
     "password": "Password",
     "confirmPassword": "Confirm Password",
     "signupTitle": "Create your account",
-    "loginTitle": "Welcome back"
+    "loginTitle": "Welcome back",
+    "dontHaveAnAccount?": "Don&apos;t have an account?",
+    "loginAsGuest": "Login as Guest"
   },
   "memoriesView": {
     "title": "Photos & Memories",
@@ -161,7 +163,8 @@
     "activityAddress":"Address",
     "activityAddressPlaceholder":"Enter address...",
     "addActivity":"Add Activity",
-    "saveChanges":"Save Changes"
+    "saveChanges":"Save Changes",
+    "preTripChecklist": "Pre-Trip Checklist"
   },
   "settings": {
     "title": "Settings",
@@ -186,6 +189,6 @@
     "languageUpdated": "Language updated",
     "languageUpdatedDescription": "Your home language preference has been saved.",
     "languageUpdateError": "Could not update language",
-    "Logout": "Logout"
+    "logout": "Logout"
   }
 }

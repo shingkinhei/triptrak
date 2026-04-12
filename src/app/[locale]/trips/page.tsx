@@ -1168,7 +1168,7 @@ export default function TripsPage() {
               disabled={isAiTripLoading || (localAiRateLimit - localAiRate <= 0)}
               title={localAiRateLimit - localAiRate <= 0 ? t("reacheAILimit") : ""}
             >
-              {isAiTripLoading ? "Generating..." : localAiRateLimit - localAiRate <= 0 ? t("limitReached") : t("Apply")}
+              {isAiTripLoading ? ct("aiIsThinking") : localAiRateLimit - localAiRate <= 0 ? ct("limitReached") : ct("Apply")}
             </Button> 
           </DialogFooter>
         </DialogContent>
@@ -1177,7 +1177,7 @@ export default function TripsPage() {
       {isAiTripLoading &&
         <LoadingOverlay
           isLoading={isAiTripLoading}
-          message="AI is thinking..."
+          message="aiIsThinking"
         /> 
       }
     </main>

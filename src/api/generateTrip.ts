@@ -15,7 +15,7 @@ export async function getAiTrip(start_date:string, end_date:string, country_code
         "messages": [
           {
             "role": "user",
-            "content": `You are a professional tour guide. Please provide suggestions based on the user's new itinerary. Please be sure to return array objects in plain JSON format.\nDay Information:${start_date} to ${end_date}\n Country: ${country_code}\nDestination: ${destination}\nUser Preferences: the whole trip not only mainly focus on ${user_preference},but also may be include 'Accommodation','Outdoor','City','Event','Food','Plane','Sightseeing'. \nUser Request: ${user_suggestion || "No further request"}\nPlease provide suggested activities that match the following JSON format:
+            "content": `You are a professional tour guide. Please provide suggestions based on the user's new itinerary. Please be sure to return array objects in plain JSON format.\nDay Information:${start_date} to ${end_date}\n Country: ${country_code}\nDestination: ${destination}\nUser Preferences: the whole trip not only mainly focus on ${user_preference},but also maybe include 'Accommodation','Outdoor','City','Event','Food','Plane','Sightseeing'. Each activity should be one of the following: 'Accommodation','Outdoor','City','Event','Food','Plane','Sightseeing'.\nUser Request: ${user_suggestion || "No further request"}\nPlease provide suggested activities that match the following JSON format:
             [{"day": "YYYY-MM-DD", "time": "HH:mm:ss", "name": "...", "description": "...", "activity_type": "must be one of the activity options", "address": "..."}]`
           }
         ],

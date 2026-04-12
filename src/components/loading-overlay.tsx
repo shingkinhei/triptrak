@@ -10,7 +10,7 @@ interface LoadingOverlayProps {
 
 export function LoadingOverlay({ 
   isLoading, 
-  message = "aiIsThinking", 
+  message = 'aiIsThinking', 
   className 
 }: LoadingOverlayProps) {
   

@@ -154,7 +154,7 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
     suggestions: null,
   });
   const [aiPreferencesOptions, setAIPreferencesOptions] = useState<ActivityOptions[]>([]);
-  const [activeView, setActiveView] = useState<string>("day-1");
+  const [activeView, setActiveView] = useState<string>("");
   const [checklistOpen, setChecklistOpen] = useState(false);
   const [activityOptions, setActivityOptions] = useState<ActivityOptions[]>([]);
   const router = useRouter();
@@ -223,11 +223,11 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
         activities: (day.activities || []).sort((a: Activity, b: Activity) =>
           a.time.localeCompare(b.time)
         ),
-        tripDayPhotos: (day.tripDayPhotos || []).sort(
-          (a: TripDayPhotos, b: TripDayPhotos) => (a.seq ?? 0) - (b.seq ?? 0)
-        ),
       }));
+
+      // setItinerary(sortedDays as ItineraryItem[]);
       setItinerary(sortedDays as ItineraryItem[]);
+      setActiveView(sortedDays[0].day_uuid);
     };
 
     fetchChecklist();
@@ -476,10 +476,54 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
       //AI Rate limit handling - this is a fallback in case the backend doesn't enforce it
       const { error: rateLimitError } = await supabase
         .from("users_info")
-        .update({ ai_rate_count: aiRate + 1 })
+        .update({ ai_rate_count: aiRateCheck + 1 })
         .eq("user_id", user?.id);
       if (rateLimitError) {
         throw new Error(rateLimitError.message || "Failed to update AI rate");
+      }
+
+      // add New Trip day to supabase
+      const itemToSave = { ...editingItem, day_uuid: editingItem.day_uuid|| uuidv4()};
+      const originalDay = itinerary.find(
+        (d) => d.day_uuid === itemToSave.day_uuid
+      );
+
+      if (!originalDay) {
+        const dayInsertPayload = {
+          day_uuid: itemToSave.day_uuid,
+          trip_uuid: trip.trip_uuid,
+          day_number: itemToSave.day_number,
+          title: itemToSave.title,
+          date: itemToSave.date,
+          feedback: itemToSave.feedback,
+          user_id: user.id,
+        };
+
+        const { data: insertedDay, error: insertErr } = await supabase
+          .from("trip_days")
+          .insert(dayInsertPayload)
+          .select()
+          .single();
+
+        if (insertErr) {
+          throw new Error(insertErr.message || "Error saving day");
+        }
+
+        } else {
+        const dayUpdatePayload = {
+          title: itemToSave.title,
+          date: itemToSave.date,
+          feedback: itemToSave.feedback,
+        };
+
+        const { error: dayError } = await supabase
+          .from("trip_days")
+          .update(dayUpdatePayload)
+          .eq("day_uuid", itemToSave.day_uuid);
+
+        if (dayError) {
+          throw new Error(dayError.message || "Error saving day");
+        }
       }
 
       // Convert AI response to Activity objects
@@ -487,7 +531,7 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
       const aiActivities: Activity[] = Array.isArray(result)
         ? result.map((activity: any) => ({
             activity_uuid: uuidv4(),
-            day_uuid: editingItem.day_uuid,
+            day_uuid: itemToSave.day_uuid,
             name: activity.name || "",
             time: activity.time || "00:00",
             description: activity.description || "",
@@ -502,7 +546,7 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
       const { error: deleteError } = await supabase
         .from("activities")
         .delete()
-        .eq("day_uuid", editingItem.day_uuid);
+        .eq("day_uuid", itemToSave.day_uuid);
       if (deleteError) {
         throw new Error(deleteError.message || "Failed to delete activities");
       }
@@ -515,41 +559,52 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
         throw new Error(insertError.message || "Failed to insert activities");
       }
 
+      //resequence trip days
+      await resequenceAndUpdateTripDates(trip.trip_uuid);
+
       // Refresh the entire day with all updated activities
       const { data: refreshedDay, error: refreshErr } = await supabase
         .from("trip_days")
         .select(`*, activities:activities (*)`)
-        .eq("day_uuid", editingItem.day_uuid)
+        .eq("day_uuid", itemToSave.day_uuid)
         .single();
 
       if (refreshErr) {
         throw new Error(refreshErr.message || "Failed to refresh day");
       }
 
-      if (refreshedDay) {
-        // Sort activities by time
-        const sortedActivities = Array.isArray(refreshedDay.activities)
-          ? [...refreshedDay.activities].sort((a: Activity, b: Activity) => 
-              (a.time || "00:00").localeCompare(b.time || "00:00")
-            )
-          : [];
+      console.log(refreshedDay);
+      const { data, error } = await supabase
+        .from("trip_days")
+        .select(`*, activities:activities (*)`)
+        .eq("trip_uuid", trip.trip_uuid)
+        .order("day_number", { ascending: true });
 
-        // Update itinerary with refreshed day
-        const newItinerary = itinerary.map((item) => {
-          if (item.day_uuid === editingItem.day_uuid) {
-            return {
-              ...refreshedDay,
-              activities: sortedActivities,
-            } as ItineraryItem;
-          }
-          return item;
+      if (error) {
+        toast({
+          title: "Error fetching itinerary",
+          description: error.message,
+          variant: "destructive",
         });
-        setItinerary(newItinerary);
+        return;
       }
 
-      setActiveView(`day-${editingItem?.day_number}`);
-        setActivityFormData(null);
-        handleCancelActivityDialog();
+      const sortedDays = (data || []).map((day: any) => ({
+        ...day,
+        activities: (day.activities || []).sort((a: Activity, b: Activity) =>
+          a.time.localeCompare(b.time)
+        ),
+      }));
+
+      // setItinerary(sortedDays as ItineraryItem[]);
+      setItinerary(sortedDays as ItineraryItem[]);
+
+      setActivityFormData(null);
+      handleCancelActivityDialog();
+      setTimeout(() => {
+        console.log(itinerary)
+        setActiveView(itemToSave.day_uuid);
+      }, 100);
 
       toast({
         title: "AI Plan Applied",
@@ -624,11 +679,11 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
       setIsEditDialogOpen(false);
       setEditingItem(null);
 
-      // Choose next active view: first available day or checklist
+      // Choose next active view: first available day or the first day
       if (newItinerary.length > 0) {
-        setActiveView(`day-${newItinerary[0].day_number}`);
+        setActiveView(newItinerary[0].day_uuid);
       } else {
-        setActiveView("day-1");
+        setActiveView("");
       }
 
       toast({ title: "Day deleted", description: `Day ${editingItem.day_number} removed.` });
@@ -733,7 +788,7 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
       day_uuid: uuidv4(),
       trip_uuid: trip.trip_uuid,
       day_number: newDayNumber,
-      title: `Day ${newDayNumber}`,
+      title: t(`dayNumber`, { dayNumber: newDayNumber }),
       date: newDateString,
     } as unknown as ItineraryItem;
 
@@ -742,7 +797,7 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
   };
 
   const activeItineraryItem = itinerary.find(
-    (item) => `day-${item.day_number}` === activeView
+    (item) => `${item.day_uuid}` === activeView
   );
 
   const handleCancelActivityDialog = () => {
@@ -960,7 +1015,7 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
           >
             <div className="flex items-center gap-2 text-lg font-headline text-card-foreground">
               <CheckCircle2 className="h-5 w-5 text-primary" />
-              <p className={`font-semibold ${checklistOpen ? "text-black" : "text-white"}`}>Pre-Trip Checklist</p>
+              <p className={`font-semibold ${checklistOpen ? "text-black" : "text-white"}`}>{t("preTripChecklist")}</p>
             </div>
             {checklistOpen ? (
               <ChevronUp className="h-4 w-4 text-primary" />
@@ -977,12 +1032,12 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
             <Button
               key={item.day_uuid}
               variant={
-                activeView === `day-${item.day_number}` ? "default" : "outline"
+                activeView === `${item.day_uuid}` ? "default" : "outline"
               }
-              onClick={() => setActiveView(`day-${item.day_number}`)}
+              onClick={() => setActiveView(`${item.day_uuid}`)}
               className={cn(
                 "shrink-0 w-16 h-16 rounded-full flex flex-col items-center justify-center text-center gap-0",
-                activeView !== `day-${item.day_number}` &&
+                activeView !== `${item.day_uuid}` &&
                   "bg-white/10 border-white/20 text-white hover:bg-white/20 hover:text-white"
               )}
             >
@@ -998,7 +1053,7 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
         <div
           key={item.day_uuid}
           className={cn(
-            activeView === `day-${item.day_number}` ? "block" : "hidden"
+            activeView === `${item.day_uuid}` ? "block" : "hidden"
           )}
         >
           <Card className="overflow-hidden bg-card/80 backdrop-blur-sm border-white/20 shadow-lg">
@@ -1288,7 +1343,7 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
               disabled={isAiPlanLoading || (localAiRateLimit - localAiRate <= 0)}
               title={localAiRateLimit - localAiRate <= 0 ? ct("reacheAILimit") : ""}
             >
-              {isAiPlanLoading ? ct("Generateloading") : localAiRateLimit - localAiRate <= 0 ? ct("limitReached") : ct("Apply")}
+              {isAiPlanLoading ? ct("aiIsThinking") : localAiRateLimit - localAiRate <= 0 ? ct("limitReached") : ct("Apply")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1431,7 +1486,7 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
             {isAiPlanLoading &&
               <LoadingOverlay
                 isLoading={isAiPlanLoading}
-                message="AI is thinking..."
+                message="aiIsThinking"
               /> 
             }
     </div>
