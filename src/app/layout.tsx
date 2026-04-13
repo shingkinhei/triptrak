@@ -2,9 +2,16 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "TripTrak",
-  description: "Your ultimate travel companion",
-};
+manifest: '/manifest.json',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'Trip Planner AI',
+  },
+  icons: {
+    apple: '/icon-192.png', 
+  },
+}
 
 export default function RootLayout({
   children,
