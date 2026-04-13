@@ -12,6 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Facebook } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { generateGuestMockTrip } from '@/lib/mock-data';
+import Image from 'next/image';
 
 export default function LoginPage() {
     const router = useRouter();
@@ -96,6 +97,7 @@ export default function LoginPage() {
     <main className="flex min-h-screen items-center justify-center bg-background p-4 font-body">
         <Card className="mx-auto w-full max-w-sm">
         <CardHeader>
+            <div className="flex justify-center"><Image src="/images/logo.png" alt="logo" width={150} height={150} /></div>
             <CardTitle className="text-2xl font-headline">{t('loginTitle')}</CardTitle>
             <CardDescription>
             {t('login')}
