@@ -11,6 +11,7 @@ import { createClient } from '@/lib/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Facebook } from 'lucide-react';
 import { useTranslations } from 'next-intl';
+import { generateGuestMockTrip } from '@/lib/mock-data';
 
 export default function LoginPage() {
     const router = useRouter();
@@ -41,19 +42,41 @@ export default function LoginPage() {
     };
 
      const handleGuestLogin = async () => {
-        const { data, error } = await supabase.auth.signInAnonymously();
+        const { data: { user }, error } = await supabase.auth.signInAnonymously();
+        
+        if (user && !error) {
+            console.log('Guest login initiated', user);
+            // Generate the local mock structure
+            const { trip, activities, expenses, shoppingList} = generateGuestMockTrip(user.id);
 
-        if (error) {
-            toast({
-                title: 'Error logging in',
-                description: error.message,
-                variant: 'destructive',
-            });
-        } else {
-            router.push(`/${locale}/trips`);
-            router.refresh();
+            // Batch insert into Supabase
+            // Note: Ensure your RLS allows 'authenticated' (which includes anonymous) to insert
+            const { error: tripErr } = await supabase.from('trips').insert(trip);
+
+            //get day_uuid
+            const { data: dayUuidData, error: dayUuidErr } = await supabase.from("trip_days").select('day_uuid').eq("trip_uuid", trip.trip_uuid);
+            //resort activities
+            activities.forEach((activity: any) => {
+                activity.day_uuid = dayUuidData[0].day_uuid
+            })
+            const { error: actErr } = await supabase.from('activities').upsert(activities);
+            const { error: expErr } = await supabase.from('expenses').upsert(expenses);
+            const { error: listErr } = await supabase.from('shopping_items').upsert(shoppingList);
+
+            if (expErr) {
+                toast({
+                    title: 'Error logging in',
+                    description: expErr.message,
+                    variant: 'destructive',
+                });
+            }
+
+            if (!tripErr && !actErr && !expErr && !listErr) {
+            router.push(`/trip/${trip.trip_uuid}`);
+            }
         }
     };
+    
     const handleFacebookLogin = async () => {
         const { error } = await supabase.auth.signInWithOAuth({
             provider: 'facebook',

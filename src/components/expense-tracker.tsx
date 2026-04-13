@@ -347,85 +347,6 @@ export function ExpenseTracker({ trip }: ExpenseTrackerProps) {
     }));
   }, [expenses]);
 
-  // useEffect(() => {
-  //   // Reset new transaction form when dialog is closed
-  //   if (!isAddDialogOpen) {
-  //     setNewTransaction({ name: '', expense_category: '', amount: '' });
-  //   }
-  // }, [isAddDialogOpen]);
-
-  // useEffect(() => {
-  //   // Close dialog when transaction is added
-  //   if (newTransaction.name || newTransaction.expense_category || newTransaction.amount) {
-  //     setIsAddDialogOpen(false);
-  //   }
-  // })
-
-  // useEffect(() => {
-  //   // Reset transactions when trip changes
-  //   if (!trip.trip_uuid) return;
-
-  // }, [trip.trip_uuid]);
-
-  // const handleAddExpense = async () => {
-  //   if (
-  //     !newExpense.name ||
-  //     !newExpense.expense_category ||
-  //     !newExpense.amount ||
-  //     !newExpense.date
-  //   ) {
-  //     toast({
-  //       title: "Incomplete Data",
-  //       description: "Please fill in all the required fields.",
-  //       variant: "destructive",
-  //     });
-  //     return;
-  //   }
-
-  //   const {
-  //     data: { user },
-  //   } = await supabase.auth.getUser();
-
-  //   const newTx: Expenses = {
-  //     expense_uuid: uuidv4(),
-  //     trip_uuid: trip.trip_uuid,
-  //     name: newExpense.name,
-  //     expense_category: newExpense.expense_category,
-  //     amount:
-  //       displayCurrency === "trip"
-  //         ? convertCurrencyToUsd(newExpense.amount, tripRate)
-  //         : convertUsdToCurrency(newExpense.amount, homeRate),
-  //     date: new Date().toISOString().split("T")[0],
-  //     currency_code: displayCurrency === "trip" ? tripCurrency : homeCurrency,
-  //     user_id: user?.id ?? null,
-  //   };
-
-  //   // Add the new transaction to the list
-  //   const { data, error } = await supabase.from("expenses").insert([newTx]);
-
-  //   if (error) {
-  //     console.error("Error adding transaction:", error);
-  //     toast({
-  //       title: "Error",
-  //       description: "Failed to add transaction.",
-  //       variant: "destructive",
-  //     });
-  //     return;
-  //     // }
-  //   } else if (data) {
-  //     setExpenses([newTx, ...expenses]);
-  //     setNewExpense({
-  //       name: "",
-  //       expense_category: "",
-  //       amount: 0,
-  //       date: new Date().toString(),
-  //       currency_code: displayCurrency === "trip" ? tripCurrency : homeCurrency,
-  //       trip_uuid: trip.trip_uuid,
-  //     });
-  //     setIsAddDialogOpen(false);
-  //   }
-  // };
-
   const toggleCurrency = () => {
     setDisplayCurrency(displayCurrency === "trip" ? "home" : "trip");
   };
@@ -715,7 +636,7 @@ export function ExpenseTracker({ trip }: ExpenseTrackerProps) {
                 dataKey="total"
                 nameKey="name"
                 innerRadius={0}
-                outerRadius={120}
+                outerRadius={window.innerWidth < 640 ? 110 : 180}
                 paddingAngle={3}
                 labelLine={false}
                 label={({
