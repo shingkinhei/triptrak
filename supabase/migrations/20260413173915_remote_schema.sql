@@ -186,7 +186,7 @@ CREATE OR REPLACE FUNCTION "public"."tri_handle_new_user"() RETURNS "trigger"
     NEW.id,                -- auth.users 的 UUID
     coalesce(new.email, 'guest'),             -- 使用者 email
     NEW.raw_user_meta_data->>'display_name', -- 從 metadata 取 display_name
-    'USD'                  -- 預設 home_currency
+    'HKD'                  -- 預設 home_currency
   );
   
   RETURN NEW;
