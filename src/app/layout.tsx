@@ -24,6 +24,7 @@ export default function RootLayout({
     <html suppressHydrationWarning>
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="apple-touch-icon" href="/icon-192.png" />
         <link
           rel="preconnect"
           href="https://fonts.gstatic.com"
