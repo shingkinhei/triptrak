@@ -6,10 +6,12 @@ manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
-    title: 'Trip Planner AI',
+    title: 'TripTrak',
   },
   icons: {
-    apple: '/icon-192.png', 
+    apple: [
+      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+    ],
   },
 }
 
