@@ -1,55 +1,43 @@
-🚀 Smart Travel Planner (AI-Powered)
+🚀 Triptrak (AI-Powered)
 A full-stack travel management platform built with Next.js, Supabase, and AI Integration. This application streamlines the travel experience by offering AI-driven itineraries, multi-currency expense tracking, and real-time weather integration.
 
 🌟 Core Features
-🤖 AI-Powered Itinerary Generation: Integrated with OpenRouter (Gemini) to generate personalized 1-day itineraries based on user preferences. Includes an AI Daily Usage Limit to manage API quotas and costs.
+🤖 AI-Powered Itinerary Generation: Integrated with OpenRouter to generate personalized 1-day/whole trip itineraries based on user preferences. Includes an AI Daily Usage Limit to manage API quotas and costs.
 
 💰 Financial Management & Visualization:
+- Tracks expenses and shopping lists with multi-currency support. (Home Currency/Trip Currency)
+- All financial data is stored in USD as a Single Source of Truth.
+- Automatic Daily Exchange Rate Updates via API.
+- Visualizes spending habits using Recharts (Pie charts by category).
 
-Tracks expenses and shopping lists with multi-currency support.
+📸 Multimedia Diary:
+Users can upload and store photos for daily activities and shopping items using Supabase Storage.
 
-All financial data is stored in USD as a Single Source of Truth.
-
-Automatic Daily Exchange Rate Updates via API.
-
-Visualizes spending habits using Recharts (Pie charts by category).
-
-📸 Multimedia Diary: Users can upload and store photos for daily activities and shopping items using Supabase Storage.
-
-🛒 Comprehensive Shopping List: Tracks item images, prices, store locations, quantities, and categories.
+🛒 Comprehensive Shopping List
+Tracks item images, prices, store locations, quantities, and categories.
 
 🌍 Localization & UX:
-
 Internationalization (i18n): Toggle between English and Traditional Chinese.
-
 Guest Access: Implementation of Anonymous Authentication, allowing users to try the app before signing up.
-
 Real-time Weather: Fetches 5-day forecasts for travel destinations via Weather API.
 
 🛠 Tech Stack
-Frontend: Next.js 14 (App Router), TypeScript, Tailwind CSS, shadcn/ui
-
+Frontend: Next.js (App Router), TypeScript, Tailwind CSS, shadcn/ui
 Backend/Database: Supabase (PostgreSQL, Auth, Storage, Edge Functions)
-
 State Management: TanStack Query (React Query)
 
 AI Integration: OpenRouter API
 
-Data Visualization: Recharts
+Data Visualization: chart.js
 
 i18n: next-intl
 
 🏗 Database Schema
 The application utilizes a relational PostgreSQL schema designed for scalability:
-
 trips: Metadata for each journey (Destination, dates, base currency).
-
 trip_days: Individual day nodes within a trip.
-
 activities: Detailed events (Time, description, location, and AI_plan flag).
-
 shopping_items: Items linked to specific trips with price and status tracking.
-
 exchange_rates: Cached daily rates to minimize external API calls.
 
 🔒 Engineering Highlights
