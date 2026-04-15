@@ -46,7 +46,6 @@ export default function LoginPage() {
         const { data: { user }, error } = await supabase.auth.signInAnonymously();
         
         if (user && !error) {
-            console.log('Guest login initiated', user);
             // Generate the local mock structure
             const { trip, activities, expenses, shoppingList} = generateGuestMockTrip(user.id);
 

@@ -319,6 +319,8 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
       }
     }
 
+    setActiveView(itemToSave.day_uuid);
+    
     toast({
       title: "Day Saved!",
       description: `Changes to Day ${itemToSave.day_number} have been saved.`,
