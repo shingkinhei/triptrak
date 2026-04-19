@@ -318,8 +318,6 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
         return;
       }
     }
-
-    setActiveView(itemToSave.day_uuid);
     
     toast({
       title: "Day Saved!",
@@ -328,51 +326,56 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
 
     handleCancelEdit();
 
-    const { data: refreshedDay, error: refreshError } = await supabase
-      .from("trip_days")
-      .select(`*, activities:activities (*)`)
-      .eq("day_uuid", itemToSave.day_uuid)
-      .single();
+    setTimeout(async () => {
+      const { data: refreshedDay, error: refreshError } = await supabase
+        .from("trip_days")
+        .select(`*, activities:activities (*)`)
+        .eq("day_uuid", itemToSave.day_uuid)
+        .single();
 
-    if (refreshError) {
-      toast({
-        title: "Error refreshing day",
-        description: refreshError.message,
-        variant: "destructive",
-      });
-      return;
-    }
+      if (refreshError) {
+        toast({
+          title: "Error refreshing day",
+          description: refreshError.message,
+          variant: "destructive",
+        });
+        return;
+      }
 
-    if (refreshedDay) {
-      // Sort activities
-      const sortedActivities = Array.isArray(refreshedDay.activities)
-        ? [...refreshedDay.activities].sort((a: any, b: any) => {
-            const ma = timeToMinutes(a?.time ?? null);
-            const mb = timeToMinutes(b?.time ?? null);
-            if (ma === mb) return (a.activity_uuid || "").localeCompare(b.activity_uuid || "");
-            return ma - mb;
-          })
-        : [];
+      if (refreshedDay) {
+        // Sort activities
+        const sortedActivities = Array.isArray(refreshedDay.activities)
+          ? [...refreshedDay.activities].sort((a: any, b: any) => {
+              const ma = timeToMinutes(a?.time ?? null);
+              const mb = timeToMinutes(b?.time ?? null);
+              if (ma === mb) return (a.activity_uuid || "").localeCompare(b.activity_uuid || "");
+              return ma - mb;
+            })
+          : [];
 
-      // Update itinerary
-      setItinerary(prev =>
-        prev.map(item =>
-          item.day_uuid === refreshedDay.day_uuid
-            ? ({
-                ...refreshedDay,
-                activities: sortedActivities,
-              } as ItineraryItem)
-            : item
-        )
-      );
-    }
+        // Update itinerary
+        setItinerary(prev =>
+          prev.map(item =>
+            item.day_uuid === refreshedDay.day_uuid
+              ? ({
+                  ...refreshedDay,
+                  activities: sortedActivities,
+                } as ItineraryItem)
+              : item
+          )
+        );
+      }
 
-    // Ensure day_number sequencing and trip start/end dates are correct
-    try {
-      await resequenceAndUpdateTripDates(trip.trip_uuid);
-    } catch (err) {
-      console.warn("Resequence after save failed", err);
-    }
+      // Ensure day_number sequencing and trip start/end dates are correct
+      try {
+        await resequenceAndUpdateTripDates(trip.trip_uuid);
+      } catch (err) {
+        console.warn("Resequence after save failed", err);
+      }
+
+      setActiveView(itemToSave.day_uuid);
+
+    }, 1000);
   };
 
   const handleCancelEdit = () => {
@@ -707,12 +710,14 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
       setEditingItem(null);
 
       // Choose next active view: first available day or the first day
-      if (newItinerary.length > 0) {
-        setActiveView(newItinerary[newItinerary.length - 1].day_uuid);
-      } else {
-        setActiveView("");
-      }
-
+      setTimeout(() => {
+        if (newItinerary.length > 0) {
+          setActiveView(newItinerary[newItinerary.length - 1].day_uuid);
+        } else {
+          setActiveView("");
+        }
+      }, 1000);
+      
       toast({ title: "Day deleted", description: `Day ${editingItem.day_number} removed.` });
       // Resequence remaining days and update trip dates
     } catch (err: any) {
@@ -720,97 +725,219 @@ export function TripPlanner({ trip, aiRate, aiRateLimit }: TripPlannerProps) {
       toast({ title: "Error", description: err?.message || String(err), variant: "destructive" });
     }
   };
-
 const resequenceAndUpdateTripDates = async (tripUuid: string) => {
-    try {
-      // 1. get trip days for the trip, ordered by day_number
-      const { data: days, error: daysErr } = await supabase
-        .from("trip_days")
-        .select("*")
-        .eq("trip_uuid", tripUuid)
-        .order("date", { ascending: true });
-
-      if (daysErr || !days) throw new Error(daysErr?.message || "Failed to fetch days");
-
-      if (days.length === 0) {
-        // If no days remain, clear trip start/end dates and exit
-        await supabase.from("trips").update({ start_date: null, end_date: null }).eq("trip_uuid", tripUuid);
-        setItinerary([]);
-        return;
-      }
-
-      // 2. if the first day's date is missing, set it to today (or you could choose another default)
-      const baseDate = new Date(days[0].date);
-
-      // 3. update day_number and date for each day
-      for (let i = 0; i < days.length; i++) {
-        const d = days[i];
-        const desiredDayNumber = i + 1;
-        
-        // Calculate the new date based on the base date + index
-        const newDateObj = new Date(baseDate);
-        newDateObj.setDate(baseDate.getDate() + i);
-        const newDateString = newDateObj.toISOString().split('T')[0];
-
-        // Only update if day_number or date has changed, to avoid API calls when not necessary
-        if (d.day_number !== desiredDayNumber || d.date !== newDateString) {
-          await supabase
-            .from("trip_days")
-            .update({ 
-              day_number: desiredDayNumber,
-              date: newDateString 
-            })
-            .eq("day_uuid", d.day_uuid);
-        }
-      }
-
-      // 4. update trip start_date and end_date
-      const startDate = days[0].date; // 第一天不變
-      const lastDayObj = new Date(baseDate);
-      lastDayObj.setDate(baseDate.getDate() + days.length - 1);
-      const endDate = lastDayObj.toISOString().split('T')[0];
-
-      const { error: tripErr } = await supabase
-        .from("trips")
-        .update({ start_date: startDate, end_date: endDate })
-        .eq("trip_uuid", tripUuid);
-      
-      if (tripErr) console.warn("Failed to update trip dates", tripErr.message);
-
-      // 5. fetch updated itinerary to refresh local state with new day_numbers and dates
-      // Refresh trip record and local itinerary with latest days, activities
-      const { data: refreshedTrip, error: tripFetchErr } = await supabase
-      .from("trips")
+  try {
+    // 1. Fetch all days for the trip, ordered by date (or day_number, but date is more reliable if we want to adjust dates)
+    const { data: days, error: daysErr } = await supabase
+      .from("trip_days")
       .select("*")
       .eq("trip_uuid", tripUuid)
-      .single();
+      .order("date", { ascending: true });
 
+    if (daysErr || !days) throw new Error(daysErr?.message || "Failed to fetch days");
 
-      if (!tripFetchErr && refreshedTrip) {
+    if (days.length === 0) {
+      await supabase.from("trips").update({ start_date: null, end_date: null }).eq("trip_uuid", tripUuid);
+      setItinerary([]);
+      return;
+    }
+
+    const baseDate = new Date(days[0].date);
+
+    // 2. Create updates for each day
+    const updates = days.map((d, i) => {
+      const newDateObj = new Date(baseDate);
+      newDateObj.setDate(baseDate.getDate() + i);
+      const newDateString = newDateObj.toISOString().split('T')[0];
+      const desiredDayNumber = i + 1;
+
+      return {
+        day_uuid: d.day_uuid,
+        trip_uuid: tripUuid,  
+        day_number: desiredDayNumber,
+        date: newDateString,
+        user_id: d.user_id,
+      };
+    });
+
+    // 3. upsert days
+    const { error: upsertErr } = await supabase
+      .from("trip_days")
+      .upsert(updates, { onConflict: 'day_uuid' });
+
+    if (upsertErr) throw upsertErr;
+
+    // 4. Update trip start_date and end_date
+    const startDate = days[0].date;
+    const lastDayObj = new Date(baseDate);
+    lastDayObj.setDate(baseDate.getDate() + days.length - 1);
+    const endDate = lastDayObj.toISOString().split('T')[0];
+
+    await supabase
+      .from("trips")
+      .update({ start_date: startDate, end_date: endDate })
+      .eq("trip_uuid", tripUuid);
+
+    // 5. Wait for 2 seconds
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+    
+    // 6. Fetch updated itinerary to refresh local state with new day_numbers and dates
+    await refreshItineraryData(tripUuid); 
+
+  } catch (err) {
+    console.error("Resequence failed", err);
+  }
+};
+
+const refreshItineraryData = async (tripUuid: string) => {
+    try {
+      // 1. get latest trip record to update any changed start/end dates in the header
+      const { data: refreshedTrip, error: tripFetchErr } = await supabase
+        .from("trips")
+        .select("*")
+        .eq("trip_uuid", tripUuid)
+        .single();
+
+      if (tripFetchErr) throw tripFetchErr;
+      
+      if (refreshedTrip) {
         setTripState(refreshedTrip as Trip);
       }
 
       const { data: refreshedDays, error: refreshErr } = await supabase
         .from("trip_days")
-        .select(`*, activities:activities (*)`)
+        .select(`
+          *,
+          activities (*)
+        `)
         .eq("trip_uuid", tripUuid)
         .order("day_number", { ascending: true });
 
-      if (!refreshErr && Array.isArray(refreshedDays)) {
-      const normalized = refreshedDays.map((d: any) => {
-      const acts = Array.isArray(d.activities)
-      ? [...d.activities].sort((a: any, b: any) => timeToMinutes(a?.time ?? null) - timeToMinutes(b?.time ?? null))
-      : [];
+      if (refreshErr) throw refreshErr;
 
-      return { ...d, activities: acts } as ItineraryItem;
-      });
+      if (Array.isArray(refreshedDays)) {
+        // 3. sort activities for each day by time
+        const normalized = refreshedDays.map((d: any) => {
+          // Sort activities by time
+          const sortedActivities = Array.isArray(d.activities)
+            ? [...d.activities].sort((a, b) => {
+                // timeToMinutes is your originally defined helper function
+                return timeToMinutes(a?.time ?? null) - timeToMinutes(b?.time ?? null);
+              })
+            : [];
 
-      setItinerary(normalized as ItineraryItem[]);
+          return { 
+            ...d, 
+            activities: sortedActivities 
+          } as ItineraryItem;
+        });
+
+        // 4. Update frontend listc
+        setItinerary(normalized);
       }
+      
+      console.log("Itinerary refreshed successfully");
+      
     } catch (err) {
-      console.error("Resequence failed", err);
+      console.error("Failed to refresh itinerary:", err);
+      toast({
+        title: "Refresh failed",
+        description: "Could not sync latest data from server.",
+        variant: "destructive"
+      });
     }
   };
+
+// const resequenceAndUpdateTripDates = async (tripUuid: string) => {
+//     try {
+//       // 1. get trip days for the trip, ordered by day_number
+//       const { data: days, error: daysErr } = await supabase
+//         .from("trip_days")
+//         .select("*")
+//         .eq("trip_uuid", tripUuid)
+//         .order("date", { ascending: true });
+
+//       if (daysErr || !days) throw new Error(daysErr?.message || "Failed to fetch days");
+
+//       if (days.length === 0) {
+//         // If no days remain, clear trip start/end dates and exit
+//         await supabase.from("trips").update({ start_date: null, end_date: null }).eq("trip_uuid", tripUuid);
+//         setItinerary([]);
+//         return;
+//       }
+
+//       // 2. if the first day's date is missing, set it to today (or you could choose another default)
+//       const baseDate = new Date(days[0].date);
+
+//       // 3. update day_number and date for each day
+//       for (let i = 0; i < days.length; i++) {
+//         const d = days[i];
+//         const desiredDayNumber = i + 1;
+        
+//         // Calculate the new date based on the base date + index
+//         const newDateObj = new Date(baseDate);
+//         newDateObj.setDate(baseDate.getDate() + i);
+//         const newDateString = newDateObj.toISOString().split('T')[0];
+
+//         // Only update if day_number or date has changed, to avoid API calls when not necessary
+//         if (d.day_number !== desiredDayNumber || d.date !== newDateString) {
+//           await supabase
+//             .from("trip_days")
+//             .update({ 
+//               day_number: desiredDayNumber,
+//               date: newDateString 
+//             })
+//             .eq("day_uuid", d.day_uuid);
+//         }
+//       }
+
+//       // 4. update trip start_date and end_date
+//       const startDate = days[0].date; // 第一天不變
+//       const lastDayObj = new Date(baseDate);
+//       lastDayObj.setDate(baseDate.getDate() + days.length - 1);
+//       const endDate = lastDayObj.toISOString().split('T')[0];
+
+//       const { error: tripErr } = await supabase
+//         .from("trips")
+//         .update({ start_date: startDate, end_date: endDate })
+//         .eq("trip_uuid", tripUuid);
+      
+//       if (tripErr) console.warn("Failed to update trip dates", tripErr.message);
+
+//       // 5. fetch updated itinerary to refresh local state with new day_numbers and dates
+//       // Refresh trip record and local itinerary with latest days, activities
+//       const { data: refreshedTrip, error: tripFetchErr } = await supabase
+//       .from("trips")
+//       .select("*")
+//       .eq("trip_uuid", tripUuid)
+//       .single();
+
+
+//       if (!tripFetchErr && refreshedTrip) {
+//         setTripState(refreshedTrip as Trip);
+//       }
+
+//       const { data: refreshedDays, error: refreshErr } = await supabase
+//         .from("trip_days")
+//         .select(`*, activities:activities (*)`)
+//         .eq("trip_uuid", tripUuid)
+//         .order("day_number", { ascending: true });
+
+//       if (!refreshErr && Array.isArray(refreshedDays)) {
+//       const normalized = refreshedDays.map((d: any) => {
+//       const acts = Array.isArray(d.activities)
+//       ? [...d.activities].sort((a: any, b: any) => timeToMinutes(a?.time ?? null) - timeToMinutes(b?.time ?? null))
+//       : [];
+
+//       return { ...d, activities: acts } as ItineraryItem;
+//       });
+
+//       setItinerary(normalized as ItineraryItem[]);
+//       }
+//     } catch (err) {
+//       console.error("Resequence failed", err);
+//     }
+//   };
 
   const handleAddDay = async () => {
     // Create a local editing item for the new day and open the edit dialog.
