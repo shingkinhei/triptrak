@@ -56,28 +56,28 @@ export default function SignupPage() {
             } else {
                  // Insert into users_info table
                 const homeLanguage = locale === "zh-TW" ? "zh-TW" : "ENG";
-                const { error: insertError } = await supabase.from('users_info').insert({
-                    user_id: data.user.id,
-                    email: data.user.email,
-                    display_name: fullName,
-                    home_currency: 'USD',
-                    home_language: homeLanguage,
-                });
+                // const { error: insertError } = await supabase.from('users_info').insert({
+                //     user_id: data.user.id,
+                //     email: data.user.email,
+                //     display_name: fullName,
+                //     home_currency: 'USD',
+                //     home_language: homeLanguage,
+                // });
 
-                if (insertError) {
-                     toast({
-                        title: 'Error creating user profile',
-                        description: insertError.message,
-                        variant: 'destructive',
-                    });
-                } else {
+                // if (insertError) {
+                //      toast({
+                //         title: 'Error creating user profile',
+                //         description: insertError.message,
+                //         variant: 'destructive',
+                //     });
+                // } else {
                      toast({
                         title: 'Confirmation required',
                         description: 'Please check your email to confirm your account.',
                         variant: 'default',
                     });
                     router.push(`/${locale}/login`);
-                }
+                // }
             }
         }
     }
