@@ -1,5 +1,7 @@
 🚀 Triptrak (AI-Powered)
+
 link: https://triptrak-smoky.vercel.app/
+
 A full-stack travel management platform built with Next.js, Supabase, and AI Integration. This application streamlines the travel experience by offering AI-driven itineraries, multi-currency expense tracking, and real-time weather integration.
 
 🌟 Core Features
